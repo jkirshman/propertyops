@@ -11,6 +11,17 @@ const DEFAULT_ORG_SLUG = "default";
 const ADMIN_ROLE_SLUG = "administrator";
 const ADMIN_CAPABILITY_KEY = "platform.admin";
 
+// Admin Hub tile capabilities. All are granted to the administrator role below;
+// future roles can be granted a subset without any schema change.
+const ADMIN_HUB_CAPABILITIES = [
+  { key: "users.manage", description: "Manage users and access" },
+  { key: "roles.manage", description: "Manage roles and capabilities" },
+  { key: "system.manage", description: "Manage system/platform settings" },
+  { key: "notifications.manage", description: "Administer notifications" },
+  { key: "email.manage", description: "Administer transactional email" },
+  { key: "files.manage", description: "Administer private file storage" },
+];
+
 async function main() {
   const adminEmail = process.env.SEED_ADMIN_EMAIL;
   const adminPassword = process.env.SEED_ADMIN_PASSWORD;
@@ -67,6 +78,20 @@ async function main() {
     .insert(roleCapabilities)
     .values({ roleId: adminRole.id, capabilityId: capability.id })
     .onConflictDoNothing();
+
+  for (const { key, description } of ADMIN_HUB_CAPABILITIES) {
+    let [cap] = await db.select().from(capabilities).where(eq(capabilities.key, key)).limit(1);
+
+    if (!cap) {
+      [cap] = await db.insert(capabilities).values({ key, description }).returning();
+      console.log(`Created capability ${cap.id} (${key})`);
+    }
+
+    await db
+      .insert(roleCapabilities)
+      .values({ roleId: adminRole.id, capabilityId: cap.id })
+      .onConflictDoNothing();
+  }
 
   const [existingUser] = await db.select().from(users).where(eq(users.email, adminEmail)).limit(1);
   if (existingUser) {

@@ -1,5 +1,6 @@
 import {
   boolean,
+  integer,
   jsonb,
   pgTable,
   primaryKey,
@@ -95,6 +96,91 @@ export const sessions = pgTable(
   },
   (table) => [uniqueIndex("sessions_token_hash_unique").on(table.tokenHash)],
 );
+
+export const notifications = pgTable(
+  "notifications",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    recipientUserId: uuid("recipient_user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    actorUserId: uuid("actor_user_id").references(() => users.id, { onDelete: "set null" }),
+    type: text("type").notNull(),
+    title: text("title").notNull(),
+    body: text("body"),
+    relatedEntityType: text("related_entity_type"),
+    relatedEntityId: text("related_entity_id"),
+    deepLinkUrl: text("deep_link_url"),
+    metadata: jsonb("metadata"),
+    dedupeKey: text("dedupe_key"),
+    readAt: timestamp("read_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    // NULLs are distinct in a unique index, so notifications with no dedupe key
+    // never collide with each other — only repeated (recipient, dedupeKey) pairs do.
+    uniqueIndex("notifications_recipient_dedupe_unique").on(
+      table.recipientUserId,
+      table.dedupeKey,
+    ),
+  ],
+);
+
+export const notificationPreferences = pgTable(
+  "notification_preferences",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    category: text("category").notNull(),
+    inAppEnabled: boolean("in_app_enabled").notNull().default(true),
+    emailEnabled: boolean("email_enabled").notNull().default(true),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("notification_preferences_user_category_unique").on(
+      table.userId,
+      table.category,
+    ),
+  ],
+);
+
+export const emailSendAttempts = pgTable("email_send_attempts", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  organizationId: uuid("organization_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  toEmailMasked: text("to_email_masked").notNull(),
+  subject: text("subject").notNull(),
+  kind: text("kind").notNull(),
+  status: text("status").notNull(),
+  failureReason: text("failure_reason"),
+  providerMessageId: text("provider_message_id"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const files = pgTable("files", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  organizationId: uuid("organization_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  uploadedByUserId: uuid("uploaded_by_user_id").references(() => users.id, {
+    onDelete: "set null",
+  }),
+  fileName: text("file_name").notNull(),
+  mimeType: text("mime_type").notNull(),
+  sizeBytes: integer("size_bytes").notNull(),
+  blobPathname: text("blob_pathname").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
 
 export const auditLog = pgTable("audit_log", {
   id: uuid("id").primaryKey().defaultRandom(),

@@ -11,6 +11,11 @@ npm install
 cp .env.example .env.local   # then fill in DATABASE_URL
 ```
 
+Email (Resend) and file storage (Vercel Blob) are optional in local development —
+the app runs fine with those env vars unset. Email sending stays off until
+`EMAIL_ENABLED=true` is set explicitly; file upload/download routes report
+"not configured" until `BLOB_READ_WRITE_TOKEN` is set.
+
 ## Scripts
 
 - `npm run dev` — start the dev server
