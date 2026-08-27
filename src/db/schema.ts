@@ -179,7 +179,94 @@ export const files = pgTable("files", {
   mimeType: text("mime_type").notNull(),
   sizeBytes: integer("size_bytes").notNull(),
   blobPathname: text("blob_pathname").notNull(),
+  // Generic reusable association, same shape as notifications' related-entity
+  // fields — lets Properties (and future modules) attach files without a
+  // dedicated join table per module.
+  relatedEntityType: text("related_entity_type"),
+  relatedEntityId: text("related_entity_id"),
+  title: text("title"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const propertyTypes = pgTable(
+  "property_types",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    slug: text("slug").notNull(),
+    description: text("description"),
+    isActive: boolean("is_active").notNull().default(true),
+    sortOrder: integer("sort_order").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [uniqueIndex("property_types_org_slug_unique").on(table.organizationId, table.slug)],
+);
+
+export const properties = pgTable("properties", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  organizationId: uuid("organization_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  propertyTypeId: uuid("property_type_id")
+    .notNull()
+    .references(() => propertyTypes.id, { onDelete: "restrict" }),
+  name: text("name").notNull(),
+  propertyCode: text("property_code"),
+  isActive: boolean("is_active").notNull().default(true),
+  addressLine1: text("address_line1"),
+  addressLine2: text("address_line2"),
+  city: text("city"),
+  state: text("state"),
+  postalCode: text("postal_code"),
+  country: text("country"),
+  occupancyModel: text("occupancy_model").notNull().default("other"),
+  squareFootage: integer("square_footage"),
+  yearBuilt: integer("year_built"),
+  parcelId: text("parcel_id"),
+  description: text("description"),
+  operationalNotes: text("operational_notes"),
+  primaryPhone: text("primary_phone"),
+  primaryEmail: text("primary_email"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const propertyContacts = pgTable("property_contacts", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  organizationId: uuid("organization_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  propertyId: uuid("property_id")
+    .notNull()
+    .references(() => properties.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  contactType: text("contact_type").notNull(),
+  company: text("company"),
+  email: text("email"),
+  phone: text("phone"),
+  notes: text("notes"),
+  isPrimary: boolean("is_primary").notNull().default(false),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const propertyNotes = pgTable("property_notes", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  organizationId: uuid("organization_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  propertyId: uuid("property_id")
+    .notNull()
+    .references(() => properties.id, { onDelete: "cascade" }),
+  authorUserId: uuid("author_user_id").references(() => users.id, { onDelete: "set null" }),
+  body: text("body").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
 export const auditLog = pgTable("audit_log", {

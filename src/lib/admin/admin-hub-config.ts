@@ -1,3 +1,5 @@
+import { PROPERTY_TYPE_CAPABILITIES } from "@/lib/properties/constants";
+
 export const ADMIN_CAPABILITIES = {
   USERS: "users.manage",
   ROLES: "roles.manage",
@@ -17,12 +19,21 @@ export interface AdminTile {
 }
 
 export const ADMIN_TILE_GROUPS = [
+  { id: "properties", title: "Properties" },
   { id: "access", title: "Access" },
   { id: "communications", title: "Communications" },
   { id: "platform", title: "Platform" },
 ];
 
 export const ADMIN_TILES: AdminTile[] = [
+  {
+    id: "property-types",
+    title: "Property Types",
+    description: "Manage the property type taxonomy used across PropertyOps.",
+    href: "/admin/property-types",
+    group: "properties",
+    requiredCapability: PROPERTY_TYPE_CAPABILITIES.MANAGE,
+  },
   {
     id: "users",
     title: "Users & Access",

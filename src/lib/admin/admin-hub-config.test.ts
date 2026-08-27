@@ -1,10 +1,8 @@
 import { describe, expect, it } from "vitest";
 
-import {
-  ADMIN_CAPABILITIES,
-  hasAnyAdminCapability,
-  visibleAdminTiles,
-} from "./admin-hub-config";
+import { PROPERTY_TYPE_CAPABILITIES } from "@/lib/properties/constants";
+
+import { ADMIN_CAPABILITIES, ADMIN_TILES, hasAnyAdminCapability, visibleAdminTiles } from "./admin-hub-config";
 
 describe("visibleAdminTiles", () => {
   it("returns no tiles for a capability list with no admin grants", () => {
@@ -17,13 +15,24 @@ describe("visibleAdminTiles", () => {
     expect(tiles[0].id).toBe("email");
   });
 
-  it("returns every tile when all capabilities are granted", () => {
-    const tiles = visibleAdminTiles(Object.values(ADMIN_CAPABILITIES));
-    expect(tiles.length).toBe(Object.values(ADMIN_CAPABILITIES).length);
+  it("returns every tile when every tile's required capability is granted", () => {
+    const allCapabilities = ADMIN_TILES.map((tile) => tile.requiredCapability);
+    const tiles = visibleAdminTiles(allCapabilities);
+    expect(tiles.length).toBe(ADMIN_TILES.length);
   });
 
   it("ignores unrelated capability keys", () => {
     expect(visibleAdminTiles(["platform.admin"])).toEqual([]);
+  });
+
+  it("gates the Property Types tile behind property_type.manage", () => {
+    const tiles = visibleAdminTiles([PROPERTY_TYPE_CAPABILITIES.MANAGE]);
+    expect(tiles.map((tile) => tile.id)).toEqual(["property-types"]);
+  });
+
+  it("does not surface Property Types for property_type.view alone", () => {
+    const tiles = visibleAdminTiles([PROPERTY_TYPE_CAPABILITIES.VIEW]);
+    expect(tiles.some((tile) => tile.id === "property-types")).toBe(false);
   });
 });
 

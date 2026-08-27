@@ -7,10 +7,12 @@ export function AppHeader({
   displayName,
   email,
   showAdminLink,
+  showPropertiesLink,
 }: {
   displayName: string;
   email: string;
   showAdminLink: boolean;
+  showPropertiesLink: boolean;
 }) {
   return (
     <header style={{ borderBottom: "1px solid var(--border)", background: "var(--surface)" }}>
@@ -34,6 +36,11 @@ export function AppHeader({
             <Link href="/" className="muted">
               Home
             </Link>
+            {showPropertiesLink ? (
+              <Link href="/properties" className="muted">
+                Properties
+              </Link>
+            ) : null}
             {showAdminLink ? (
               <Link href="/admin" className="muted">
                 Admin Hub

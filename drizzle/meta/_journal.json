@@ -15,6 +15,13 @@
       "when": 1787858979060,
       "tag": "0001_hesitant_terrax",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1787861023822,
+      "tag": "0002_famous_groot",
+      "breakpoints": true
     }
   ]
 }

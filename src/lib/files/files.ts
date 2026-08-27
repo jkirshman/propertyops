@@ -15,6 +15,9 @@ export async function uploadPrivateFile(params: {
   organizationId: string;
   uploadedByUserId: string;
   file: File;
+  relatedEntityType?: string;
+  relatedEntityId?: string;
+  title?: string;
 }) {
   const validation = validateFileUpload({
     mimeType: params.file.type,
@@ -41,18 +44,28 @@ export async function uploadPrivateFile(params: {
       mimeType: params.file.type,
       sizeBytes: params.file.size,
       blobPathname: pathname,
+      relatedEntityType: params.relatedEntityType ?? null,
+      relatedEntityId: params.relatedEntityId ?? null,
+      title: params.title ?? null,
     })
     .returning();
 
   return record;
 }
 
-export async function listFilesForOrganization(organizationId: string) {
-  return db
-    .select()
-    .from(files)
-    .where(eq(files.organizationId, organizationId))
-    .orderBy(desc(files.createdAt));
+export async function listFilesForOrganization(
+  organizationId: string,
+  related?: { relatedEntityType: string; relatedEntityId: string },
+) {
+  const condition = related
+    ? and(
+        eq(files.organizationId, organizationId),
+        eq(files.relatedEntityType, related.relatedEntityType),
+        eq(files.relatedEntityId, related.relatedEntityId),
+      )
+    : eq(files.organizationId, organizationId);
+
+  return db.select().from(files).where(condition).orderBy(desc(files.createdAt));
 }
 
 export async function getFileRecord(organizationId: string, fileId: string) {

@@ -4,7 +4,14 @@ import { and, eq } from "drizzle-orm";
 config({ path: ".env.local" });
 
 import { db } from "../src/db/client";
-import { capabilities, organizations, roleCapabilities, roles, users } from "../src/db/schema";
+import {
+  capabilities,
+  organizations,
+  propertyTypes,
+  roleCapabilities,
+  roles,
+  users,
+} from "../src/db/schema";
 import { hashPassword } from "../src/lib/auth/password";
 
 const DEFAULT_ORG_SLUG = "default";
@@ -20,6 +27,30 @@ const ADMIN_HUB_CAPABILITIES = [
   { key: "notifications.manage", description: "Administer notifications" },
   { key: "email.manage", description: "Administer transactional email" },
   { key: "files.manage", description: "Administer private file storage" },
+];
+
+// Property domain capabilities. All are granted to the administrator role below;
+// future roles can be granted a subset without any schema change.
+const PROPERTY_CAPABILITIES = [
+  { key: "property.view", description: "View properties" },
+  { key: "property.create", description: "Create properties" },
+  { key: "property.edit", description: "Edit properties" },
+  { key: "property.manage_contacts", description: "Manage property contacts" },
+  { key: "property.manage_notes", description: "Manage property notes" },
+  { key: "property.manage_documents", description: "Manage property documents" },
+  { key: "property_type.view", description: "View property types" },
+  { key: "property_type.manage", description: "Manage property types" },
+];
+
+const DEFAULT_PROPERTY_TYPES = [
+  { name: "Residential Rental", slug: "residential-rental", sortOrder: 1 },
+  {
+    name: "Strip Mall / Multi-Tenant Commercial",
+    slug: "strip-mall-multi-tenant-commercial",
+    sortOrder: 2,
+  },
+  { name: "Freestanding Commercial", slug: "freestanding-commercial", sortOrder: 3 },
+  { name: "Leased Property", slug: "leased-property", sortOrder: 4 },
 ];
 
 async function main() {
@@ -79,7 +110,7 @@ async function main() {
     .values({ roleId: adminRole.id, capabilityId: capability.id })
     .onConflictDoNothing();
 
-  for (const { key, description } of ADMIN_HUB_CAPABILITIES) {
+  for (const { key, description } of [...ADMIN_HUB_CAPABILITIES, ...PROPERTY_CAPABILITIES]) {
     let [cap] = await db.select().from(capabilities).where(eq(capabilities.key, key)).limit(1);
 
     if (!cap) {
@@ -91,6 +122,22 @@ async function main() {
       .insert(roleCapabilities)
       .values({ roleId: adminRole.id, capabilityId: cap.id })
       .onConflictDoNothing();
+  }
+
+  for (const { name, slug, sortOrder } of DEFAULT_PROPERTY_TYPES) {
+    const [existingType] = await db
+      .select()
+      .from(propertyTypes)
+      .where(and(eq(propertyTypes.organizationId, org.id), eq(propertyTypes.slug, slug)))
+      .limit(1);
+
+    if (!existingType) {
+      const [type] = await db
+        .insert(propertyTypes)
+        .values({ organizationId: org.id, name, slug, sortOrder })
+        .returning();
+      console.log(`Created property type ${type.id} (${slug})`);
+    }
   }
 
   const [existingUser] = await db.select().from(users).where(eq(users.email, adminEmail)).limit(1);
