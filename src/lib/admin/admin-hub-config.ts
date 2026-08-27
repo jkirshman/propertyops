@@ -1,4 +1,5 @@
 import { PROPERTY_TYPE_CAPABILITIES } from "@/lib/properties/constants";
+import { WORK_ORDER_CATEGORY_CAPABILITIES } from "@/lib/work-orders/constants";
 
 export const ADMIN_CAPABILITIES = {
   USERS: "users.manage",
@@ -33,6 +34,14 @@ export const ADMIN_TILES: AdminTile[] = [
     href: "/admin/property-types",
     group: "properties",
     requiredCapability: PROPERTY_TYPE_CAPABILITIES.MANAGE,
+  },
+  {
+    id: "work-order-categories",
+    title: "Work Order Categories",
+    description: "Manage the work order category taxonomy used across PropertyOps.",
+    href: "/admin/work-order-categories",
+    group: "properties",
+    requiredCapability: WORK_ORDER_CATEGORY_CAPABILITIES.MANAGE,
   },
   {
     id: "users",

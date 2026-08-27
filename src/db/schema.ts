@@ -269,6 +269,82 @@ export const propertyNotes = pgTable("property_notes", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
+export const workOrderCategories = pgTable(
+  "work_order_categories",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    slug: text("slug").notNull(),
+    description: text("description"),
+    isActive: boolean("is_active").notNull().default(true),
+    sortOrder: integer("sort_order").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("work_order_categories_org_slug_unique").on(table.organizationId, table.slug),
+  ],
+);
+
+// One row per organization, incremented atomically (inside the same transaction
+// as the work order insert) to produce stable, org-scoped WO-###### numbers
+// without relying on a global Postgres SEQUENCE.
+export const workOrderCounters = pgTable("work_order_counters", {
+  organizationId: uuid("organization_id")
+    .primaryKey()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  nextNumber: integer("next_number").notNull().default(1),
+});
+
+export const workOrders = pgTable(
+  "work_orders",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    propertyId: uuid("property_id")
+      .notNull()
+      .references(() => properties.id, { onDelete: "cascade" }),
+    number: text("number").notNull(),
+    subject: text("subject").notNull(),
+    description: text("description"),
+    categoryId: uuid("category_id")
+      .notNull()
+      .references(() => workOrderCategories.id, { onDelete: "restrict" }),
+    priority: text("priority").notNull().default("normal"),
+    source: text("source").notNull().default("staff"),
+    status: text("status").notNull().default("new"),
+    requesterUserId: uuid("requester_user_id").references(() => users.id, { onDelete: "set null" }),
+    assignedUserId: uuid("assigned_user_id").references(() => users.id, { onDelete: "set null" }),
+    createdByUserId: uuid("created_by_user_id").references(() => users.id, { onDelete: "set null" }),
+    openedAt: timestamp("opened_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+    resolvedAt: timestamp("resolved_at", { withTimezone: true }),
+    closedAt: timestamp("closed_at", { withTimezone: true }),
+    resolutionSummary: text("resolution_summary"),
+  },
+  (table) => [uniqueIndex("work_orders_org_number_unique").on(table.organizationId, table.number)],
+);
+
+export const workOrderNotes = pgTable("work_order_notes", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  organizationId: uuid("organization_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  workOrderId: uuid("work_order_id")
+    .notNull()
+    .references(() => workOrders.id, { onDelete: "cascade" }),
+  authorUserId: uuid("author_user_id").references(() => users.id, { onDelete: "set null" }),
+  body: text("body").notNull(),
+  visibility: text("visibility").notNull().default("internal"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
 export const auditLog = pgTable("audit_log", {
   id: uuid("id").primaryKey().defaultRandom(),
   organizationId: uuid("organization_id")

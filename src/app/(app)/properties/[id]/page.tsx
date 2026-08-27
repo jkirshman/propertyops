@@ -6,6 +6,7 @@ import { requireCapability } from "@/lib/auth/require-capability";
 import { PROPERTY_CAPABILITIES } from "@/lib/properties/constants";
 import { getProperty } from "@/lib/properties/properties";
 import { getPropertyType } from "@/lib/properties/property-types";
+import { WORK_ORDER_CAPABILITIES } from "@/lib/work-orders/constants";
 
 export default async function PropertyDetailPage({
   params,
@@ -50,6 +51,7 @@ export default async function PropertyDetailPage({
         canManageContacts={context.capabilityKeys.includes(PROPERTY_CAPABILITIES.MANAGE_CONTACTS)}
         canManageNotes={context.capabilityKeys.includes(PROPERTY_CAPABILITIES.MANAGE_NOTES)}
         canManageDocuments={context.capabilityKeys.includes(PROPERTY_CAPABILITIES.MANAGE_DOCUMENTS)}
+        canCreateWorkOrders={context.capabilityKeys.includes(WORK_ORDER_CAPABILITIES.CREATE)}
       />
     </div>
   );

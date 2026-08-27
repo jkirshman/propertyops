@@ -6,6 +6,7 @@ import { ActivityPanel } from "@/components/properties/ActivityPanel";
 import { ContactsPanel } from "@/components/properties/ContactsPanel";
 import { DocumentsPanel } from "@/components/properties/DocumentsPanel";
 import { NotesPanel } from "@/components/properties/NotesPanel";
+import { PropertyWorkOrdersPanel } from "@/components/properties/PropertyWorkOrdersPanel";
 import { OCCUPANCY_MODEL_LABELS, type OccupancyModel } from "@/lib/properties/constants";
 
 interface PropertyOverview {
@@ -25,11 +26,12 @@ interface PropertyOverview {
   primaryEmail: string | null;
 }
 
-const TABS = ["overview", "contacts", "notes", "documents", "activity"] as const;
+const TABS = ["overview", "workorders", "contacts", "notes", "documents", "activity"] as const;
 type Tab = (typeof TABS)[number];
 
 const TAB_LABELS: Record<Tab, string> = {
   overview: "Overview",
+  workorders: "Work Orders",
   contacts: "Contacts",
   notes: "Notes",
   documents: "Documents",
@@ -91,12 +93,14 @@ export function PropertyProfileTabs({
   canManageContacts,
   canManageNotes,
   canManageDocuments,
+  canCreateWorkOrders,
 }: {
   propertyId: string;
   overview: PropertyOverview;
   canManageContacts: boolean;
   canManageNotes: boolean;
   canManageDocuments: boolean;
+  canCreateWorkOrders: boolean;
 }) {
   const [tab, setTab] = useState<Tab>("overview");
 
@@ -124,6 +128,9 @@ export function PropertyProfileTabs({
       </div>
 
       {tab === "overview" ? <OverviewTab property={overview} /> : null}
+      {tab === "workorders" ? (
+        <PropertyWorkOrdersPanel propertyId={propertyId} canCreate={canCreateWorkOrders} />
+      ) : null}
       {tab === "contacts" ? <ContactsPanel propertyId={propertyId} canManage={canManageContacts} /> : null}
       {tab === "notes" ? <NotesPanel propertyId={propertyId} canManage={canManageNotes} /> : null}
       {tab === "documents" ? <DocumentsPanel propertyId={propertyId} canManage={canManageDocuments} /> : null}

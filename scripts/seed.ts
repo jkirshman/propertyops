@@ -11,6 +11,7 @@ import {
   roleCapabilities,
   roles,
   users,
+  workOrderCategories,
 } from "../src/db/schema";
 import { hashPassword } from "../src/lib/auth/password";
 
@@ -51,6 +52,31 @@ const DEFAULT_PROPERTY_TYPES = [
   },
   { name: "Freestanding Commercial", slug: "freestanding-commercial", sortOrder: 3 },
   { name: "Leased Property", slug: "leased-property", sortOrder: 4 },
+];
+
+// Work Order domain capabilities. All are granted to the administrator role below;
+// future roles can be granted a subset without any schema change.
+const WORK_ORDER_CAPABILITIES = [
+  { key: "work_order.view", description: "View work orders" },
+  { key: "work_order.create", description: "Create work orders" },
+  { key: "work_order.edit", description: "Edit work orders" },
+  { key: "work_order.assign", description: "Assign work orders" },
+  { key: "work_order.manage_status", description: "Change work order status" },
+  { key: "work_order.manage_notes", description: "Manage work order notes" },
+  { key: "work_order.manage_attachments", description: "Manage work order attachments" },
+  { key: "work_order_category.view", description: "View work order categories" },
+  { key: "work_order_category.manage", description: "Manage work order categories" },
+];
+
+const DEFAULT_WORK_ORDER_CATEGORIES = [
+  { name: "HVAC", slug: "hvac", sortOrder: 1 },
+  { name: "Plumbing", slug: "plumbing", sortOrder: 2 },
+  { name: "Electrical", slug: "electrical", sortOrder: 3 },
+  { name: "Building / General Maintenance", slug: "building-general-maintenance", sortOrder: 4 },
+  { name: "Exterior / Grounds", slug: "exterior-grounds", sortOrder: 5 },
+  { name: "Safety / Security", slug: "safety-security", sortOrder: 6 },
+  { name: "Appliance", slug: "appliance", sortOrder: 7 },
+  { name: "Other", slug: "other", sortOrder: 8 },
 ];
 
 async function main() {
@@ -110,7 +136,11 @@ async function main() {
     .values({ roleId: adminRole.id, capabilityId: capability.id })
     .onConflictDoNothing();
 
-  for (const { key, description } of [...ADMIN_HUB_CAPABILITIES, ...PROPERTY_CAPABILITIES]) {
+  for (const { key, description } of [
+    ...ADMIN_HUB_CAPABILITIES,
+    ...PROPERTY_CAPABILITIES,
+    ...WORK_ORDER_CAPABILITIES,
+  ]) {
     let [cap] = await db.select().from(capabilities).where(eq(capabilities.key, key)).limit(1);
 
     if (!cap) {
@@ -137,6 +167,22 @@ async function main() {
         .values({ organizationId: org.id, name, slug, sortOrder })
         .returning();
       console.log(`Created property type ${type.id} (${slug})`);
+    }
+  }
+
+  for (const { name, slug, sortOrder } of DEFAULT_WORK_ORDER_CATEGORIES) {
+    const [existingCategory] = await db
+      .select()
+      .from(workOrderCategories)
+      .where(and(eq(workOrderCategories.organizationId, org.id), eq(workOrderCategories.slug, slug)))
+      .limit(1);
+
+    if (!existingCategory) {
+      const [category] = await db
+        .insert(workOrderCategories)
+        .values({ organizationId: org.id, name, slug, sortOrder })
+        .returning();
+      console.log(`Created work order category ${category.id} (${slug})`);
     }
   }
 

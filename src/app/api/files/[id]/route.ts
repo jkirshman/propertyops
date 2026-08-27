@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { recordAuditEvent } from "@/db/audit";
 import { getCurrentUserWithCapabilities } from "@/lib/auth/current-user";
 import { getFileRecord, streamPrivateFile } from "@/lib/files/files";
-import { PROPERTY_CAPABILITIES, PROPERTY_FILES_ENTITY_TYPE } from "@/lib/properties/constants";
+import { getRelatedEntityFileRules } from "@/lib/files/related-entity-rules";
 
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const context = await getCurrentUserWithCapabilities();
@@ -21,10 +21,8 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: "not_found" }, { status: 404 });
   }
 
-  if (
-    record.relatedEntityType === PROPERTY_FILES_ENTITY_TYPE &&
-    !capabilityKeys.includes(PROPERTY_CAPABILITIES.VIEW)
-  ) {
+  const rules = getRelatedEntityFileRules(record.relatedEntityType ?? undefined);
+  if (rules && !capabilityKeys.includes(rules.viewCapability)) {
     return NextResponse.json({ error: "forbidden" }, { status: 403 });
   }
 
@@ -33,12 +31,12 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: "not_found" }, { status: 404 });
   }
 
-  if (record.relatedEntityType === PROPERTY_FILES_ENTITY_TYPE && record.relatedEntityId) {
+  if (rules && record.relatedEntityType && record.relatedEntityId) {
     await recordAuditEvent({
       organizationId: user.organizationId,
       actorUserId: user.id,
-      action: "property.document_download",
-      entityType: "property",
+      action: `${record.relatedEntityType}.document_download`,
+      entityType: record.relatedEntityType,
       entityId: record.relatedEntityId,
       after: { fileId: record.id, fileName: record.fileName },
     });

@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { recordAuditEvent } from "@/db/audit";
 import { getCurrentUserWithCapabilities } from "@/lib/auth/current-user";
 import { isFileStorageConfigured, listFilesForOrganization, uploadPrivateFile } from "@/lib/files/files";
-import { PROPERTY_CAPABILITIES, PROPERTY_FILES_ENTITY_TYPE } from "@/lib/properties/constants";
+import { getRelatedEntityFileRules } from "@/lib/files/related-entity-rules";
 
 export async function GET(request: Request) {
   const context = await getCurrentUserWithCapabilities();
@@ -16,7 +16,8 @@ export async function GET(request: Request) {
   const relatedEntityType = searchParams.get("relatedEntityType") ?? undefined;
   const relatedEntityId = searchParams.get("relatedEntityId") ?? undefined;
 
-  if (relatedEntityType === PROPERTY_FILES_ENTITY_TYPE && !capabilityKeys.includes(PROPERTY_CAPABILITIES.VIEW)) {
+  const rules = getRelatedEntityFileRules(relatedEntityType);
+  if (rules && !capabilityKeys.includes(rules.viewCapability)) {
     return NextResponse.json({ error: "forbidden" }, { status: 403 });
   }
 
@@ -52,10 +53,8 @@ export async function POST(request: Request) {
   const relatedEntityId = typeof rawRelatedId === "string" && rawRelatedId ? rawRelatedId : undefined;
   const title = typeof rawTitle === "string" && rawTitle ? rawTitle : undefined;
 
-  if (
-    relatedEntityType === PROPERTY_FILES_ENTITY_TYPE &&
-    !capabilityKeys.includes(PROPERTY_CAPABILITIES.MANAGE_DOCUMENTS)
-  ) {
+  const rules = getRelatedEntityFileRules(relatedEntityType);
+  if (rules && !capabilityKeys.includes(rules.manageCapability)) {
     return NextResponse.json({ error: "forbidden" }, { status: 403 });
   }
 
@@ -74,12 +73,12 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "invalid_file", message }, { status: 400 });
   }
 
-  if (relatedEntityType === PROPERTY_FILES_ENTITY_TYPE && relatedEntityId) {
+  if (rules && relatedEntityType && relatedEntityId) {
     await recordAuditEvent({
       organizationId: user.organizationId,
       actorUserId: user.id,
-      action: "property.document_upload",
-      entityType: "property",
+      action: `${relatedEntityType}.document_upload`,
+      entityType: relatedEntityType,
       entityId: relatedEntityId,
       after: { fileId: record.id, fileName: record.fileName },
     });

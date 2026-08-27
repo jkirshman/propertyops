@@ -4,6 +4,7 @@ import { AppHeader } from "@/components/shell/AppHeader";
 import { hasAnyAdminCapability } from "@/lib/admin/admin-hub-config";
 import { getCurrentUserWithCapabilities } from "@/lib/auth/current-user";
 import { PROPERTY_CAPABILITIES } from "@/lib/properties/constants";
+import { WORK_ORDER_CAPABILITIES } from "@/lib/work-orders/constants";
 
 export default async function AppShellLayout({ children }: { children: React.ReactNode }) {
   const context = await getCurrentUserWithCapabilities();
@@ -20,6 +21,7 @@ export default async function AppShellLayout({ children }: { children: React.Rea
         email={user.email}
         showAdminLink={hasAnyAdminCapability(capabilityKeys)}
         showPropertiesLink={capabilityKeys.includes(PROPERTY_CAPABILITIES.VIEW)}
+        showWorkOrdersLink={capabilityKeys.includes(WORK_ORDER_CAPABILITIES.VIEW)}
       />
       <main className="container" style={{ flex: 1, width: "100%" }}>
         {children}
