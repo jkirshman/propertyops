@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { PropertyProfileTabs } from "@/components/properties/PropertyProfileTabs";
+import { ASSET_CAPABILITIES } from "@/lib/assets/constants";
 import { requireCapability } from "@/lib/auth/require-capability";
 import { EQUIPMENT_CAPABILITIES } from "@/lib/equipment/constants";
 import { PROPERTY_CAPABILITIES } from "@/lib/properties/constants";
@@ -56,6 +57,7 @@ export default async function PropertyDetailPage({
         canCreateEquipment={context.capabilityKeys.includes(EQUIPMENT_CAPABILITIES.CREATE)}
         canEditEquipment={context.capabilityKeys.includes(EQUIPMENT_CAPABILITIES.EDIT)}
         canManageEquipmentTemplate={context.capabilityKeys.includes(PROPERTY_CAPABILITIES.EDIT)}
+        canAssignAssets={context.capabilityKeys.includes(ASSET_CAPABILITIES.ASSIGN)}
       />
     </div>
   );

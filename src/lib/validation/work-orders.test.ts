@@ -57,6 +57,19 @@ describe("createWorkOrderSchema", () => {
     });
     expect(result.propertyEquipmentId).toBe("5b7f1e0a-9c1b-4a2e-8f0a-1c2d3e4f567a");
   });
+
+  it("treats a blank assetId as absent", () => {
+    const result = createWorkOrderSchema.parse({ ...VALID, assetId: "" });
+    expect(result.assetId).toBeUndefined();
+  });
+
+  it("accepts an optional assetId", () => {
+    const result = createWorkOrderSchema.parse({
+      ...VALID,
+      assetId: "5b7f1e0a-9c1b-4a2e-8f0a-1c2d3e4f567b",
+    });
+    expect(result.assetId).toBe("5b7f1e0a-9c1b-4a2e-8f0a-1c2d3e4f567b");
+  });
 });
 
 describe("updateWorkOrderSchema", () => {
@@ -80,5 +93,10 @@ describe("updateWorkOrderSchema", () => {
   it("accepts an explicit null to unlink equipment", () => {
     const result = updateWorkOrderSchema.parse({ propertyEquipmentId: null });
     expect(result.propertyEquipmentId).toBeNull();
+  });
+
+  it("accepts an explicit null to unlink an asset", () => {
+    const result = updateWorkOrderSchema.parse({ assetId: null });
+    expect(result.assetId).toBeNull();
   });
 });

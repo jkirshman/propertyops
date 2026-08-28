@@ -9,12 +9,16 @@ export function AppHeader({
   showAdminLink,
   showPropertiesLink,
   showWorkOrdersLink,
+  showAssetsLink,
+  showPeopleLink,
 }: {
   displayName: string;
   email: string;
   showAdminLink: boolean;
   showPropertiesLink: boolean;
   showWorkOrdersLink: boolean;
+  showAssetsLink: boolean;
+  showPeopleLink: boolean;
 }) {
   return (
     <header style={{ borderBottom: "1px solid var(--border)", background: "var(--surface)" }}>
@@ -46,6 +50,16 @@ export function AppHeader({
             {showWorkOrdersLink ? (
               <Link href="/work-orders" className="muted">
                 Work Orders
+              </Link>
+            ) : null}
+            {showAssetsLink ? (
+              <Link href="/assets" className="muted">
+                Assets
+              </Link>
+            ) : null}
+            {showPeopleLink ? (
+              <Link href="/people" className="muted">
+                People
               </Link>
             ) : null}
             {showAdminLink ? (

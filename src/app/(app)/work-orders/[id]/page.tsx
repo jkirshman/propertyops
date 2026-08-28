@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { WorkOrderDetailPanel } from "@/components/work-orders/WorkOrderDetailPanel";
+import { listAssets } from "@/lib/assets/assets";
 import { requireCapability } from "@/lib/auth/require-capability";
 import { getProperty } from "@/lib/properties/properties";
 import { listOrganizationUsers } from "@/lib/users/users";
@@ -22,10 +23,11 @@ export default async function WorkOrderDetailPage({
     notFound();
   }
 
-  const [property, categories, users] = await Promise.all([
+  const [property, categories, users, assets] = await Promise.all([
     getProperty(context.user.organizationId, workOrder.propertyId),
     listWorkOrderCategories(context.user.organizationId, { activeOnly: true }),
     listOrganizationUsers(context.user.organizationId),
+    listAssets(context.user.organizationId, { isActive: true }),
   ]);
 
   const { capabilityKeys } = context;
@@ -55,6 +57,7 @@ export default async function WorkOrderDetailPage({
           status: workOrder.status,
           assignedUserId: workOrder.assignedUserId,
           propertyEquipmentId: workOrder.propertyEquipmentId,
+          assetId: workOrder.assetId,
           resolutionSummary: workOrder.resolutionSummary,
           resolvedAt: workOrder.resolvedAt ? workOrder.resolvedAt.toISOString() : null,
           closedAt: workOrder.closedAt ? workOrder.closedAt.toISOString() : null,
@@ -62,6 +65,7 @@ export default async function WorkOrderDetailPage({
         propertyId={workOrder.propertyId}
         categories={categories}
         users={users}
+        assets={assets}
         canEdit={capabilityKeys.includes(WORK_ORDER_CAPABILITIES.EDIT)}
         canAssign={capabilityKeys.includes(WORK_ORDER_CAPABILITIES.ASSIGN)}
         canManageStatus={capabilityKeys.includes(WORK_ORDER_CAPABILITIES.MANAGE_STATUS)}

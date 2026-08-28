@@ -5,6 +5,7 @@ config({ path: ".env.local" });
 
 import { db } from "../src/db/client";
 import {
+  assetCategories,
   capabilities,
   equipmentCatalogItems,
   equipmentTemplateItems,
@@ -156,6 +157,34 @@ const DEFAULT_EQUIPMENT_TEMPLATES = [
   },
 ];
 
+// Asset domain capabilities. All are granted to the administrator role below;
+// future roles can be granted a subset without any schema change.
+const ASSET_CAPABILITIES_SEED = [
+  { key: "asset.view", description: "View organization assets" },
+  { key: "asset.create", description: "Create assets" },
+  { key: "asset.edit", description: "Edit assets" },
+  { key: "asset.assign", description: "Assign, transfer, and return assets" },
+  { key: "asset.retire", description: "Retire, dispose, or reactivate assets" },
+  { key: "asset.manage_documents", description: "Manage asset documents" },
+  { key: "asset.onboarding", description: "Use the asset onboarding workflow" },
+  { key: "asset.offboarding", description: "Use the asset offboarding workflow" },
+  { key: "asset_category.view", description: "View asset categories" },
+  { key: "asset_category.manage", description: "Manage asset categories" },
+  { key: "person.view", description: "View people" },
+  { key: "person.manage", description: "Manage people" },
+];
+
+const DEFAULT_ASSET_CATEGORIES = [
+  { name: "Computer", slug: "computer" },
+  { name: "Tablet", slug: "tablet" },
+  { name: "Phone", slug: "phone" },
+  { name: "Vehicle", slug: "vehicle" },
+  { name: "Tool", slug: "tool" },
+  { name: "Key / Access Device", slug: "key-access-device" },
+  { name: "Portable Equipment", slug: "portable-equipment" },
+  { name: "Other", slug: "other" },
+];
+
 async function main() {
   const adminEmail = process.env.SEED_ADMIN_EMAIL;
   const adminPassword = process.env.SEED_ADMIN_PASSWORD;
@@ -218,6 +247,7 @@ async function main() {
     ...PROPERTY_CAPABILITIES,
     ...WORK_ORDER_CAPABILITIES,
     ...EQUIPMENT_CAPABILITIES_SEED,
+    ...ASSET_CAPABILITIES_SEED,
   ]) {
     let [cap] = await db.select().from(capabilities).where(eq(capabilities.key, key)).limit(1);
 
@@ -330,6 +360,22 @@ async function main() {
         .set({ defaultEquipmentTemplateId: template.id })
         .where(eq(propertyTypes.id, propertyType.id));
       console.log(`Assigned default equipment template for property type ${propertyType.slug}`);
+    }
+  }
+
+  for (const { name, slug } of DEFAULT_ASSET_CATEGORIES) {
+    const [existingCategory] = await db
+      .select()
+      .from(assetCategories)
+      .where(and(eq(assetCategories.organizationId, org.id), eq(assetCategories.slug, slug)))
+      .limit(1);
+
+    if (!existingCategory) {
+      const [category] = await db
+        .insert(assetCategories)
+        .values({ organizationId: org.id, name, slug })
+        .returning();
+      console.log(`Created asset category ${category.id} (${slug})`);
     }
   }
 

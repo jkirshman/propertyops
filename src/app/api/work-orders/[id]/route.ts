@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { recordAuditEvent } from "@/db/audit";
 import { getCurrentUserWithCapabilities } from "@/lib/auth/current-user";
 import { diffFields } from "@/lib/db/diff-fields";
+import { getAsset } from "@/lib/assets/assets";
 import { getPropertyEquipment } from "@/lib/equipment/property-equipment";
 import { createNotification } from "@/lib/notifications/notifications";
 import { updateWorkOrderSchema } from "@/lib/validation/work-orders";
@@ -75,6 +76,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     fields.categoryId !== undefined ||
     fields.priority !== undefined ||
     fields.propertyEquipmentId !== undefined ||
+    fields.assetId !== undefined ||
     fields.resolutionSummary !== undefined;
   if (otherFieldsTouched && !capabilityKeys.includes(WORK_ORDER_CAPABILITIES.EDIT)) {
     return NextResponse.json({ error: "forbidden" }, { status: 403 });
@@ -84,6 +86,13 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     const equipment = await getPropertyEquipment(user.organizationId, fields.propertyEquipmentId);
     if (!equipment || equipment.propertyId !== existing.propertyId) {
       return NextResponse.json({ error: "invalid_equipment" }, { status: 400 });
+    }
+  }
+
+  if (fields.assetId) {
+    const asset = await getAsset(user.organizationId, fields.assetId);
+    if (!asset) {
+      return NextResponse.json({ error: "invalid_asset" }, { status: 400 });
     }
   }
 
@@ -190,9 +199,23 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       });
     }
 
+    if (changedKeys.includes("assetId")) {
+      await recordAuditEvent({
+        organizationId: user.organizationId,
+        actorUserId: user.id,
+        action: updated.assetId ? "work_order.asset_linked" : "work_order.asset_unlinked",
+        entityType: "work_order",
+        entityId: id,
+        before: pick(diff.before, ["assetId"]),
+        after: pick(diff.after, ["assetId"]),
+      });
+    }
+
     const remainingKeys = changedKeys.filter(
       (key) =>
-        !["status", "priority", "categoryId", "assignedUserId", "propertyEquipmentId"].includes(key),
+        !["status", "priority", "categoryId", "assignedUserId", "propertyEquipmentId", "assetId"].includes(
+          key,
+        ),
     );
     if (remainingKeys.length > 0) {
       await recordAuditEvent({

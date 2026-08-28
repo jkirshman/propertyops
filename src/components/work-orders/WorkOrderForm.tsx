@@ -21,18 +21,28 @@ interface EquipmentOption {
   displayName: string;
 }
 
+interface AssetOption {
+  id: string;
+  assetTag: string;
+  displayName: string;
+}
+
 export function WorkOrderForm({
   properties,
   categories,
   users,
+  assets,
   initialPropertyId,
   initialEquipmentId,
+  initialAssetId,
 }: {
   properties: OptionRecord[];
   categories: OptionRecord[];
   users: UserOption[];
+  assets: AssetOption[];
   initialPropertyId?: string;
   initialEquipmentId?: string;
+  initialAssetId?: string;
 }) {
   const router = useRouter();
   const [propertyId, setPropertyId] = useState(initialPropertyId ?? "");
@@ -43,6 +53,7 @@ export function WorkOrderForm({
   const [assignedUserId, setAssignedUserId] = useState("");
   const [requesterUserId, setRequesterUserId] = useState("");
   const [propertyEquipmentId, setPropertyEquipmentId] = useState(initialEquipmentId ?? "");
+  const [assetId, setAssetId] = useState(initialAssetId ?? "");
   const [equipmentOptions, setEquipmentOptions] = useState<EquipmentOption[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -88,6 +99,7 @@ export function WorkOrderForm({
         body: JSON.stringify({
           propertyId,
           propertyEquipmentId: propertyEquipmentId || undefined,
+          assetId: assetId || undefined,
           categoryId,
           priority,
           subject,
@@ -168,6 +180,24 @@ export function WorkOrderForm({
             {equipmentOptions.map((option) => (
               <option key={option.id} value={option.id}>
                 {option.displayName}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="label" htmlFor="wo-asset">
+            Related asset (optional)
+          </label>
+          <select
+            id="wo-asset"
+            className="input"
+            value={assetId}
+            onChange={(event) => setAssetId(event.target.value)}
+          >
+            <option value="">None</option>
+            {assets.map((asset) => (
+              <option key={asset.id} value={asset.id}>
+                {asset.assetTag} · {asset.displayName}
               </option>
             ))}
           </select>

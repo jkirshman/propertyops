@@ -25,6 +25,7 @@ export interface ListWorkOrdersOptions {
   search?: string;
   propertyId?: string;
   propertyEquipmentId?: string;
+  assetId?: string;
   status?: string;
   priority?: string;
   categoryId?: string;
@@ -39,6 +40,9 @@ export async function listWorkOrders(organizationId: string, options: ListWorkOr
   }
   if (options.propertyEquipmentId) {
     conditions.push(eq(workOrders.propertyEquipmentId, options.propertyEquipmentId));
+  }
+  if (options.assetId) {
+    conditions.push(eq(workOrders.assetId, options.assetId));
   }
   if (options.status) {
     conditions.push(eq(workOrders.status, options.status));
@@ -86,6 +90,7 @@ export async function createWorkOrder(
       organizationId,
       propertyId: input.propertyId,
       propertyEquipmentId: input.propertyEquipmentId ?? null,
+      assetId: input.assetId ?? null,
       categoryId: input.categoryId,
       subject: input.subject,
       description: input.description ?? null,

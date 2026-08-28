@@ -7,6 +7,7 @@ import { ContactsPanel } from "@/components/properties/ContactsPanel";
 import { DocumentsPanel } from "@/components/properties/DocumentsPanel";
 import { EquipmentPanel } from "@/components/properties/EquipmentPanel";
 import { NotesPanel } from "@/components/properties/NotesPanel";
+import { PropertyAssetsPanel } from "@/components/properties/PropertyAssetsPanel";
 import { PropertyWorkOrdersPanel } from "@/components/properties/PropertyWorkOrdersPanel";
 import { OCCUPANCY_MODEL_LABELS, type OccupancyModel } from "@/lib/properties/constants";
 
@@ -27,12 +28,22 @@ interface PropertyOverview {
   primaryEmail: string | null;
 }
 
-const TABS = ["overview", "equipment", "workorders", "contacts", "notes", "documents", "activity"] as const;
+const TABS = [
+  "overview",
+  "equipment",
+  "assets",
+  "workorders",
+  "contacts",
+  "notes",
+  "documents",
+  "activity",
+] as const;
 type Tab = (typeof TABS)[number];
 
 const TAB_LABELS: Record<Tab, string> = {
   overview: "Overview",
   equipment: "Equipment",
+  assets: "Assets",
   workorders: "Work Orders",
   contacts: "Contacts",
   notes: "Notes",
@@ -99,6 +110,7 @@ export function PropertyProfileTabs({
   canCreateEquipment,
   canEditEquipment,
   canManageEquipmentTemplate,
+  canAssignAssets,
 }: {
   propertyId: string;
   overview: PropertyOverview;
@@ -109,6 +121,7 @@ export function PropertyProfileTabs({
   canCreateEquipment: boolean;
   canEditEquipment: boolean;
   canManageEquipmentTemplate: boolean;
+  canAssignAssets: boolean;
 }) {
   const [tab, setTab] = useState<Tab>("overview");
 
@@ -143,6 +156,9 @@ export function PropertyProfileTabs({
           canEdit={canEditEquipment}
           canManageTemplate={canManageEquipmentTemplate}
         />
+      ) : null}
+      {tab === "assets" ? (
+        <PropertyAssetsPanel propertyId={propertyId} canAssign={canAssignAssets} />
       ) : null}
       {tab === "workorders" ? (
         <PropertyWorkOrdersPanel propertyId={propertyId} canCreate={canCreateWorkOrders} />

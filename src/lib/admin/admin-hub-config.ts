@@ -1,3 +1,4 @@
+import { ASSET_CATEGORY_CAPABILITIES } from "@/lib/assets/constants";
 import { EQUIPMENT_CATALOG_CAPABILITIES, EQUIPMENT_TEMPLATE_CAPABILITIES } from "@/lib/equipment/constants";
 import { PROPERTY_TYPE_CAPABILITIES } from "@/lib/properties/constants";
 import { WORK_ORDER_CATEGORY_CAPABILITIES } from "@/lib/work-orders/constants";
@@ -23,6 +24,7 @@ export interface AdminTile {
 export const ADMIN_TILE_GROUPS = [
   { id: "properties", title: "Properties" },
   { id: "equipment", title: "Equipment" },
+  { id: "assets", title: "Assets" },
   { id: "access", title: "Access" },
   { id: "communications", title: "Communications" },
   { id: "platform", title: "Platform" },
@@ -60,6 +62,14 @@ export const ADMIN_TILES: AdminTile[] = [
     href: "/admin/equipment-templates",
     group: "equipment",
     requiredCapability: EQUIPMENT_TEMPLATE_CAPABILITIES.MANAGE,
+  },
+  {
+    id: "asset-categories",
+    title: "Asset Categories",
+    description: "Manage the asset category taxonomy used across PropertyOps.",
+    href: "/admin/asset-categories",
+    group: "assets",
+    requiredCapability: ASSET_CATEGORY_CAPABILITIES.MANAGE,
   },
   {
     id: "users",

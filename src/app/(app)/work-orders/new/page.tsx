@@ -1,4 +1,5 @@
 import { WorkOrderForm } from "@/components/work-orders/WorkOrderForm";
+import { getAsset, listAssets } from "@/lib/assets/assets";
 import { requireCapability } from "@/lib/auth/require-capability";
 import { getPropertyEquipment } from "@/lib/equipment/property-equipment";
 import { listProperties } from "@/lib/properties/properties";
@@ -9,19 +10,21 @@ import { listWorkOrderCategories } from "@/lib/work-orders/categories";
 export default async function NewWorkOrderPage({
   searchParams,
 }: {
-  searchParams: Promise<{ propertyId?: string; equipmentId?: string }>;
+  searchParams: Promise<{ propertyId?: string; equipmentId?: string; assetId?: string }>;
 }) {
   const context = await requireCapability(WORK_ORDER_CAPABILITIES.CREATE, "/work-orders");
-  const { propertyId, equipmentId } = await searchParams;
+  const { propertyId, equipmentId, assetId } = await searchParams;
 
   const equipment = equipmentId
     ? await getPropertyEquipment(context.user.organizationId, equipmentId)
     : null;
+  const asset = assetId ? await getAsset(context.user.organizationId, assetId) : null;
 
-  const [properties, categories, users] = await Promise.all([
+  const [properties, categories, users, assets] = await Promise.all([
     listProperties(context.user.organizationId, { isActive: true }),
     listWorkOrderCategories(context.user.organizationId, { activeOnly: true }),
     listOrganizationUsers(context.user.organizationId),
+    listAssets(context.user.organizationId, { isActive: true }),
   ]);
 
   return (
@@ -34,8 +37,14 @@ export default async function NewWorkOrderPage({
         properties={properties}
         categories={categories}
         users={users}
-        initialPropertyId={equipment?.propertyId ?? propertyId}
+        assets={assets}
+        initialPropertyId={
+          equipment?.propertyId ??
+          (asset?.assignmentType === "property" ? (asset.assignedPropertyId ?? undefined) : undefined) ??
+          propertyId
+        }
         initialEquipmentId={equipment?.id}
+        initialAssetId={asset?.id}
       />
     </div>
   );

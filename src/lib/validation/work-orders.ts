@@ -8,6 +8,7 @@ const emptyToUndefined = (value: unknown) =>
 export const createWorkOrderSchema = z.object({
   propertyId: z.string().uuid(),
   propertyEquipmentId: z.preprocess(emptyToUndefined, z.string().uuid().optional()),
+  assetId: z.preprocess(emptyToUndefined, z.string().uuid().optional()),
   categoryId: z.string().uuid(),
   subject: z.string().trim().min(1).max(200),
   description: z.preprocess(emptyToUndefined, z.string().trim().max(4000).optional()),
@@ -24,6 +25,7 @@ export const updateWorkOrderSchema = z.object({
   status: z.enum(WORK_ORDER_STATUSES).optional(),
   assignedUserId: z.preprocess(emptyToUndefined, z.string().uuid().optional().nullable()),
   propertyEquipmentId: z.preprocess(emptyToUndefined, z.string().uuid().optional().nullable()),
+  assetId: z.preprocess(emptyToUndefined, z.string().uuid().optional().nullable()),
   resolutionSummary: z.preprocess(emptyToUndefined, z.string().trim().max(4000).optional()),
 });
 

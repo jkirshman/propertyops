@@ -10,6 +10,7 @@ import {
   timestamp,
   uniqueIndex,
   uuid,
+  type AnyPgColumn,
 } from "drizzle-orm/pg-core";
 
 export const organizations = pgTable(
@@ -395,6 +396,124 @@ export const equipmentServiceRecords = pgTable("equipment_service_records", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
+export const assetCategories = pgTable(
+  "asset_categories",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    slug: text("slug").notNull(),
+    description: text("description"),
+    isActive: boolean("is_active").notNull().default(true),
+    sortOrder: integer("sort_order").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [uniqueIndex("asset_categories_org_slug_unique").on(table.organizationId, table.slug)],
+);
+
+// A lightweight organization identity, broader than "system user," for
+// assigning assets to people who may or may not ever log in. Linkage to a
+// user is explicit and optional (see linkedUserId) — never automatic.
+export const people = pgTable("people", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  organizationId: uuid("organization_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  firstName: text("first_name").notNull(),
+  lastName: text("last_name").notNull(),
+  displayName: text("display_name").notNull(),
+  email: text("email"),
+  phone: text("phone"),
+  referenceNumber: text("reference_number"),
+  isActive: boolean("is_active").notNull().default(true),
+  linkedUserId: uuid("linked_user_id").references(() => users.id, { onDelete: "set null" }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+// One row per organization, incremented atomically to produce stable,
+// org-scoped ASSET-###### tags — same pattern as workOrderCounters.
+export const assetCounters = pgTable("asset_counters", {
+  organizationId: uuid("organization_id")
+    .primaryKey()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  nextNumber: integer("next_number").notNull().default(1),
+});
+
+export const assets = pgTable(
+  "assets",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    assetTag: text("asset_tag").notNull(),
+    displayName: text("display_name").notNull(),
+    categoryId: uuid("category_id")
+      .notNull()
+      .references(() => assetCategories.id, { onDelete: "restrict" }),
+    manufacturer: text("manufacturer"),
+    model: text("model"),
+    serialNumber: text("serial_number"),
+    status: text("status").notNull().default("available"),
+    condition: text("condition").notNull().default("unknown"),
+    isActive: boolean("is_active").notNull().default(true),
+    acquiredDate: date("acquired_date"),
+    purchaseCost: numeric("purchase_cost", { precision: 10, scale: 2, mode: "number" }),
+    warrantyExpiration: date("warranty_expiration"),
+    retiredDate: date("retired_date"),
+    disposalReason: text("disposal_reason"),
+    notes: text("notes"),
+    // Current assignment lives here for fast reads; asset_assignments below is
+    // the immutable history backing it (see currentAssignmentId).
+    assignmentType: text("assignment_type").notNull().default("unassigned"),
+    assignedPersonId: uuid("assigned_person_id").references(() => people.id, {
+      onDelete: "set null",
+    }),
+    assignedPropertyId: uuid("assigned_property_id").references(() => properties.id, {
+      onDelete: "set null",
+    }),
+    // References assetAssignments, which in turn references this table back
+    // (assetId) — a genuine mutual cycle, so the closure return type must be
+    // the generic AnyPgColumn rather than `typeof assetAssignments.id`, or
+    // TypeScript can't resolve either table's column types.
+    currentAssignmentId: uuid("current_assignment_id").references(
+      (): AnyPgColumn => assetAssignments.id,
+      { onDelete: "set null" },
+    ),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [uniqueIndex("assets_org_tag_unique").on(table.organizationId, table.assetTag)],
+);
+
+// Immutable assignment history: a row is inserted when an asset moves to a
+// person or property, and only ever "closed" (returnedAt/returnedByUserId/
+// returnNotes set) afterward — its core assignment facts are never rewritten.
+// Returning to unassigned closes the active row without inserting a new one.
+export const assetAssignments = pgTable("asset_assignments", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  organizationId: uuid("organization_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  assetId: uuid("asset_id")
+    .notNull()
+    .references(() => assets.id, { onDelete: "cascade" }),
+  assignmentType: text("assignment_type").notNull(),
+  personId: uuid("person_id").references(() => people.id, { onDelete: "set null" }),
+  propertyId: uuid("property_id").references(() => properties.id, { onDelete: "set null" }),
+  assignedAt: timestamp("assigned_at", { withTimezone: true }).notNull().defaultNow(),
+  assignedByUserId: uuid("assigned_by_user_id").references(() => users.id, { onDelete: "set null" }),
+  notes: text("notes"),
+  returnedAt: timestamp("returned_at", { withTimezone: true }),
+  returnedByUserId: uuid("returned_by_user_id").references(() => users.id, { onDelete: "set null" }),
+  returnNotes: text("return_notes"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
 export const workOrderCategories = pgTable(
   "work_order_categories",
   {
@@ -438,6 +557,7 @@ export const workOrders = pgTable(
     propertyEquipmentId: uuid("property_equipment_id").references(() => propertyEquipment.id, {
       onDelete: "set null",
     }),
+    assetId: uuid("asset_id").references(() => assets.id, { onDelete: "set null" }),
     number: text("number").notNull(),
     subject: text("subject").notNull(),
     description: text("description"),

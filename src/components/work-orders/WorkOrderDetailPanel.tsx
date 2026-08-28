@@ -30,6 +30,12 @@ interface EquipmentOption {
   displayName: string;
 }
 
+interface AssetOption {
+  id: string;
+  assetTag: string;
+  displayName: string;
+}
+
 export interface WorkOrderRecord {
   id: string;
   number: string;
@@ -40,6 +46,7 @@ export interface WorkOrderRecord {
   status: string;
   assignedUserId: string | null;
   propertyEquipmentId: string | null;
+  assetId: string | null;
   resolutionSummary: string | null;
   resolvedAt: string | null;
   closedAt: string | null;
@@ -60,6 +67,7 @@ export function WorkOrderDetailPanel({
   propertyId,
   categories,
   users,
+  assets,
   canEdit,
   canAssign,
   canManageStatus,
@@ -70,6 +78,7 @@ export function WorkOrderDetailPanel({
   propertyId: string;
   categories: OptionRecord[];
   users: UserOption[];
+  assets: AssetOption[];
   canEdit: boolean;
   canAssign: boolean;
   canManageStatus: boolean;
@@ -211,6 +220,27 @@ export function WorkOrderDetailPanel({
           {workOrder.propertyEquipmentId ? (
             <Link href={`/equipment/${workOrder.propertyEquipmentId}`} style={{ fontSize: "0.8rem" }}>
               Open equipment
+            </Link>
+          ) : null}
+        </div>
+        <div>
+          <div className="muted" style={{ fontSize: "0.8rem" }}>Related asset</div>
+          <select
+            className="input"
+            value={workOrder.assetId ?? ""}
+            disabled={!canEdit}
+            onChange={(event) => patch({ assetId: event.target.value || null })}
+          >
+            <option value="">None</option>
+            {assets.map((asset) => (
+              <option key={asset.id} value={asset.id}>
+                {asset.assetTag} · {asset.displayName}
+              </option>
+            ))}
+          </select>
+          {workOrder.assetId ? (
+            <Link href={`/assets/${workOrder.assetId}`} style={{ fontSize: "0.8rem" }}>
+              Open asset
             </Link>
           ) : null}
         </div>
