@@ -5,6 +5,8 @@ export const NOTIFICATION_TYPES = {
   WORK_ORDER_ASSIGNED: "work_order.assigned",
   WORK_ORDER_RESOLVED: "work_order.resolved",
   WORK_ORDER_CLOSED: "work_order.closed",
+  EQUIPMENT_OUT_OF_SERVICE: "equipment.out_of_service",
+  EQUIPMENT_CONDITION_POOR: "equipment.condition_poor",
 } as const;
 
 export type NotificationType = (typeof NOTIFICATION_TYPES)[keyof typeof NOTIFICATION_TYPES];

@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import Link from "next/link";
+import { useEffect, useState } from "react";
 
 import { WorkOrderActivityPanel } from "@/components/work-orders/WorkOrderActivityPanel";
 import { WorkOrderAttachmentsPanel } from "@/components/work-orders/WorkOrderAttachmentsPanel";
@@ -24,6 +25,11 @@ interface UserOption {
   displayName: string;
 }
 
+interface EquipmentOption {
+  id: string;
+  displayName: string;
+}
+
 export interface WorkOrderRecord {
   id: string;
   number: string;
@@ -33,6 +39,7 @@ export interface WorkOrderRecord {
   priority: string;
   status: string;
   assignedUserId: string | null;
+  propertyEquipmentId: string | null;
   resolutionSummary: string | null;
   resolvedAt: string | null;
   closedAt: string | null;
@@ -50,6 +57,7 @@ const TAB_LABELS: Record<Tab, string> = {
 
 export function WorkOrderDetailPanel({
   initialWorkOrder,
+  propertyId,
   categories,
   users,
   canEdit,
@@ -59,6 +67,7 @@ export function WorkOrderDetailPanel({
   canManageAttachments,
 }: {
   initialWorkOrder: WorkOrderRecord;
+  propertyId: string;
   categories: OptionRecord[];
   users: UserOption[];
   canEdit: boolean;
@@ -75,6 +84,15 @@ export function WorkOrderDetailPanel({
   const [descriptionDraft, setDescriptionDraft] = useState(workOrder.description ?? "");
   const [resolutionDraft, setResolutionDraft] = useState(workOrder.resolutionSummary ?? "");
   const [saving, setSaving] = useState(false);
+  const [equipmentOptions, setEquipmentOptions] = useState<EquipmentOption[]>([]);
+
+  useEffect(() => {
+    fetch(`/api/properties/${propertyId}/equipment?activeOnly=true`)
+      .then((response) => (response.ok ? response.json() : null))
+      .then((data) => {
+        if (data) setEquipmentOptions(data.equipment ?? []);
+      });
+  }, [propertyId]);
 
   async function patch(fields: Record<string, unknown>) {
     setError(null);
@@ -174,6 +192,27 @@ export function WorkOrderDetailPanel({
               </option>
             ))}
           </select>
+        </div>
+        <div>
+          <div className="muted" style={{ fontSize: "0.8rem" }}>Related equipment</div>
+          <select
+            className="input"
+            value={workOrder.propertyEquipmentId ?? ""}
+            disabled={!canEdit}
+            onChange={(event) => patch({ propertyEquipmentId: event.target.value || null })}
+          >
+            <option value="">None</option>
+            {equipmentOptions.map((option) => (
+              <option key={option.id} value={option.id}>
+                {option.displayName}
+              </option>
+            ))}
+          </select>
+          {workOrder.propertyEquipmentId ? (
+            <Link href={`/equipment/${workOrder.propertyEquipmentId}`} style={{ fontSize: "0.8rem" }}>
+              Open equipment
+            </Link>
+          ) : null}
         </div>
       </div>
 

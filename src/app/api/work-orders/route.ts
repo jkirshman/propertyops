@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { recordAuditEvent } from "@/db/audit";
 import { getCurrentUserWithCapabilities } from "@/lib/auth/current-user";
+import { getPropertyEquipment } from "@/lib/equipment/property-equipment";
 import { createNotification } from "@/lib/notifications/notifications";
 import { buildWorkOrderAssignedNotification } from "@/lib/work-orders/notification-events";
 import { WORK_ORDER_CAPABILITIES } from "@/lib/work-orders/constants";
@@ -22,6 +23,7 @@ export async function GET(request: Request) {
   const workOrders = await listWorkOrders(context.user.organizationId, {
     search: searchParams.get("search") ?? undefined,
     propertyId: searchParams.get("propertyId") ?? undefined,
+    propertyEquipmentId: searchParams.get("propertyEquipmentId") ?? undefined,
     status: searchParams.get("status") ?? undefined,
     priority: searchParams.get("priority") ?? undefined,
     categoryId: searchParams.get("categoryId") ?? undefined,
@@ -51,6 +53,14 @@ export async function POST(request: Request) {
   }
 
   const { user } = context;
+
+  if (parsed.data.propertyEquipmentId) {
+    const equipment = await getPropertyEquipment(user.organizationId, parsed.data.propertyEquipmentId);
+    if (!equipment || equipment.propertyId !== parsed.data.propertyId) {
+      return NextResponse.json({ error: "invalid_equipment" }, { status: 400 });
+    }
+  }
+
   const workOrder = await createWorkOrder(user.organizationId, user.id, parsed.data);
 
   await recordAuditEvent({

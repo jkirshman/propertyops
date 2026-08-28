@@ -54,10 +54,12 @@ export default async function WorkOrderDetailPage({
           priority: workOrder.priority,
           status: workOrder.status,
           assignedUserId: workOrder.assignedUserId,
+          propertyEquipmentId: workOrder.propertyEquipmentId,
           resolutionSummary: workOrder.resolutionSummary,
           resolvedAt: workOrder.resolvedAt ? workOrder.resolvedAt.toISOString() : null,
           closedAt: workOrder.closedAt ? workOrder.closedAt.toISOString() : null,
         }}
+        propertyId={workOrder.propertyId}
         categories={categories}
         users={users}
         canEdit={capabilityKeys.includes(WORK_ORDER_CAPABILITIES.EDIT)}

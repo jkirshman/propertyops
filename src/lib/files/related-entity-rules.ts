@@ -1,3 +1,4 @@
+import { EQUIPMENT_CAPABILITIES, PROPERTY_EQUIPMENT_FILES_ENTITY_TYPE } from "@/lib/equipment/constants";
 import { PROPERTY_CAPABILITIES, PROPERTY_FILES_ENTITY_TYPE } from "@/lib/properties/constants";
 import { WORK_ORDER_CAPABILITIES, WORK_ORDER_FILES_ENTITY_TYPE } from "@/lib/work-orders/constants";
 
@@ -19,6 +20,10 @@ const RELATED_ENTITY_FILE_RULES: Record<string, RelatedEntityFileRules> = {
   [WORK_ORDER_FILES_ENTITY_TYPE]: {
     viewCapability: WORK_ORDER_CAPABILITIES.VIEW,
     manageCapability: WORK_ORDER_CAPABILITIES.MANAGE_ATTACHMENTS,
+  },
+  [PROPERTY_EQUIPMENT_FILES_ENTITY_TYPE]: {
+    viewCapability: EQUIPMENT_CAPABILITIES.VIEW,
+    manageCapability: EQUIPMENT_CAPABILITIES.MANAGE_DOCUMENTS,
   },
 };
 

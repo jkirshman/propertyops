@@ -1,7 +1,9 @@
 import {
   boolean,
+  date,
   integer,
   jsonb,
+  numeric,
   pgTable,
   primaryKey,
   text,
@@ -200,6 +202,12 @@ export const propertyTypes = pgTable(
     description: text("description"),
     isActive: boolean("is_active").notNull().default(true),
     sortOrder: integer("sort_order").notNull().default(0),
+    // References equipmentTemplates, declared later in this file — safe because
+    // drizzle resolves the reference lazily via this closure, not at declaration time.
+    defaultEquipmentTemplateId: uuid("default_equipment_template_id").references(
+      (): typeof equipmentTemplates.id => equipmentTemplates.id,
+      { onDelete: "set null" },
+    ),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
@@ -231,6 +239,13 @@ export const properties = pgTable("properties", {
   operationalNotes: text("operational_notes"),
   primaryPhone: text("primary_phone"),
   primaryEmail: text("primary_email"),
+  // 'default' resolves the property type's default template; 'override' uses
+  // equipmentTemplateId below; 'none' means no expected equipment at all.
+  equipmentTemplateMode: text("equipment_template_mode").notNull().default("default"),
+  equipmentTemplateId: uuid("equipment_template_id").references(
+    (): typeof equipmentTemplates.id => equipmentTemplates.id,
+    { onDelete: "set null" },
+  ),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
@@ -265,6 +280,117 @@ export const propertyNotes = pgTable("property_notes", {
     .references(() => properties.id, { onDelete: "cascade" }),
   authorUserId: uuid("author_user_id").references(() => users.id, { onDelete: "set null" }),
   body: text("body").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const equipmentCatalogItems = pgTable(
+  "equipment_catalog_items",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    slug: text("slug").notNull(),
+    category: text("category"),
+    description: text("description"),
+    isActive: boolean("is_active").notNull().default(true),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("equipment_catalog_items_org_slug_unique").on(table.organizationId, table.slug),
+  ],
+);
+
+export const equipmentTemplates = pgTable("equipment_templates", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  organizationId: uuid("organization_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  description: text("description"),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const equipmentTemplateItems = pgTable(
+  "equipment_template_items",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    templateId: uuid("template_id")
+      .notNull()
+      .references(() => equipmentTemplates.id, { onDelete: "cascade" }),
+    equipmentCatalogItemId: uuid("equipment_catalog_item_id")
+      .notNull()
+      .references(() => equipmentCatalogItems.id, { onDelete: "restrict" }),
+    expectedQuantity: integer("expected_quantity").notNull().default(1),
+    isRequired: boolean("is_required").notNull().default(true),
+    notes: text("notes"),
+    sortOrder: integer("sort_order").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("equipment_template_items_template_catalog_unique").on(
+      table.templateId,
+      table.equipmentCatalogItemId,
+    ),
+  ],
+);
+
+export const propertyEquipment = pgTable("property_equipment", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  organizationId: uuid("organization_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  propertyId: uuid("property_id")
+    .notNull()
+    .references(() => properties.id, { onDelete: "cascade" }),
+  equipmentCatalogItemId: uuid("equipment_catalog_item_id")
+    .notNull()
+    .references(() => equipmentCatalogItems.id, { onDelete: "restrict" }),
+  displayName: text("display_name").notNull(),
+  equipmentTag: text("equipment_tag"),
+  manufacturer: text("manufacturer"),
+  model: text("model"),
+  serialNumber: text("serial_number"),
+  installedDate: date("installed_date"),
+  manufactureYear: integer("manufacture_year"),
+  locationInProperty: text("location_in_property"),
+  quantity: integer("quantity").notNull().default(1),
+  status: text("status").notNull().default("active"),
+  condition: text("condition").notNull().default("unknown"),
+  isActive: boolean("is_active").notNull().default(true),
+  expectedReplacementDate: date("expected_replacement_date"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const equipmentServiceRecords = pgTable("equipment_service_records", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  organizationId: uuid("organization_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  propertyEquipmentId: uuid("property_equipment_id")
+    .notNull()
+    .references(() => propertyEquipment.id, { onDelete: "cascade" }),
+  serviceDate: date("service_date").notNull(),
+  serviceType: text("service_type").notNull(),
+  summary: text("summary").notNull(),
+  vendorName: text("vendor_name"),
+  cost: numeric("cost", { precision: 10, scale: 2, mode: "number" }),
+  meterReading: integer("meter_reading"),
+  performedByUserId: uuid("performed_by_user_id").references(() => users.id, {
+    onDelete: "set null",
+  }),
+  notes: text("notes"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
@@ -309,6 +435,9 @@ export const workOrders = pgTable(
     propertyId: uuid("property_id")
       .notNull()
       .references(() => properties.id, { onDelete: "cascade" }),
+    propertyEquipmentId: uuid("property_equipment_id").references(() => propertyEquipment.id, {
+      onDelete: "set null",
+    }),
     number: text("number").notNull(),
     subject: text("subject").notNull(),
     description: text("description"),

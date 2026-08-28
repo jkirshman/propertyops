@@ -9,6 +9,12 @@ interface PropertyTypeRecord {
   description: string | null;
   isActive: boolean;
   sortOrder: number;
+  defaultEquipmentTemplateId: string | null;
+}
+
+interface TemplateOption {
+  id: string;
+  name: string;
 }
 
 function slugify(value: string): string {
@@ -21,6 +27,7 @@ function slugify(value: string): string {
 
 export function PropertyTypesPanel() {
   const [types, setTypes] = useState<PropertyTypeRecord[]>([]);
+  const [templates, setTemplates] = useState<TemplateOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -29,10 +36,17 @@ export function PropertyTypesPanel() {
 
   async function load() {
     try {
-      const response = await fetch("/api/property-types");
-      if (response.ok) {
-        const data = await response.json();
+      const [typesRes, templatesRes] = await Promise.all([
+        fetch("/api/property-types"),
+        fetch("/api/equipment-templates?activeOnly=true"),
+      ]);
+      if (typesRes.ok) {
+        const data = await typesRes.json();
         setTypes(data.propertyTypes ?? []);
+      }
+      if (templatesRes.ok) {
+        const data = await templatesRes.json();
+        setTemplates(data.templates ?? []);
       }
     } finally {
       setLoading(false);
@@ -89,6 +103,15 @@ export function PropertyTypesPanel() {
     await load();
   }
 
+  async function setDefaultTemplate(type: PropertyTypeRecord, templateId: string) {
+    await fetch(`/api/property-types/${type.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ defaultEquipmentTemplateId: templateId || null }),
+    });
+    await load();
+  }
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
       <form
@@ -141,7 +164,7 @@ export function PropertyTypesPanel() {
             {types.map((type) => (
               <li
                 key={type.id}
-                style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "1rem" }}
+                style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "1rem", flexWrap: "wrap" }}
               >
                 <div style={{ opacity: type.isActive ? 1 : 0.55 }}>
                   <div style={{ fontWeight: 600 }}>{type.name}</div>
@@ -151,9 +174,27 @@ export function PropertyTypesPanel() {
                     </div>
                   ) : null}
                 </div>
-                <button type="button" className="button" onClick={() => toggleActive(type)}>
-                  {type.isActive ? "Deactivate" : "Activate"}
-                </button>
+                <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+                  <label className="muted" style={{ fontSize: "0.85rem", display: "flex", alignItems: "center", gap: "0.4rem" }}>
+                    Default equipment template
+                    <select
+                      className="input"
+                      style={{ minWidth: 180 }}
+                      value={type.defaultEquipmentTemplateId ?? ""}
+                      onChange={(event) => setDefaultTemplate(type, event.target.value)}
+                    >
+                      <option value="">None</option>
+                      {templates.map((template) => (
+                        <option key={template.id} value={template.id}>
+                          {template.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <button type="button" className="button" onClick={() => toggleActive(type)}>
+                    {type.isActive ? "Deactivate" : "Activate"}
+                  </button>
+                </div>
               </li>
             ))}
           </ul>

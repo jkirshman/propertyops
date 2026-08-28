@@ -5,6 +5,7 @@ import { useState } from "react";
 import { ActivityPanel } from "@/components/properties/ActivityPanel";
 import { ContactsPanel } from "@/components/properties/ContactsPanel";
 import { DocumentsPanel } from "@/components/properties/DocumentsPanel";
+import { EquipmentPanel } from "@/components/properties/EquipmentPanel";
 import { NotesPanel } from "@/components/properties/NotesPanel";
 import { PropertyWorkOrdersPanel } from "@/components/properties/PropertyWorkOrdersPanel";
 import { OCCUPANCY_MODEL_LABELS, type OccupancyModel } from "@/lib/properties/constants";
@@ -26,11 +27,12 @@ interface PropertyOverview {
   primaryEmail: string | null;
 }
 
-const TABS = ["overview", "workorders", "contacts", "notes", "documents", "activity"] as const;
+const TABS = ["overview", "equipment", "workorders", "contacts", "notes", "documents", "activity"] as const;
 type Tab = (typeof TABS)[number];
 
 const TAB_LABELS: Record<Tab, string> = {
   overview: "Overview",
+  equipment: "Equipment",
   workorders: "Work Orders",
   contacts: "Contacts",
   notes: "Notes",
@@ -94,6 +96,9 @@ export function PropertyProfileTabs({
   canManageNotes,
   canManageDocuments,
   canCreateWorkOrders,
+  canCreateEquipment,
+  canEditEquipment,
+  canManageEquipmentTemplate,
 }: {
   propertyId: string;
   overview: PropertyOverview;
@@ -101,6 +106,9 @@ export function PropertyProfileTabs({
   canManageNotes: boolean;
   canManageDocuments: boolean;
   canCreateWorkOrders: boolean;
+  canCreateEquipment: boolean;
+  canEditEquipment: boolean;
+  canManageEquipmentTemplate: boolean;
 }) {
   const [tab, setTab] = useState<Tab>("overview");
 
@@ -128,6 +136,14 @@ export function PropertyProfileTabs({
       </div>
 
       {tab === "overview" ? <OverviewTab property={overview} /> : null}
+      {tab === "equipment" ? (
+        <EquipmentPanel
+          propertyId={propertyId}
+          canCreate={canCreateEquipment}
+          canEdit={canEditEquipment}
+          canManageTemplate={canManageEquipmentTemplate}
+        />
+      ) : null}
       {tab === "workorders" ? (
         <PropertyWorkOrdersPanel propertyId={propertyId} canCreate={canCreateWorkOrders} />
       ) : null}

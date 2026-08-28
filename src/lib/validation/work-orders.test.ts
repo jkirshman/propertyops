@@ -44,6 +44,19 @@ describe("createWorkOrderSchema", () => {
     const result = createWorkOrderSchema.parse({ ...VALID, assignedUserId: "" });
     expect(result.assignedUserId).toBeUndefined();
   });
+
+  it("treats a blank propertyEquipmentId as absent", () => {
+    const result = createWorkOrderSchema.parse({ ...VALID, propertyEquipmentId: "" });
+    expect(result.propertyEquipmentId).toBeUndefined();
+  });
+
+  it("accepts an optional propertyEquipmentId", () => {
+    const result = createWorkOrderSchema.parse({
+      ...VALID,
+      propertyEquipmentId: "5b7f1e0a-9c1b-4a2e-8f0a-1c2d3e4f567a",
+    });
+    expect(result.propertyEquipmentId).toBe("5b7f1e0a-9c1b-4a2e-8f0a-1c2d3e4f567a");
+  });
 });
 
 describe("updateWorkOrderSchema", () => {
@@ -62,5 +75,10 @@ describe("updateWorkOrderSchema", () => {
 
   it("accepts an empty update", () => {
     expect(updateWorkOrderSchema.safeParse({}).success).toBe(true);
+  });
+
+  it("accepts an explicit null to unlink equipment", () => {
+    const result = updateWorkOrderSchema.parse({ propertyEquipmentId: null });
+    expect(result.propertyEquipmentId).toBeNull();
   });
 });

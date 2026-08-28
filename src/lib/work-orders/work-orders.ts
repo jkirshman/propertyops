@@ -24,6 +24,7 @@ async function getNextWorkOrderSequenceNumber(organizationId: string): Promise<n
 export interface ListWorkOrdersOptions {
   search?: string;
   propertyId?: string;
+  propertyEquipmentId?: string;
   status?: string;
   priority?: string;
   categoryId?: string;
@@ -35,6 +36,9 @@ export async function listWorkOrders(organizationId: string, options: ListWorkOr
 
   if (options.propertyId) {
     conditions.push(eq(workOrders.propertyId, options.propertyId));
+  }
+  if (options.propertyEquipmentId) {
+    conditions.push(eq(workOrders.propertyEquipmentId, options.propertyEquipmentId));
   }
   if (options.status) {
     conditions.push(eq(workOrders.status, options.status));
@@ -81,6 +85,7 @@ export async function createWorkOrder(
     .values({
       organizationId,
       propertyId: input.propertyId,
+      propertyEquipmentId: input.propertyEquipmentId ?? null,
       categoryId: input.categoryId,
       subject: input.subject,
       description: input.description ?? null,

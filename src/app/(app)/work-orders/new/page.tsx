@@ -1,5 +1,6 @@
 import { WorkOrderForm } from "@/components/work-orders/WorkOrderForm";
 import { requireCapability } from "@/lib/auth/require-capability";
+import { getPropertyEquipment } from "@/lib/equipment/property-equipment";
 import { listProperties } from "@/lib/properties/properties";
 import { listOrganizationUsers } from "@/lib/users/users";
 import { WORK_ORDER_CAPABILITIES } from "@/lib/work-orders/constants";
@@ -8,10 +9,14 @@ import { listWorkOrderCategories } from "@/lib/work-orders/categories";
 export default async function NewWorkOrderPage({
   searchParams,
 }: {
-  searchParams: Promise<{ propertyId?: string }>;
+  searchParams: Promise<{ propertyId?: string; equipmentId?: string }>;
 }) {
   const context = await requireCapability(WORK_ORDER_CAPABILITIES.CREATE, "/work-orders");
-  const { propertyId } = await searchParams;
+  const { propertyId, equipmentId } = await searchParams;
+
+  const equipment = equipmentId
+    ? await getPropertyEquipment(context.user.organizationId, equipmentId)
+    : null;
 
   const [properties, categories, users] = await Promise.all([
     listProperties(context.user.organizationId, { isActive: true }),
@@ -29,7 +34,8 @@ export default async function NewWorkOrderPage({
         properties={properties}
         categories={categories}
         users={users}
-        initialPropertyId={propertyId}
+        initialPropertyId={equipment?.propertyId ?? propertyId}
+        initialEquipmentId={equipment?.id}
       />
     </div>
   );

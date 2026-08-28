@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 
 import { WORK_ORDER_PRIORITIES, WORK_ORDER_PRIORITY_LABELS } from "@/lib/work-orders/constants";
 
@@ -16,16 +16,23 @@ interface UserOption {
   email: string;
 }
 
+interface EquipmentOption {
+  id: string;
+  displayName: string;
+}
+
 export function WorkOrderForm({
   properties,
   categories,
   users,
   initialPropertyId,
+  initialEquipmentId,
 }: {
   properties: OptionRecord[];
   categories: OptionRecord[];
   users: UserOption[];
   initialPropertyId?: string;
+  initialEquipmentId?: string;
 }) {
   const router = useRouter();
   const [propertyId, setPropertyId] = useState(initialPropertyId ?? "");
@@ -35,8 +42,26 @@ export function WorkOrderForm({
   const [description, setDescription] = useState("");
   const [assignedUserId, setAssignedUserId] = useState("");
   const [requesterUserId, setRequesterUserId] = useState("");
+  const [propertyEquipmentId, setPropertyEquipmentId] = useState(initialEquipmentId ?? "");
+  const [equipmentOptions, setEquipmentOptions] = useState<EquipmentOption[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    const request = propertyId
+      ? fetch(`/api/properties/${propertyId}/equipment?activeOnly=true`).then((response) =>
+          response.ok ? response.json() : null,
+        )
+      : Promise.resolve(null);
+
+    request.then((data) => {
+      const options: EquipmentOption[] = data?.equipment ?? [];
+      setEquipmentOptions(options);
+      setPropertyEquipmentId((current) =>
+        current && !options.some((option) => option.id === current) ? "" : current,
+      );
+    });
+  }, [propertyId]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -62,6 +87,7 @@ export function WorkOrderForm({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           propertyId,
+          propertyEquipmentId: propertyEquipmentId || undefined,
           categoryId,
           priority,
           subject,
@@ -123,6 +149,25 @@ export function WorkOrderForm({
             {categories.map((category) => (
               <option key={category.id} value={category.id}>
                 {category.name}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="label" htmlFor="wo-equipment">
+            Related equipment (optional)
+          </label>
+          <select
+            id="wo-equipment"
+            className="input"
+            value={propertyEquipmentId}
+            onChange={(event) => setPropertyEquipmentId(event.target.value)}
+            disabled={!propertyId || equipmentOptions.length === 0}
+          >
+            <option value="">None</option>
+            {equipmentOptions.map((option) => (
+              <option key={option.id} value={option.id}>
+                {option.displayName}
               </option>
             ))}
           </select>

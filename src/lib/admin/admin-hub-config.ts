@@ -1,3 +1,4 @@
+import { EQUIPMENT_CATALOG_CAPABILITIES, EQUIPMENT_TEMPLATE_CAPABILITIES } from "@/lib/equipment/constants";
 import { PROPERTY_TYPE_CAPABILITIES } from "@/lib/properties/constants";
 import { WORK_ORDER_CATEGORY_CAPABILITIES } from "@/lib/work-orders/constants";
 
@@ -21,6 +22,7 @@ export interface AdminTile {
 
 export const ADMIN_TILE_GROUPS = [
   { id: "properties", title: "Properties" },
+  { id: "equipment", title: "Equipment" },
   { id: "access", title: "Access" },
   { id: "communications", title: "Communications" },
   { id: "platform", title: "Platform" },
@@ -42,6 +44,22 @@ export const ADMIN_TILES: AdminTile[] = [
     href: "/admin/work-order-categories",
     group: "properties",
     requiredCapability: WORK_ORDER_CATEGORY_CAPABILITIES.MANAGE,
+  },
+  {
+    id: "equipment-catalog",
+    title: "Equipment Catalog",
+    description: "Manage reusable equipment kinds usable across templates and properties.",
+    href: "/admin/equipment-catalog",
+    group: "equipment",
+    requiredCapability: EQUIPMENT_CATALOG_CAPABILITIES.MANAGE,
+  },
+  {
+    id: "equipment-templates",
+    title: "Equipment Templates",
+    description: "Define what equipment is normally expected for a class of property.",
+    href: "/admin/equipment-templates",
+    group: "equipment",
+    requiredCapability: EQUIPMENT_TEMPLATE_CAPABILITIES.MANAGE,
   },
   {
     id: "users",
