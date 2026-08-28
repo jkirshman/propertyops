@@ -13,8 +13,17 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "PropertyOps Hub",
+  applicationName: "PropertyOps Hub",
+  title: {
+    default: "PropertyOps Hub",
+    template: "%s · PropertyOps Hub",
+  },
   description: "PropertyOps Hub platform",
+  icons: {
+    icon: "/propertyops-favicon.png",
+    shortcut: "/propertyops-favicon.png",
+    apple: "/propertyops-favicon.png",
+  },
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

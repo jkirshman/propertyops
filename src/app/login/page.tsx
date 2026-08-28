@@ -11,11 +11,15 @@ export default async function LoginPage() {
   }
 
   return (
-    <div className="container" style={{ maxWidth: 420, paddingTop: "4rem" }}>
-      <div className="card" style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
+    <div className="login-page">
+      <div className="login-card card" style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
         <div>
-          <h1 style={{ fontSize: "1.4rem" }}>PropertyOps Hub</h1>
-          <p className="muted">Sign in to continue.</p>
+          <h1 className="sr-only">PropertyOps Hub</h1>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/propertyops-logo.png" alt="PropertyOps Hub" className="login-logo" />
+          <p className="muted" style={{ textAlign: "center", marginTop: "0.75rem" }}>
+            Sign in to continue.
+          </p>
         </div>
         <LoginForm />
       </div>

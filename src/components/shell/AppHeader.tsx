@@ -1,7 +1,21 @@
+"use client";
+
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 
 import { NotificationBell } from "@/components/notifications/NotificationBell";
 import { LogoutButton } from "@/components/shell/LogoutButton";
+
+function NavLink({ href, children }: { href: string; children: React.ReactNode }) {
+  const pathname = usePathname();
+  const isActive = href === "/" ? pathname === "/" : pathname.startsWith(href);
+
+  return (
+    <Link href={href} className="app-nav-link" aria-current={isActive ? "page" : undefined}>
+      {children}
+    </Link>
+  );
+}
 
 export function AppHeader({
   displayName,
@@ -31,42 +45,21 @@ export function AppHeader({
           gap: "0.75rem",
           maxWidth: 1080,
           margin: "0 auto",
-          padding: "0.9rem 1.25rem",
+          padding: "0.75rem 1.25rem",
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: "1.5rem", flexWrap: "wrap" }}>
-          <Link href="/" style={{ fontWeight: 700, fontSize: "1.05rem" }}>
-            PropertyOps Hub
+          <Link href="/" style={{ display: "flex", alignItems: "center" }}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/propertyops-logo.png" alt="PropertyOps Hub" className="brand-logo" />
           </Link>
-          <nav style={{ display: "flex", gap: "1rem" }}>
-            <Link href="/" className="muted">
-              Home
-            </Link>
-            {showPropertiesLink ? (
-              <Link href="/properties" className="muted">
-                Properties
-              </Link>
-            ) : null}
-            {showWorkOrdersLink ? (
-              <Link href="/work-orders" className="muted">
-                Work Orders
-              </Link>
-            ) : null}
-            {showAssetsLink ? (
-              <Link href="/assets" className="muted">
-                Assets
-              </Link>
-            ) : null}
-            {showPeopleLink ? (
-              <Link href="/people" className="muted">
-                People
-              </Link>
-            ) : null}
-            {showAdminLink ? (
-              <Link href="/admin" className="muted">
-                Admin Hub
-              </Link>
-            ) : null}
+          <nav style={{ display: "flex", gap: "1.1rem" }}>
+            <NavLink href="/">Home</NavLink>
+            {showPropertiesLink ? <NavLink href="/properties">Properties</NavLink> : null}
+            {showWorkOrdersLink ? <NavLink href="/work-orders">Work Orders</NavLink> : null}
+            {showAssetsLink ? <NavLink href="/assets">Assets</NavLink> : null}
+            {showPeopleLink ? <NavLink href="/people">People</NavLink> : null}
+            {showAdminLink ? <NavLink href="/admin">Admin Hub</NavLink> : null}
           </nav>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", flexWrap: "wrap" }}>
