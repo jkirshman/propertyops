@@ -30,6 +30,7 @@ export interface ListWorkOrdersOptions {
   priority?: string;
   categoryId?: string;
   assignedUserId?: string;
+  vendorId?: string;
 }
 
 export async function listWorkOrders(organizationId: string, options: ListWorkOrdersOptions = {}) {
@@ -55,6 +56,9 @@ export async function listWorkOrders(organizationId: string, options: ListWorkOr
   }
   if (options.assignedUserId) {
     conditions.push(eq(workOrders.assignedUserId, options.assignedUserId));
+  }
+  if (options.vendorId) {
+    conditions.push(eq(workOrders.vendorId, options.vendorId));
   }
   if (options.search) {
     const term = `%${options.search.trim()}%`;
@@ -94,6 +98,7 @@ export async function createWorkOrder(
       propertyId: input.propertyId,
       propertyEquipmentId: input.propertyEquipmentId ?? null,
       assetId: input.assetId ?? null,
+      vendorId: input.vendorId ?? null,
       categoryId: input.categoryId,
       subject: input.subject,
       description: input.description ?? null,

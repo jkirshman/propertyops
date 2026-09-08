@@ -15,6 +15,7 @@ import {
   roleCapabilities,
   roles,
   users,
+  vendorCategories,
   workOrderCategories,
 } from "../src/db/schema";
 import { hashPassword } from "../src/lib/auth/password";
@@ -187,6 +188,37 @@ const PREVENTIVE_MAINTENANCE_CAPABILITIES_SEED = [
   },
 ];
 
+// Vendor domain capabilities. All are granted to the administrator role below;
+// future roles can be granted a subset without any schema change.
+const VENDOR_CAPABILITIES_SEED = [
+  { key: "vendor.view", description: "View vendors" },
+  { key: "vendor.create", description: "Create vendors" },
+  { key: "vendor.edit", description: "Edit vendors" },
+  { key: "vendor.manage_contacts", description: "Manage vendor contacts" },
+  { key: "vendor.manage_coverage", description: "Manage vendor property coverage" },
+  { key: "vendor.manage_documents", description: "Manage vendor documents" },
+  { key: "vendor.assign_work_orders", description: "Assign vendors to work orders" },
+  { key: "vendor_category.view", description: "View vendor categories" },
+  { key: "vendor_category.manage", description: "Manage vendor categories" },
+];
+
+const DEFAULT_VENDOR_CATEGORIES = [
+  { name: "HVAC", slug: "hvac", sortOrder: 1 },
+  { name: "Plumbing", slug: "plumbing", sortOrder: 2 },
+  { name: "Electrical", slug: "electrical", sortOrder: 3 },
+  { name: "General Maintenance", slug: "general-maintenance", sortOrder: 4 },
+  { name: "Roofing", slug: "roofing", sortOrder: 5 },
+  { name: "Landscaping", slug: "landscaping", sortOrder: 6 },
+  { name: "Snow Removal", slug: "snow-removal", sortOrder: 7 },
+  { name: "Locksmith", slug: "locksmith", sortOrder: 8 },
+  { name: "Fire / Life Safety", slug: "fire-life-safety", sortOrder: 9 },
+  { name: "Appliance Repair", slug: "appliance-repair", sortOrder: 10 },
+  { name: "Cleaning", slug: "cleaning", sortOrder: 11 },
+  { name: "Pest Control", slug: "pest-control", sortOrder: 12 },
+  { name: "Security", slug: "security", sortOrder: 13 },
+  { name: "Other", slug: "other", sortOrder: 14 },
+];
+
 const DEFAULT_ASSET_CATEGORIES = [
   { name: "Computer", slug: "computer" },
   { name: "Tablet", slug: "tablet" },
@@ -262,6 +294,7 @@ async function main() {
     ...EQUIPMENT_CAPABILITIES_SEED,
     ...ASSET_CAPABILITIES_SEED,
     ...PREVENTIVE_MAINTENANCE_CAPABILITIES_SEED,
+    ...VENDOR_CAPABILITIES_SEED,
   ]) {
     let [cap] = await db.select().from(capabilities).where(eq(capabilities.key, key)).limit(1);
 
@@ -390,6 +423,22 @@ async function main() {
         .values({ organizationId: org.id, name, slug })
         .returning();
       console.log(`Created asset category ${category.id} (${slug})`);
+    }
+  }
+
+  for (const { name, slug, sortOrder } of DEFAULT_VENDOR_CATEGORIES) {
+    const [existingCategory] = await db
+      .select()
+      .from(vendorCategories)
+      .where(and(eq(vendorCategories.organizationId, org.id), eq(vendorCategories.slug, slug)))
+      .limit(1);
+
+    if (!existingCategory) {
+      const [category] = await db
+        .insert(vendorCategories)
+        .values({ organizationId: org.id, name, slug, sortOrder })
+        .returning();
+      console.log(`Created vendor category ${category.id} (${slug})`);
     }
   }
 

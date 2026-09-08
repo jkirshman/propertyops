@@ -15,6 +15,7 @@ export const createWorkOrderSchema = z.object({
   priority: z.enum(WORK_ORDER_PRIORITIES).default("normal"),
   requesterUserId: z.preprocess(emptyToUndefined, z.string().uuid().optional()),
   assignedUserId: z.preprocess(emptyToUndefined, z.string().uuid().optional()),
+  vendorId: z.preprocess(emptyToUndefined, z.string().uuid().optional()),
 });
 
 export const updateWorkOrderSchema = z.object({
@@ -26,6 +27,7 @@ export const updateWorkOrderSchema = z.object({
   assignedUserId: z.preprocess(emptyToUndefined, z.string().uuid().optional().nullable()),
   propertyEquipmentId: z.preprocess(emptyToUndefined, z.string().uuid().optional().nullable()),
   assetId: z.preprocess(emptyToUndefined, z.string().uuid().optional().nullable()),
+  vendorId: z.preprocess(emptyToUndefined, z.string().uuid().optional().nullable()),
   resolutionSummary: z.preprocess(emptyToUndefined, z.string().trim().max(4000).optional()),
 });
 

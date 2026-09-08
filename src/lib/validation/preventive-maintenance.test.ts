@@ -61,6 +61,14 @@ describe("createPreventiveMaintenancePlanSchema", () => {
     });
     expect(result.propertyEquipmentId).toBeUndefined();
   });
+
+  it("accepts an optional default vendor", () => {
+    const result = createPreventiveMaintenancePlanSchema.parse({
+      ...VALID,
+      defaultVendorId: "5b7f1e0a-9c1b-4a2e-8f0a-1c2d3e4f567d",
+    });
+    expect(result.defaultVendorId).toBe("5b7f1e0a-9c1b-4a2e-8f0a-1c2d3e4f567d");
+  });
 });
 
 describe("updatePreventiveMaintenancePlanSchema", () => {
@@ -80,6 +88,11 @@ describe("updatePreventiveMaintenancePlanSchema", () => {
   it("accepts an explicit null to clear the default assignee", () => {
     const result = updatePreventiveMaintenancePlanSchema.parse({ defaultAssigneeUserId: null });
     expect(result.defaultAssigneeUserId).toBeNull();
+  });
+
+  it("accepts an explicit null to clear the default vendor", () => {
+    const result = updatePreventiveMaintenancePlanSchema.parse({ defaultVendorId: null });
+    expect(result.defaultVendorId).toBeNull();
   });
 
   it("rejects an invalid priority", () => {

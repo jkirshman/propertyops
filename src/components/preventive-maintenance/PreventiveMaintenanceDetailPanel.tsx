@@ -47,6 +47,7 @@ export function PreventiveMaintenanceDetailPanel({
   equipmentName,
   categoryName,
   assigneeName,
+  vendorName,
   canEdit,
   canManageStatus,
   canGenerate,
@@ -56,6 +57,7 @@ export function PreventiveMaintenanceDetailPanel({
   equipmentName: string | null;
   categoryName: string;
   assigneeName: string | null;
+  vendorName: string | null;
   canEdit: boolean;
   canManageStatus: boolean;
   canGenerate: boolean;
@@ -145,6 +147,10 @@ export function PreventiveMaintenanceDetailPanel({
         <div>
           <div className="muted" style={{ fontSize: "0.8rem" }}>Default assignee</div>
           <div>{assigneeName ?? "Unassigned"}</div>
+        </div>
+        <div>
+          <div className="muted" style={{ fontSize: "0.8rem" }}>Default vendor</div>
+          <div>{vendorName ?? "None"}</div>
         </div>
         <div>
           <div className="muted" style={{ fontSize: "0.8rem" }}>Recurrence</div>

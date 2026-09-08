@@ -85,6 +85,7 @@ export async function createPreventiveMaintenancePlan(
       instructions: input.instructions ?? null,
       defaultPriority: input.defaultPriority,
       defaultAssigneeUserId: input.defaultAssigneeUserId ?? null,
+      defaultVendorId: input.defaultVendorId ?? null,
       intervalUnit: input.intervalUnit,
       intervalValue: input.intervalValue,
       nextDueAt: input.nextDueAt,

@@ -27,11 +27,18 @@ interface AssetOption {
   displayName: string;
 }
 
+interface VendorOption {
+  id: string;
+  name: string;
+}
+
 export function WorkOrderForm({
   properties,
   categories,
   users,
   assets,
+  vendors,
+  canAssignVendor,
   initialPropertyId,
   initialEquipmentId,
   initialAssetId,
@@ -40,6 +47,8 @@ export function WorkOrderForm({
   categories: OptionRecord[];
   users: UserOption[];
   assets: AssetOption[];
+  vendors: VendorOption[];
+  canAssignVendor: boolean;
   initialPropertyId?: string;
   initialEquipmentId?: string;
   initialAssetId?: string;
@@ -54,6 +63,7 @@ export function WorkOrderForm({
   const [requesterUserId, setRequesterUserId] = useState("");
   const [propertyEquipmentId, setPropertyEquipmentId] = useState(initialEquipmentId ?? "");
   const [assetId, setAssetId] = useState(initialAssetId ?? "");
+  const [vendorId, setVendorId] = useState("");
   const [equipmentOptions, setEquipmentOptions] = useState<EquipmentOption[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -106,6 +116,7 @@ export function WorkOrderForm({
           description,
           assignedUserId: assignedUserId || undefined,
           requesterUserId: requesterUserId || undefined,
+          vendorId: vendorId || undefined,
         }),
       });
       const data = await response.json().catch(() => null);
@@ -237,6 +248,26 @@ export function WorkOrderForm({
             ))}
           </select>
         </div>
+        {canAssignVendor ? (
+          <div>
+            <label className="label" htmlFor="wo-vendor">
+              Vendor (optional)
+            </label>
+            <select
+              id="wo-vendor"
+              className="input"
+              value={vendorId}
+              onChange={(event) => setVendorId(event.target.value)}
+            >
+              <option value="">None</option>
+              {vendors.map((vendor) => (
+                <option key={vendor.id} value={vendor.id}>
+                  {vendor.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        ) : null}
         <div>
           <label className="label" htmlFor="wo-requester">
             Requester (optional — defaults to you)

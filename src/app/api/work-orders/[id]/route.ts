@@ -7,6 +7,8 @@ import { getAsset } from "@/lib/assets/assets";
 import { getPropertyEquipment } from "@/lib/equipment/property-equipment";
 import { createNotification } from "@/lib/notifications/notifications";
 import { syncPreventiveMaintenanceOccurrenceStatus } from "@/lib/preventive-maintenance/occurrences";
+import { VENDOR_CAPABILITIES } from "@/lib/vendors/constants";
+import { getVendor } from "@/lib/vendors/vendors";
 import { updateWorkOrderSchema } from "@/lib/validation/work-orders";
 import { WORK_ORDER_CAPABILITIES, type WorkOrderStatus } from "@/lib/work-orders/constants";
 import {
@@ -71,6 +73,9 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   if (fields.assignedUserId !== undefined && !capabilityKeys.includes(WORK_ORDER_CAPABILITIES.ASSIGN)) {
     return NextResponse.json({ error: "forbidden" }, { status: 403 });
   }
+  if (fields.vendorId !== undefined && !capabilityKeys.includes(VENDOR_CAPABILITIES.ASSIGN_WORK_ORDERS)) {
+    return NextResponse.json({ error: "forbidden" }, { status: 403 });
+  }
   const otherFieldsTouched =
     fields.subject !== undefined ||
     fields.description !== undefined ||
@@ -94,6 +99,13 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     const asset = await getAsset(user.organizationId, fields.assetId);
     if (!asset) {
       return NextResponse.json({ error: "invalid_asset" }, { status: 400 });
+    }
+  }
+
+  if (fields.vendorId) {
+    const vendor = await getVendor(user.organizationId, fields.vendorId);
+    if (!vendor) {
+      return NextResponse.json({ error: "invalid_vendor" }, { status: 400 });
     }
   }
 
@@ -192,6 +204,18 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       }
     }
 
+    if (changedKeys.includes("vendorId")) {
+      await recordAuditEvent({
+        organizationId: user.organizationId,
+        actorUserId: user.id,
+        action: updated.vendorId ? "work_order.vendor_assigned" : "work_order.vendor_unassigned",
+        entityType: "work_order",
+        entityId: id,
+        before: pick(diff.before, ["vendorId"]),
+        after: pick(diff.after, ["vendorId"]),
+      });
+    }
+
     if (changedKeys.includes("propertyEquipmentId")) {
       await recordAuditEvent({
         organizationId: user.organizationId,
@@ -220,9 +244,15 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
     const remainingKeys = changedKeys.filter(
       (key) =>
-        !["status", "priority", "categoryId", "assignedUserId", "propertyEquipmentId", "assetId"].includes(
-          key,
-        ),
+        ![
+          "status",
+          "priority",
+          "categoryId",
+          "assignedUserId",
+          "vendorId",
+          "propertyEquipmentId",
+          "assetId",
+        ].includes(key),
     );
     if (remainingKeys.length > 0) {
       await recordAuditEvent({

@@ -10,6 +10,8 @@ import {
   listPreventiveMaintenancePlans,
 } from "@/lib/preventive-maintenance/plans";
 import { createPreventiveMaintenancePlanSchema } from "@/lib/validation/preventive-maintenance";
+import { vendorCoversProperty } from "@/lib/vendors/coverage";
+import { getVendor } from "@/lib/vendors/vendors";
 
 export async function GET(request: Request) {
   const context = await getCurrentUserWithCapabilities();
@@ -66,6 +68,16 @@ export async function POST(request: Request) {
     const equipment = await getPropertyEquipment(user.organizationId, parsed.data.propertyEquipmentId);
     if (!equipment || equipment.propertyId !== parsed.data.propertyId) {
       return NextResponse.json({ error: "invalid_equipment" }, { status: 400 });
+    }
+  }
+
+  if (parsed.data.defaultVendorId) {
+    const vendor = await getVendor(user.organizationId, parsed.data.defaultVendorId);
+    if (!vendor) {
+      return NextResponse.json({ error: "invalid_vendor" }, { status: 400 });
+    }
+    if (!(await vendorCoversProperty(user.organizationId, vendor, parsed.data.propertyId))) {
+      return NextResponse.json({ error: "invalid_vendor_coverage" }, { status: 400 });
     }
   }
 

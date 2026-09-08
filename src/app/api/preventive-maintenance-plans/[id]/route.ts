@@ -11,6 +11,8 @@ import {
 } from "@/lib/preventive-maintenance/plans";
 import { getWorkOrderCategory } from "@/lib/work-orders/categories";
 import { updatePreventiveMaintenancePlanSchema } from "@/lib/validation/preventive-maintenance";
+import { vendorCoversProperty } from "@/lib/vendors/coverage";
+import { getVendor } from "@/lib/vendors/vendors";
 
 function pick<T extends Record<string, unknown>>(obj: T, keys: string[]): Partial<T> {
   return Object.fromEntries(Object.entries(obj).filter(([key]) => keys.includes(key))) as Partial<T>;
@@ -70,6 +72,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     fields.instructions !== undefined ||
     fields.defaultPriority !== undefined ||
     fields.defaultAssigneeUserId !== undefined ||
+    fields.defaultVendorId !== undefined ||
     fields.intervalUnit !== undefined ||
     fields.intervalValue !== undefined ||
     fields.nextDueAt !== undefined;
@@ -88,6 +91,16 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     const equipment = await getPropertyEquipment(user.organizationId, fields.propertyEquipmentId);
     if (!equipment || equipment.propertyId !== existing.propertyId) {
       return NextResponse.json({ error: "invalid_equipment" }, { status: 400 });
+    }
+  }
+
+  if (fields.defaultVendorId) {
+    const vendor = await getVendor(user.organizationId, fields.defaultVendorId);
+    if (!vendor) {
+      return NextResponse.json({ error: "invalid_vendor" }, { status: 400 });
+    }
+    if (!(await vendorCoversProperty(user.organizationId, vendor, existing.propertyId))) {
+      return NextResponse.json({ error: "invalid_vendor_coverage" }, { status: 400 });
     }
   }
 
@@ -136,8 +149,20 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       });
     }
 
+    if (changedKeys.includes("defaultVendorId")) {
+      await recordAuditEvent({
+        organizationId: user.organizationId,
+        actorUserId: user.id,
+        action: "preventive_maintenance_plan.vendor_reassigned",
+        entityType: "preventive_maintenance_plan",
+        entityId: id,
+        before: pick(diff.before, ["defaultVendorId"]),
+        after: pick(diff.after, ["defaultVendorId"]),
+      });
+    }
+
     const remainingKeys = changedKeys.filter(
-      (key) => !["isActive", "nextDueAt", "defaultAssigneeUserId"].includes(key),
+      (key) => !["isActive", "nextDueAt", "defaultAssigneeUserId", "defaultVendorId"].includes(key),
     );
     if (remainingKeys.length > 0) {
       await recordAuditEvent({

@@ -9,6 +9,7 @@ import { EquipmentPanel } from "@/components/properties/EquipmentPanel";
 import { NotesPanel } from "@/components/properties/NotesPanel";
 import { PropertyAssetsPanel } from "@/components/properties/PropertyAssetsPanel";
 import { PropertyPreventiveMaintenancePanel } from "@/components/properties/PropertyPreventiveMaintenancePanel";
+import { PropertyVendorsPanel } from "@/components/properties/PropertyVendorsPanel";
 import { PropertyWorkOrdersPanel } from "@/components/properties/PropertyWorkOrdersPanel";
 import { OCCUPANCY_MODEL_LABELS, type OccupancyModel } from "@/lib/properties/constants";
 
@@ -35,6 +36,7 @@ const TABS = [
   "assets",
   "workorders",
   "maintenance",
+  "vendors",
   "contacts",
   "notes",
   "documents",
@@ -48,6 +50,7 @@ const TAB_LABELS: Record<Tab, string> = {
   assets: "Assets",
   workorders: "Work Orders",
   maintenance: "Preventive Maintenance",
+  vendors: "Vendors",
   contacts: "Contacts",
   notes: "Notes",
   documents: "Documents",
@@ -115,6 +118,7 @@ export function PropertyProfileTabs({
   canManageEquipmentTemplate,
   canAssignAssets,
   canCreatePreventiveMaintenance,
+  canManageVendorCoverage,
 }: {
   propertyId: string;
   overview: PropertyOverview;
@@ -127,6 +131,7 @@ export function PropertyProfileTabs({
   canManageEquipmentTemplate: boolean;
   canAssignAssets: boolean;
   canCreatePreventiveMaintenance: boolean;
+  canManageVendorCoverage: boolean;
 }) {
   const [tab, setTab] = useState<Tab>("overview");
 
@@ -170,6 +175,9 @@ export function PropertyProfileTabs({
       ) : null}
       {tab === "maintenance" ? (
         <PropertyPreventiveMaintenancePanel propertyId={propertyId} canCreate={canCreatePreventiveMaintenance} />
+      ) : null}
+      {tab === "vendors" ? (
+        <PropertyVendorsPanel propertyId={propertyId} canManage={canManageVendorCoverage} />
       ) : null}
       {tab === "contacts" ? <ContactsPanel propertyId={propertyId} canManage={canManageContacts} /> : null}
       {tab === "notes" ? <NotesPanel propertyId={propertyId} canManage={canManageNotes} /> : null}

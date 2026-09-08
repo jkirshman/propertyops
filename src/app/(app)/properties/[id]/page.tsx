@@ -7,6 +7,7 @@ import { requireCapability } from "@/lib/auth/require-capability";
 import { EQUIPMENT_CAPABILITIES } from "@/lib/equipment/constants";
 import { PREVENTIVE_MAINTENANCE_CAPABILITIES } from "@/lib/preventive-maintenance/constants";
 import { PROPERTY_CAPABILITIES } from "@/lib/properties/constants";
+import { VENDOR_CAPABILITIES } from "@/lib/vendors/constants";
 import { getProperty } from "@/lib/properties/properties";
 import { getPropertyType } from "@/lib/properties/property-types";
 import { WORK_ORDER_CAPABILITIES } from "@/lib/work-orders/constants";
@@ -60,6 +61,7 @@ export default async function PropertyDetailPage({
         canManageEquipmentTemplate={context.capabilityKeys.includes(PROPERTY_CAPABILITIES.EDIT)}
         canAssignAssets={context.capabilityKeys.includes(ASSET_CAPABILITIES.ASSIGN)}
         canCreatePreventiveMaintenance={context.capabilityKeys.includes(PREVENTIVE_MAINTENANCE_CAPABILITIES.CREATE)}
+        canManageVendorCoverage={context.capabilityKeys.includes(VENDOR_CAPABILITIES.MANAGE_COVERAGE)}
       />
     </div>
   );

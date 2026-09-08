@@ -36,6 +36,11 @@ interface AssetOption {
   displayName: string;
 }
 
+interface VendorOption {
+  id: string;
+  name: string;
+}
+
 export interface WorkOrderRecord {
   id: string;
   number: string;
@@ -47,6 +52,7 @@ export interface WorkOrderRecord {
   assignedUserId: string | null;
   propertyEquipmentId: string | null;
   assetId: string | null;
+  vendorId: string | null;
   resolutionSummary: string | null;
   resolvedAt: string | null;
   closedAt: string | null;
@@ -68,8 +74,10 @@ export function WorkOrderDetailPanel({
   categories,
   users,
   assets,
+  vendors,
   canEdit,
   canAssign,
+  canAssignVendor,
   canManageStatus,
   canManageNotes,
   canManageAttachments,
@@ -79,8 +87,10 @@ export function WorkOrderDetailPanel({
   categories: OptionRecord[];
   users: UserOption[];
   assets: AssetOption[];
+  vendors: VendorOption[];
   canEdit: boolean;
   canAssign: boolean;
+  canAssignVendor: boolean;
   canManageStatus: boolean;
   canManageNotes: boolean;
   canManageAttachments: boolean;
@@ -201,6 +211,27 @@ export function WorkOrderDetailPanel({
               </option>
             ))}
           </select>
+        </div>
+        <div>
+          <div className="muted" style={{ fontSize: "0.8rem" }}>Vendor</div>
+          <select
+            className="input"
+            value={workOrder.vendorId ?? ""}
+            disabled={!canAssignVendor}
+            onChange={(event) => patch({ vendorId: event.target.value || null })}
+          >
+            <option value="">None</option>
+            {vendors.map((vendor) => (
+              <option key={vendor.id} value={vendor.id}>
+                {vendor.name}
+              </option>
+            ))}
+          </select>
+          {workOrder.vendorId ? (
+            <Link href={`/vendors/${workOrder.vendorId}`} style={{ fontSize: "0.8rem" }}>
+              Open vendor
+            </Link>
+          ) : null}
         </div>
         <div>
           <div className="muted" style={{ fontSize: "0.8rem" }}>Related equipment</div>

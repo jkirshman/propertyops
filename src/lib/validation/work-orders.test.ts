@@ -70,6 +70,19 @@ describe("createWorkOrderSchema", () => {
     });
     expect(result.assetId).toBe("5b7f1e0a-9c1b-4a2e-8f0a-1c2d3e4f567b");
   });
+
+  it("treats a blank vendorId as absent", () => {
+    const result = createWorkOrderSchema.parse({ ...VALID, vendorId: "" });
+    expect(result.vendorId).toBeUndefined();
+  });
+
+  it("accepts an optional vendorId", () => {
+    const result = createWorkOrderSchema.parse({
+      ...VALID,
+      vendorId: "5b7f1e0a-9c1b-4a2e-8f0a-1c2d3e4f567c",
+    });
+    expect(result.vendorId).toBe("5b7f1e0a-9c1b-4a2e-8f0a-1c2d3e4f567c");
+  });
 });
 
 describe("updateWorkOrderSchema", () => {
@@ -98,5 +111,10 @@ describe("updateWorkOrderSchema", () => {
   it("accepts an explicit null to unlink an asset", () => {
     const result = updateWorkOrderSchema.parse({ assetId: null });
     expect(result.assetId).toBeNull();
+  });
+
+  it("accepts an explicit null to unassign a vendor", () => {
+    const result = updateWorkOrderSchema.parse({ vendorId: null });
+    expect(result.vendorId).toBeNull();
   });
 });

@@ -12,6 +12,7 @@ export const createEquipmentServiceRecordSchema = z.object({
   serviceType: z.enum(EQUIPMENT_SERVICE_TYPES),
   summary: z.string().trim().min(1).max(2000),
   vendorName: z.preprocess(emptyToUndefined, z.string().trim().max(200).optional()),
+  vendorId: z.preprocess(emptyToUndefined, z.string().uuid().optional()),
   cost: z.number().min(0).max(10_000_000).optional(),
   meterReading: z.number().int().min(0).optional(),
   performedByUserId: z.preprocess(emptyToUndefined, z.string().uuid().optional()),

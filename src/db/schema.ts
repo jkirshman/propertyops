@@ -391,6 +391,11 @@ export const equipmentServiceRecords = pgTable("equipment_service_records", {
   performedByUserId: uuid("performed_by_user_id").references(() => users.id, {
     onDelete: "set null",
   }),
+  // Additive alongside the free-text vendorName above — fully backward
+  // compatible with existing records, which keep vendorName and leave this null.
+  vendorId: uuid("vendor_id").references((): typeof vendors.id => vendors.id, {
+    onDelete: "set null",
+  }),
   notes: text("notes"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
@@ -558,6 +563,10 @@ export const workOrders = pgTable(
       onDelete: "set null",
     }),
     assetId: uuid("asset_id").references(() => assets.id, { onDelete: "set null" }),
+    // One primary vendor per Work Order in PROP-7 — no multi-vendor dispatch yet.
+    vendorId: uuid("vendor_id").references((): typeof vendors.id => vendors.id, {
+      onDelete: "set null",
+    }),
     number: text("number").notNull(),
     subject: text("subject").notNull(),
     description: text("description"),
@@ -615,6 +624,11 @@ export const preventiveMaintenancePlans = pgTable("preventive_maintenance_plans"
   defaultAssigneeUserId: uuid("default_assignee_user_id").references(() => users.id, {
     onDelete: "set null",
   }),
+  // Propagated onto each generated Work Order — default assignment only, no
+  // auto-dispatch or vendor contact.
+  defaultVendorId: uuid("default_vendor_id").references((): typeof vendors.id => vendors.id, {
+    onDelete: "set null",
+  }),
   // Deterministic recurrence, not a calendar rule designer: 'week' | 'month' plus
   // a count (e.g. month/3 = quarterly, week/2 = every 2 weeks).
   intervalUnit: text("interval_unit").notNull(),
@@ -663,6 +677,117 @@ export const preventiveMaintenanceOccurrences = pgTable(
     uniqueIndex("pm_occurrences_work_order_unique").on(table.workOrderId),
   ],
 );
+
+export const vendorCategories = pgTable(
+  "vendor_categories",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    slug: text("slug").notNull(),
+    description: text("description"),
+    isActive: boolean("is_active").notNull().default(true),
+    sortOrder: integer("sort_order").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [uniqueIndex("vendor_categories_org_slug_unique").on(table.organizationId, table.slug)],
+);
+
+export const vendors = pgTable("vendors", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  organizationId: uuid("organization_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  legalName: text("legal_name"),
+  isActive: boolean("is_active").notNull().default(true),
+  isPreferred: boolean("is_preferred").notNull().default(false),
+  primaryPhone: text("primary_phone"),
+  primaryEmail: text("primary_email"),
+  website: text("website"),
+  addressLine1: text("address_line1"),
+  addressLine2: text("address_line2"),
+  city: text("city"),
+  state: text("state"),
+  postalCode: text("postal_code"),
+  country: text("country"),
+  accountNumber: text("account_number"),
+  notes: text("notes"),
+  // 'all' = can service every property in the org; 'specific' = only the
+  // properties explicitly listed in vendor_property_coverage. No geo/radius
+  // routing — an explicit, queryable model instead.
+  coverageMode: text("coverage_mode").notNull().default("all"),
+  insuranceExpiresAt: date("insurance_expires_at"),
+  licenseExpiresAt: date("license_expires_at"),
+  contractExpiresAt: date("contract_expires_at"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const vendorCategoryLinks = pgTable(
+  "vendor_category_links",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    vendorId: uuid("vendor_id")
+      .notNull()
+      .references(() => vendors.id, { onDelete: "cascade" }),
+    categoryId: uuid("category_id")
+      .notNull()
+      .references(() => vendorCategories.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("vendor_category_links_vendor_category_unique").on(table.vendorId, table.categoryId),
+  ],
+);
+
+// Backs coverageMode 'specific' — irrelevant rows may exist for a vendor
+// currently set to 'all' (harmless; simply unused until switched back).
+export const vendorPropertyCoverage = pgTable(
+  "vendor_property_coverage",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    vendorId: uuid("vendor_id")
+      .notNull()
+      .references(() => vendors.id, { onDelete: "cascade" }),
+    propertyId: uuid("property_id")
+      .notNull()
+      .references(() => properties.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("vendor_property_coverage_vendor_property_unique").on(table.vendorId, table.propertyId),
+  ],
+);
+
+export const vendorContacts = pgTable("vendor_contacts", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  organizationId: uuid("organization_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  vendorId: uuid("vendor_id")
+    .notNull()
+    .references(() => vendors.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  title: text("title"),
+  email: text("email"),
+  phone: text("phone"),
+  mobilePhone: text("mobile_phone"),
+  notes: text("notes"),
+  isPrimary: boolean("is_primary").notNull().default(false),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
 
 export const auditLog = pgTable("audit_log", {
   id: uuid("id").primaryKey().defaultRandom(),

@@ -121,6 +121,8 @@ export async function generatePreventiveMaintenanceOccurrence(
       description: plan.instructions ?? plan.description ?? undefined,
       priority: plan.defaultPriority as WorkOrderPriority,
       assignedUserId: plan.defaultAssigneeUserId ?? undefined,
+      // Default assignment only — never dispatches or contacts the vendor.
+      vendorId: plan.defaultVendorId ?? undefined,
     },
     { source: PM_WORK_ORDER_SOURCE },
   );

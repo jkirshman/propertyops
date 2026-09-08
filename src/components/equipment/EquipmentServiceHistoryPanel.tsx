@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 
 import {
@@ -14,14 +15,21 @@ interface ServiceRecord {
   serviceType: string;
   summary: string;
   vendorName: string | null;
+  vendorId: string | null;
   cost: number | null;
   notes: string | null;
+}
+
+interface VendorOption {
+  id: string;
+  name: string;
 }
 
 const EMPTY_FORM = {
   serviceDate: "",
   serviceType: "preventive_maintenance" as EquipmentServiceType,
   summary: "",
+  vendorId: "",
   vendorName: "",
   cost: "",
   notes: "",
@@ -35,6 +43,7 @@ export function EquipmentServiceHistoryPanel({
   canManage: boolean;
 }) {
   const [records, setRecords] = useState<ServiceRecord[]>([]);
+  const [vendors, setVendors] = useState<VendorOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);
@@ -57,6 +66,14 @@ export function EquipmentServiceHistoryPanel({
     load();
   }, [load]);
 
+  useEffect(() => {
+    fetch("/api/vendors?active=true")
+      .then((response) => (response.ok ? response.json() : null))
+      .then((data) => data && setVendors(data.vendors ?? []));
+  }, []);
+
+  const vendorNameById = new Map(vendors.map((vendor) => [vendor.id, vendor.name]));
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
@@ -78,6 +95,7 @@ export function EquipmentServiceHistoryPanel({
           serviceDate: form.serviceDate,
           serviceType: form.serviceType,
           summary: form.summary,
+          vendorId: form.vendorId || undefined,
           vendorName: form.vendorName || undefined,
           cost: form.cost ? Number(form.cost) : undefined,
           notes: form.notes || undefined,
@@ -146,8 +164,26 @@ export function EquipmentServiceHistoryPanel({
                   </select>
                 </div>
                 <div>
+                  <label className="label" htmlFor="service-vendor-id">
+                    Vendor (optional)
+                  </label>
+                  <select
+                    id="service-vendor-id"
+                    className="input"
+                    value={form.vendorId}
+                    onChange={(event) => setForm((prev) => ({ ...prev, vendorId: event.target.value }))}
+                  >
+                    <option value="">None</option>
+                    {vendors.map((vendor) => (
+                      <option key={vendor.id} value={vendor.id}>
+                        {vendor.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
                   <label className="label" htmlFor="service-vendor">
-                    Vendor / provider
+                    Provider (free text, if not a PropertyOps vendor)
                   </label>
                   <input
                     id="service-vendor"
@@ -217,11 +253,14 @@ export function EquipmentServiceHistoryPanel({
                     {EQUIPMENT_SERVICE_TYPE_LABELS[record.serviceType as EquipmentServiceType] ?? record.serviceType}
                   </div>
                   <div className="muted" style={{ fontSize: "0.85rem" }}>{record.summary}</div>
-                  {record.vendorName || record.cost != null ? (
+                  {record.vendorId || record.vendorName || record.cost != null ? (
                     <div className="muted" style={{ fontSize: "0.85rem" }}>
-                      {[record.vendorName, record.cost != null ? `$${record.cost}` : null]
-                        .filter(Boolean)
-                        .join(" · ")}
+                      {record.vendorId ? (
+                        <Link href={`/vendors/${record.vendorId}`}>{vendorNameById.get(record.vendorId) ?? "Vendor"}</Link>
+                      ) : (
+                        record.vendorName
+                      )}
+                      {record.cost != null ? ` · $${record.cost}` : ""}
                     </div>
                   ) : null}
                 </div>

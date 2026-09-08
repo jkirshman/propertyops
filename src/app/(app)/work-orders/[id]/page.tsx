@@ -6,6 +6,8 @@ import { listAssets } from "@/lib/assets/assets";
 import { requireCapability } from "@/lib/auth/require-capability";
 import { getProperty } from "@/lib/properties/properties";
 import { listOrganizationUsers } from "@/lib/users/users";
+import { VENDOR_CAPABILITIES } from "@/lib/vendors/constants";
+import { listVendors } from "@/lib/vendors/vendors";
 import {
   WORK_ORDER_CAPABILITIES,
   WORK_ORDER_SOURCE_LABELS,
@@ -29,14 +31,15 @@ export default async function WorkOrderDetailPage({
     notFound();
   }
 
-  const [property, categories, users, assets] = await Promise.all([
+  const { capabilityKeys } = context;
+
+  const [property, categories, users, assets, vendors] = await Promise.all([
     getProperty(context.user.organizationId, workOrder.propertyId),
     listWorkOrderCategories(context.user.organizationId, { activeOnly: true }),
     listOrganizationUsers(context.user.organizationId),
     listAssets(context.user.organizationId, { isActive: true }),
+    listVendors(context.user.organizationId, { isActive: true }),
   ]);
-
-  const { capabilityKeys } = context;
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
@@ -73,13 +76,16 @@ export default async function WorkOrderDetailPage({
           resolutionSummary: workOrder.resolutionSummary,
           resolvedAt: workOrder.resolvedAt ? workOrder.resolvedAt.toISOString() : null,
           closedAt: workOrder.closedAt ? workOrder.closedAt.toISOString() : null,
+          vendorId: workOrder.vendorId,
         }}
         propertyId={workOrder.propertyId}
         categories={categories}
         users={users}
         assets={assets}
+        vendors={vendors}
         canEdit={capabilityKeys.includes(WORK_ORDER_CAPABILITIES.EDIT)}
         canAssign={capabilityKeys.includes(WORK_ORDER_CAPABILITIES.ASSIGN)}
+        canAssignVendor={capabilityKeys.includes(VENDOR_CAPABILITIES.ASSIGN_WORK_ORDERS)}
         canManageStatus={capabilityKeys.includes(WORK_ORDER_CAPABILITIES.MANAGE_STATUS)}
         canManageNotes={capabilityKeys.includes(WORK_ORDER_CAPABILITIES.MANAGE_NOTES)}
         canManageAttachments={capabilityKeys.includes(WORK_ORDER_CAPABILITIES.MANAGE_ATTACHMENTS)}

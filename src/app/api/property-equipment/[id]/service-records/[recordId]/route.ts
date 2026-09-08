@@ -9,6 +9,7 @@ import {
   updateEquipmentServiceRecord,
 } from "@/lib/equipment/service-records";
 import { updateEquipmentServiceRecordSchema } from "@/lib/validation/equipment-service-records";
+import { getVendor } from "@/lib/vendors/vendors";
 
 export async function PATCH(
   request: Request,
@@ -38,6 +39,13 @@ export async function PATCH(
       { error: "invalid_input", details: parsed.error.flatten() },
       { status: 400 },
     );
+  }
+
+  if (parsed.data.vendorId) {
+    const vendor = await getVendor(user.organizationId, parsed.data.vendorId);
+    if (!vendor) {
+      return NextResponse.json({ error: "invalid_vendor" }, { status: 400 });
+    }
   }
 
   const updated = await updateEquipmentServiceRecord(user.organizationId, id, recordId, parsed.data);

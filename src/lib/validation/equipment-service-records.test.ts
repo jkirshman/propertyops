@@ -50,6 +50,27 @@ describe("createEquipmentServiceRecordSchema", () => {
     expect(result.vendorName).toBe("Acme HVAC");
     expect(result.cost).toBe(249.99);
   });
+
+  it("accepts a PropertyOps vendorId alongside the free-text vendorName", () => {
+    const result = createEquipmentServiceRecordSchema.parse({
+      ...VALID,
+      vendorId: "5b7f1e0a-9c1b-4a2e-8f0a-1c2d3e4f5678",
+      vendorName: "Acme HVAC",
+    });
+    expect(result.vendorId).toBe("5b7f1e0a-9c1b-4a2e-8f0a-1c2d3e4f5678");
+    expect(result.vendorName).toBe("Acme HVAC");
+  });
+
+  it("treats a blank vendorId as absent", () => {
+    const result = createEquipmentServiceRecordSchema.parse({ ...VALID, vendorId: "" });
+    expect(result.vendorId).toBeUndefined();
+  });
+
+  it("remains valid with only the free-text vendorName (backward compatible)", () => {
+    const result = createEquipmentServiceRecordSchema.parse({ ...VALID, vendorName: "Acme HVAC" });
+    expect(result.vendorId).toBeUndefined();
+    expect(result.vendorName).toBe("Acme HVAC");
+  });
 });
 
 describe("updateEquipmentServiceRecordSchema", () => {

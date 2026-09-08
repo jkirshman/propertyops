@@ -34,6 +34,7 @@ interface WorkOrderRow {
   status: string;
   source: string;
   assignedUserId: string | null;
+  vendorId: string | null;
   updatedAt: string;
 }
 
@@ -55,6 +56,8 @@ export function WorkOrdersListPanel({
   const [priority, setPriority] = useState("");
   const [categoryId, setCategoryId] = useState("");
   const [assignedUserId, setAssignedUserId] = useState("");
+  const [vendorId, setVendorId] = useState("");
+  const [vendors, setVendors] = useState<OptionRecord[]>([]);
 
   useEffect(() => {
     fetch("/api/properties?active=true")
@@ -66,6 +69,9 @@ export function WorkOrdersListPanel({
     fetch("/api/users")
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => data && setAssignees(data.users ?? []));
+    fetch("/api/vendors?active=true")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => data && setVendors(data.vendors ?? []));
   }, []);
 
   const load = useCallback(() => {
@@ -76,13 +82,14 @@ export function WorkOrdersListPanel({
     if (priority) params.set("priority", priority);
     if (categoryId) params.set("categoryId", categoryId);
     if (assignedUserId) params.set("assignedUserId", assignedUserId);
+    if (vendorId) params.set("vendorId", vendorId);
 
     return fetch(`/api/work-orders?${params.toString()}`)
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => {
         if (data) setWorkOrders(data.workOrders ?? []);
       });
-  }, [search, propertyId, status, priority, categoryId, assignedUserId]);
+  }, [search, propertyId, status, priority, categoryId, assignedUserId, vendorId]);
 
   useEffect(() => {
     const handle = setTimeout(() => {
@@ -109,6 +116,12 @@ export function WorkOrdersListPanel({
     for (const assignee of assignees) map.set(assignee.id, assignee.displayName);
     return map;
   }, [assignees]);
+
+  const vendorNameById = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const vendor of vendors) map.set(vendor.id, vendor.name);
+    return map;
+  }, [vendors]);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
@@ -166,6 +179,14 @@ export function WorkOrdersListPanel({
               </option>
             ))}
           </select>
+          <select className="input" style={{ maxWidth: 170 }} value={vendorId} onChange={(event) => setVendorId(event.target.value)}>
+            <option value="">Any vendor</option>
+            {vendors.map((vendor) => (
+              <option key={vendor.id} value={vendor.id}>
+                {vendor.name}
+              </option>
+            ))}
+          </select>
         </div>
         {canCreate ? (
           <Link
@@ -198,6 +219,7 @@ export function WorkOrdersListPanel({
                   <th style={{ padding: "0.5rem" }}>Status</th>
                   <th style={{ padding: "0.5rem" }}>Source</th>
                   <th style={{ padding: "0.5rem" }}>Assigned</th>
+                  <th style={{ padding: "0.5rem" }}>Vendor</th>
                   <th style={{ padding: "0.5rem" }}>Updated</th>
                 </tr>
               </thead>
@@ -223,6 +245,9 @@ export function WorkOrdersListPanel({
                     </td>
                     <td style={{ padding: "0.5rem" }}>
                       {wo.assignedUserId ? (assigneeNameById.get(wo.assignedUserId) ?? "—") : "Unassigned"}
+                    </td>
+                    <td style={{ padding: "0.5rem" }}>
+                      {wo.vendorId ? (vendorNameById.get(wo.vendorId) ?? "—") : "—"}
                     </td>
                     <td className="muted" style={{ padding: "0.5rem" }}>
                       {new Date(wo.updatedAt).toLocaleString()}

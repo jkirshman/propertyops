@@ -27,6 +27,11 @@ interface EquipmentOption {
   displayName: string;
 }
 
+interface VendorOption {
+  id: string;
+  name: string;
+}
+
 export interface PreventiveMaintenanceFormValues {
   propertyId: string;
   propertyEquipmentId: string;
@@ -36,6 +41,7 @@ export interface PreventiveMaintenanceFormValues {
   instructions: string;
   defaultPriority: string;
   defaultAssigneeUserId: string;
+  defaultVendorId: string;
   recurrencePreset: PmRecurrencePreset;
   customIntervalUnit: PmIntervalUnit;
   customIntervalValue: string;
@@ -51,6 +57,7 @@ const EMPTY_VALUES: PreventiveMaintenanceFormValues = {
   instructions: "",
   defaultPriority: "normal",
   defaultAssigneeUserId: "",
+  defaultVendorId: "",
   recurrencePreset: "monthly",
   customIntervalUnit: "month",
   customIntervalValue: "1",
@@ -77,6 +84,7 @@ export function PreventiveMaintenanceForm({
   properties,
   categories,
   users,
+  vendors,
   propertyName,
   initialValues,
 }: {
@@ -85,6 +93,7 @@ export function PreventiveMaintenanceForm({
   properties: OptionRecord[];
   categories: OptionRecord[];
   users: UserOption[];
+  vendors: VendorOption[];
   propertyName?: string;
   initialValues?: Partial<PreventiveMaintenanceFormValues>;
 }) {
@@ -155,6 +164,7 @@ export function PreventiveMaintenanceForm({
       instructions: values.instructions || undefined,
       defaultPriority: values.defaultPriority,
       defaultAssigneeUserId: values.defaultAssigneeUserId || null,
+      defaultVendorId: values.defaultVendorId || null,
       intervalUnit,
       intervalValue,
       ...(values.nextDueAt ? { nextDueAt: values.nextDueAt } : {}),
@@ -280,6 +290,24 @@ export function PreventiveMaintenanceForm({
             {users.map((user) => (
               <option key={user.id} value={user.id}>
                 {user.displayName}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="label" htmlFor="pm-vendor">
+            Default vendor (optional)
+          </label>
+          <select
+            id="pm-vendor"
+            className="input"
+            value={values.defaultVendorId}
+            onChange={(event) => update("defaultVendorId", event.target.value)}
+          >
+            <option value="">None</option>
+            {vendors.map((vendor) => (
+              <option key={vendor.id} value={vendor.id}>
+                {vendor.name}
               </option>
             ))}
           </select>

@@ -9,6 +9,8 @@ import { buildWorkOrderAssignedNotification } from "@/lib/work-orders/notificati
 import { WORK_ORDER_CAPABILITIES } from "@/lib/work-orders/constants";
 import { createWorkOrder, listWorkOrders } from "@/lib/work-orders/work-orders";
 import { createWorkOrderSchema } from "@/lib/validation/work-orders";
+import { VENDOR_CAPABILITIES } from "@/lib/vendors/constants";
+import { getVendor } from "@/lib/vendors/vendors";
 
 export async function GET(request: Request) {
   const context = await getCurrentUserWithCapabilities();
@@ -30,6 +32,7 @@ export async function GET(request: Request) {
     priority: searchParams.get("priority") ?? undefined,
     categoryId: searchParams.get("categoryId") ?? undefined,
     assignedUserId: searchParams.get("assignedUserId") ?? undefined,
+    vendorId: searchParams.get("vendorId") ?? undefined,
   });
 
   return NextResponse.json({ workOrders });
@@ -67,6 +70,16 @@ export async function POST(request: Request) {
     const asset = await getAsset(user.organizationId, parsed.data.assetId);
     if (!asset) {
       return NextResponse.json({ error: "invalid_asset" }, { status: 400 });
+    }
+  }
+
+  if (parsed.data.vendorId) {
+    if (!context.capabilityKeys.includes(VENDOR_CAPABILITIES.ASSIGN_WORK_ORDERS)) {
+      return NextResponse.json({ error: "forbidden" }, { status: 403 });
+    }
+    const vendor = await getVendor(user.organizationId, parsed.data.vendorId);
+    if (!vendor) {
+      return NextResponse.json({ error: "invalid_vendor" }, { status: 400 });
     }
   }
 

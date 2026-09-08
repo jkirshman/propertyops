@@ -1,6 +1,7 @@
 import { ASSET_CATEGORY_CAPABILITIES } from "@/lib/assets/constants";
 import { EQUIPMENT_CATALOG_CAPABILITIES, EQUIPMENT_TEMPLATE_CAPABILITIES } from "@/lib/equipment/constants";
 import { PROPERTY_TYPE_CAPABILITIES } from "@/lib/properties/constants";
+import { VENDOR_CATEGORY_CAPABILITIES } from "@/lib/vendors/constants";
 import { WORK_ORDER_CATEGORY_CAPABILITIES } from "@/lib/work-orders/constants";
 
 export const ADMIN_CAPABILITIES = {
@@ -25,6 +26,7 @@ export const ADMIN_TILE_GROUPS = [
   { id: "properties", title: "Properties" },
   { id: "equipment", title: "Equipment" },
   { id: "assets", title: "Assets" },
+  { id: "vendors", title: "Vendors" },
   { id: "access", title: "Access" },
   { id: "communications", title: "Communications" },
   { id: "platform", title: "Platform" },
@@ -70,6 +72,14 @@ export const ADMIN_TILES: AdminTile[] = [
     href: "/admin/asset-categories",
     group: "assets",
     requiredCapability: ASSET_CATEGORY_CAPABILITIES.MANAGE,
+  },
+  {
+    id: "vendor-categories",
+    title: "Vendor Categories",
+    description: "Manage the vendor service-category taxonomy used across PropertyOps.",
+    href: "/admin/vendor-categories",
+    group: "vendors",
+    requiredCapability: VENDOR_CATEGORY_CAPABILITIES.MANAGE,
   },
   {
     id: "users",

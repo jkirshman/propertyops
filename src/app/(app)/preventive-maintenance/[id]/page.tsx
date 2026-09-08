@@ -8,6 +8,7 @@ import { PREVENTIVE_MAINTENANCE_CAPABILITIES } from "@/lib/preventive-maintenanc
 import { getPreventiveMaintenancePlan } from "@/lib/preventive-maintenance/plans";
 import { getProperty } from "@/lib/properties/properties";
 import { listOrganizationUsers } from "@/lib/users/users";
+import { getVendor } from "@/lib/vendors/vendors";
 import { getWorkOrderCategory } from "@/lib/work-orders/categories";
 
 export default async function PreventiveMaintenancePlanDetailPage({
@@ -23,13 +24,14 @@ export default async function PreventiveMaintenancePlanDetailPage({
     notFound();
   }
 
-  const [property, equipment, category, users] = await Promise.all([
+  const [property, equipment, category, users, vendor] = await Promise.all([
     getProperty(context.user.organizationId, plan.propertyId),
     plan.propertyEquipmentId
       ? getPropertyEquipment(context.user.organizationId, plan.propertyEquipmentId)
       : Promise.resolve(null),
     getWorkOrderCategory(context.user.organizationId, plan.categoryId),
     listOrganizationUsers(context.user.organizationId),
+    plan.defaultVendorId ? getVendor(context.user.organizationId, plan.defaultVendorId) : Promise.resolve(null),
   ]);
 
   const assignee = plan.defaultAssigneeUserId
@@ -68,6 +70,7 @@ export default async function PreventiveMaintenancePlanDetailPage({
         equipmentName={equipment?.displayName ?? null}
         categoryName={category?.name ?? "Unknown category"}
         assigneeName={assignee?.displayName ?? null}
+        vendorName={vendor?.name ?? null}
         canEdit={capabilityKeys.includes(PREVENTIVE_MAINTENANCE_CAPABILITIES.EDIT)}
         canManageStatus={capabilityKeys.includes(PREVENTIVE_MAINTENANCE_CAPABILITIES.MANAGE_STATUS)}
         canGenerate={capabilityKeys.includes(PREVENTIVE_MAINTENANCE_CAPABILITIES.GENERATE)}

@@ -9,6 +9,7 @@ import {
   listEquipmentServiceRecords,
 } from "@/lib/equipment/service-records";
 import { createEquipmentServiceRecordSchema } from "@/lib/validation/equipment-service-records";
+import { getVendor } from "@/lib/vendors/vendors";
 
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const context = await getCurrentUserWithCapabilities();
@@ -50,6 +51,13 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       { error: "invalid_input", details: parsed.error.flatten() },
       { status: 400 },
     );
+  }
+
+  if (parsed.data.vendorId) {
+    const vendor = await getVendor(user.organizationId, parsed.data.vendorId);
+    if (!vendor) {
+      return NextResponse.json({ error: "invalid_vendor" }, { status: 400 });
+    }
   }
 
   const record = await createEquipmentServiceRecord(user.organizationId, id, parsed.data);

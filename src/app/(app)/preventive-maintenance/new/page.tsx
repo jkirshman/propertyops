@@ -4,6 +4,7 @@ import { getPropertyEquipment } from "@/lib/equipment/property-equipment";
 import { PREVENTIVE_MAINTENANCE_CAPABILITIES } from "@/lib/preventive-maintenance/constants";
 import { listProperties } from "@/lib/properties/properties";
 import { listOrganizationUsers } from "@/lib/users/users";
+import { listVendors } from "@/lib/vendors/vendors";
 import { listWorkOrderCategories } from "@/lib/work-orders/categories";
 
 export default async function NewPreventiveMaintenancePlanPage({
@@ -21,10 +22,11 @@ export default async function NewPreventiveMaintenancePlanPage({
     ? await getPropertyEquipment(context.user.organizationId, equipmentId)
     : null;
 
-  const [properties, categories, users] = await Promise.all([
+  const [properties, categories, users, vendors] = await Promise.all([
     listProperties(context.user.organizationId, { isActive: true }),
     listWorkOrderCategories(context.user.organizationId, { activeOnly: true }),
     listOrganizationUsers(context.user.organizationId),
+    listVendors(context.user.organizationId, { isActive: true }),
   ]);
 
   return (
@@ -38,6 +40,7 @@ export default async function NewPreventiveMaintenancePlanPage({
         properties={properties}
         categories={categories}
         users={users}
+        vendors={vendors}
         initialValues={{
           propertyId: equipment?.propertyId ?? propertyId ?? "",
           propertyEquipmentId: equipment?.id ?? "",

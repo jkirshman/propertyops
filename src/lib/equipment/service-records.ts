@@ -21,6 +21,19 @@ export async function listEquipmentServiceRecords(organizationId: string, proper
     .orderBy(desc(equipmentServiceRecords.serviceDate), desc(equipmentServiceRecords.createdAt));
 }
 
+export async function listEquipmentServiceRecordsByVendor(organizationId: string, vendorId: string) {
+  return db
+    .select()
+    .from(equipmentServiceRecords)
+    .where(
+      and(
+        eq(equipmentServiceRecords.organizationId, organizationId),
+        eq(equipmentServiceRecords.vendorId, vendorId),
+      ),
+    )
+    .orderBy(desc(equipmentServiceRecords.serviceDate), desc(equipmentServiceRecords.createdAt));
+}
+
 export async function getEquipmentServiceRecord(
   organizationId: string,
   propertyEquipmentId: string,
@@ -54,6 +67,7 @@ export async function createEquipmentServiceRecord(
       serviceType: input.serviceType,
       summary: input.summary,
       vendorName: input.vendorName ?? null,
+      vendorId: input.vendorId ?? null,
       cost: input.cost ?? null,
       meterReading: input.meterReading ?? null,
       performedByUserId: input.performedByUserId ?? null,
