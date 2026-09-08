@@ -6,7 +6,13 @@ import { listAssets } from "@/lib/assets/assets";
 import { requireCapability } from "@/lib/auth/require-capability";
 import { getProperty } from "@/lib/properties/properties";
 import { listOrganizationUsers } from "@/lib/users/users";
-import { WORK_ORDER_CAPABILITIES, WORK_ORDER_STATUS_LABELS, type WorkOrderStatus } from "@/lib/work-orders/constants";
+import {
+  WORK_ORDER_CAPABILITIES,
+  WORK_ORDER_SOURCE_LABELS,
+  WORK_ORDER_STATUS_LABELS,
+  type WorkOrderSource,
+  type WorkOrderStatus,
+} from "@/lib/work-orders/constants";
 import { listWorkOrderCategories } from "@/lib/work-orders/categories";
 import { getWorkOrder } from "@/lib/work-orders/work-orders";
 
@@ -42,6 +48,12 @@ export default async function WorkOrderDetailPage({
             {property ? <Link href={`/properties/${property.id}`}>{property.name}</Link> : "Unknown property"}
             {" · "}
             {WORK_ORDER_STATUS_LABELS[workOrder.status as WorkOrderStatus] ?? workOrder.status}
+            {workOrder.source && workOrder.source !== "staff" ? (
+              <>
+                {" · "}
+                {WORK_ORDER_SOURCE_LABELS[workOrder.source as WorkOrderSource] ?? workOrder.source}
+              </>
+            ) : null}
           </div>
         </div>
       </div>

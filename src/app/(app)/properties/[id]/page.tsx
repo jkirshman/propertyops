@@ -5,6 +5,7 @@ import { PropertyProfileTabs } from "@/components/properties/PropertyProfileTabs
 import { ASSET_CAPABILITIES } from "@/lib/assets/constants";
 import { requireCapability } from "@/lib/auth/require-capability";
 import { EQUIPMENT_CAPABILITIES } from "@/lib/equipment/constants";
+import { PREVENTIVE_MAINTENANCE_CAPABILITIES } from "@/lib/preventive-maintenance/constants";
 import { PROPERTY_CAPABILITIES } from "@/lib/properties/constants";
 import { getProperty } from "@/lib/properties/properties";
 import { getPropertyType } from "@/lib/properties/property-types";
@@ -58,6 +59,7 @@ export default async function PropertyDetailPage({
         canEditEquipment={context.capabilityKeys.includes(EQUIPMENT_CAPABILITIES.EDIT)}
         canManageEquipmentTemplate={context.capabilityKeys.includes(PROPERTY_CAPABILITIES.EDIT)}
         canAssignAssets={context.capabilityKeys.includes(ASSET_CAPABILITIES.ASSIGN)}
+        canCreatePreventiveMaintenance={context.capabilityKeys.includes(PREVENTIVE_MAINTENANCE_CAPABILITIES.CREATE)}
       />
     </div>
   );

@@ -79,8 +79,11 @@ export async function getWorkOrder(organizationId: string, id: string) {
 
 export async function createWorkOrder(
   organizationId: string,
-  createdByUserId: string,
+  createdByUserId: string | null,
   input: CreateWorkOrderInput,
+  // `source` defaults to the DB column default ("staff") when omitted — only
+  // system-driven generators (preventive maintenance) pass an override.
+  overrides: { source?: string } = {},
 ) {
   const sequenceNumber = await getNextWorkOrderSequenceNumber(organizationId);
 
@@ -95,10 +98,11 @@ export async function createWorkOrder(
       subject: input.subject,
       description: input.description ?? null,
       priority: input.priority,
-      requesterUserId: input.requesterUserId ?? createdByUserId,
+      requesterUserId: input.requesterUserId ?? createdByUserId ?? null,
       assignedUserId: input.assignedUserId ?? null,
       createdByUserId,
       number: formatWorkOrderNumber(sequenceNumber),
+      ...(overrides.source ? { source: overrides.source } : {}),
     })
     .returning();
   return row;

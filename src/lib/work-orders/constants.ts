@@ -47,4 +47,12 @@ export const WORK_ORDER_PRIORITY_LABELS: Record<WorkOrderPriority, string> = {
 export const WORK_ORDER_NOTE_VISIBILITIES = ["internal"] as const;
 export type WorkOrderNoteVisibility = (typeof WORK_ORDER_NOTE_VISIBILITIES)[number];
 
+export const WORK_ORDER_SOURCES = ["staff", "preventive_maintenance"] as const;
+export type WorkOrderSource = (typeof WORK_ORDER_SOURCES)[number];
+
+export const WORK_ORDER_SOURCE_LABELS: Record<WorkOrderSource, string> = {
+  staff: "Staff",
+  preventive_maintenance: "Preventive Maintenance",
+};
+
 export const WORK_ORDER_FILES_ENTITY_TYPE = "work_order";

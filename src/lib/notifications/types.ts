@@ -8,6 +8,9 @@ export const NOTIFICATION_TYPES = {
   EQUIPMENT_OUT_OF_SERVICE: "equipment.out_of_service",
   EQUIPMENT_CONDITION_POOR: "equipment.condition_poor",
   ASSET_ASSIGNED: "asset.assigned",
+  PREVENTIVE_MAINTENANCE_OVERDUE: "preventive_maintenance.overdue",
+  PREVENTIVE_MAINTENANCE_WORK_ORDER_GENERATED: "preventive_maintenance.work_order_generated",
+  PREVENTIVE_MAINTENANCE_WORK_ORDER_COMPLETED: "preventive_maintenance.work_order_completed",
 } as const;
 
 export type NotificationType = (typeof NOTIFICATION_TYPES)[keyof typeof NOTIFICATION_TYPES];

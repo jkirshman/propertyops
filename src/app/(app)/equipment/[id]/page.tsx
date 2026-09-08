@@ -12,6 +12,7 @@ import {
   type EquipmentStatus,
 } from "@/lib/equipment/constants";
 import { getPropertyEquipment } from "@/lib/equipment/property-equipment";
+import { PREVENTIVE_MAINTENANCE_CAPABILITIES } from "@/lib/preventive-maintenance/constants";
 import { getProperty } from "@/lib/properties/properties";
 import { WORK_ORDER_CAPABILITIES } from "@/lib/work-orders/constants";
 
@@ -72,6 +73,7 @@ export default async function PropertyEquipmentDetailPage({
         canManageService={capabilityKeys.includes(EQUIPMENT_CAPABILITIES.MANAGE_SERVICE)}
         canManageDocuments={capabilityKeys.includes(EQUIPMENT_CAPABILITIES.MANAGE_DOCUMENTS)}
         canCreateWorkOrders={capabilityKeys.includes(WORK_ORDER_CAPABILITIES.CREATE)}
+        canCreatePreventiveMaintenance={capabilityKeys.includes(PREVENTIVE_MAINTENANCE_CAPABILITIES.CREATE)}
       />
     </div>
   );

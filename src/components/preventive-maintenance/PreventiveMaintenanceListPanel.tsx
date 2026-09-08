@@ -4,15 +4,11 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import {
-  WORK_ORDER_PRIORITY_LABELS,
-  WORK_ORDER_SOURCE_LABELS,
-  WORK_ORDER_STATUSES,
-  WORK_ORDER_STATUS_LABELS,
-  WORK_ORDER_PRIORITIES,
-  type WorkOrderPriority,
-  type WorkOrderSource,
-  type WorkOrderStatus,
-} from "@/lib/work-orders/constants";
+  PM_DUE_STATES,
+  PM_DUE_STATE_LABELS,
+  type PmDueState,
+} from "@/lib/preventive-maintenance/constants";
+import { classifyDueState } from "@/lib/preventive-maintenance/recurrence";
 
 interface OptionRecord {
   id: string;
@@ -24,45 +20,62 @@ interface UserOption {
   displayName: string;
 }
 
-interface WorkOrderRow {
+interface PlanRow {
   id: string;
-  number: string;
-  subject: string;
+  name: string;
   propertyId: string;
+  propertyEquipmentId: string | null;
   categoryId: string;
-  priority: string;
-  status: string;
-  source: string;
-  assignedUserId: string | null;
-  updatedAt: string;
+  nextDueAt: string;
+  isActive: boolean;
+  defaultAssigneeUserId: string | null;
 }
 
-export function WorkOrdersListPanel({
+const DUE_STATE_BADGE_STYLE: Record<PmDueState, { background: string; color: string }> = {
+  overdue: { background: "#fee2e2", color: "#991b1b" },
+  due_soon: { background: "#fef3c7", color: "#92400e" },
+  upcoming: { background: "#e0f2fe", color: "#075985" },
+};
+
+function DueStateBadge({ nextDueAt }: { nextDueAt: string }) {
+  const state = classifyDueState(nextDueAt);
+  return (
+    <span
+      style={{
+        display: "inline-block",
+        padding: "0.15rem 0.5rem",
+        borderRadius: 999,
+        fontSize: "0.75rem",
+        fontWeight: 600,
+        ...DUE_STATE_BADGE_STYLE[state],
+      }}
+    >
+      {PM_DUE_STATE_LABELS[state]}
+    </span>
+  );
+}
+
+export function PreventiveMaintenanceListPanel({
   canCreate,
   initialPropertyId,
 }: {
   canCreate: boolean;
   initialPropertyId?: string;
 }) {
-  const [workOrders, setWorkOrders] = useState<WorkOrderRow[]>([]);
+  const [plans, setPlans] = useState<PlanRow[]>([]);
   const [properties, setProperties] = useState<OptionRecord[]>([]);
-  const [categories, setCategories] = useState<OptionRecord[]>([]);
   const [assignees, setAssignees] = useState<UserOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [propertyId, setPropertyId] = useState(initialPropertyId ?? "");
-  const [status, setStatus] = useState("");
-  const [priority, setPriority] = useState("");
-  const [categoryId, setCategoryId] = useState("");
+  const [active, setActive] = useState("true");
+  const [dueState, setDueState] = useState("");
   const [assignedUserId, setAssignedUserId] = useState("");
 
   useEffect(() => {
     fetch("/api/properties?active=true")
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => data && setProperties(data.properties ?? []));
-    fetch("/api/work-order-categories")
-      .then((r) => (r.ok ? r.json() : null))
-      .then((data) => data && setCategories(data.categories ?? []));
     fetch("/api/users")
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => data && setAssignees(data.users ?? []));
@@ -72,17 +85,16 @@ export function WorkOrdersListPanel({
     const params = new URLSearchParams();
     if (search.trim()) params.set("search", search.trim());
     if (propertyId) params.set("propertyId", propertyId);
-    if (status) params.set("status", status);
-    if (priority) params.set("priority", priority);
-    if (categoryId) params.set("categoryId", categoryId);
+    if (active) params.set("active", active);
+    if (dueState) params.set("dueState", dueState);
     if (assignedUserId) params.set("assignedUserId", assignedUserId);
 
-    return fetch(`/api/work-orders?${params.toString()}`)
+    return fetch(`/api/preventive-maintenance-plans?${params.toString()}`)
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => {
-        if (data) setWorkOrders(data.workOrders ?? []);
+        if (data) setPlans(data.plans ?? []);
       });
-  }, [search, propertyId, status, priority, categoryId, assignedUserId]);
+  }, [search, propertyId, active, dueState, assignedUserId]);
 
   useEffect(() => {
     const handle = setTimeout(() => {
@@ -98,12 +110,6 @@ export function WorkOrdersListPanel({
     return map;
   }, [properties]);
 
-  const categoryNameById = useMemo(() => {
-    const map = new Map<string, string>();
-    for (const category of categories) map.set(category.id, category.name);
-    return map;
-  }, [categories]);
-
   const assigneeNameById = useMemo(() => {
     const map = new Map<string, string>();
     for (const assignee of assignees) map.set(assignee.id, assignee.displayName);
@@ -117,7 +123,7 @@ export function WorkOrdersListPanel({
           <input
             className="input"
             style={{ maxWidth: 220 }}
-            placeholder="Search work orders…"
+            placeholder="Search plans…"
             value={search}
             onChange={(event) => setSearch(event.target.value)}
           />
@@ -129,27 +135,16 @@ export function WorkOrdersListPanel({
               </option>
             ))}
           </select>
-          <select className="input" style={{ maxWidth: 150 }} value={status} onChange={(event) => setStatus(event.target.value)}>
-            <option value="">All statuses</option>
-            {WORK_ORDER_STATUSES.map((value) => (
-              <option key={value} value={value}>
-                {WORK_ORDER_STATUS_LABELS[value as WorkOrderStatus]}
-              </option>
-            ))}
+          <select className="input" style={{ maxWidth: 150 }} value={active} onChange={(event) => setActive(event.target.value)}>
+            <option value="true">Active</option>
+            <option value="false">Inactive</option>
+            <option value="">All</option>
           </select>
-          <select className="input" style={{ maxWidth: 140 }} value={priority} onChange={(event) => setPriority(event.target.value)}>
-            <option value="">All priorities</option>
-            {WORK_ORDER_PRIORITIES.map((value) => (
+          <select className="input" style={{ maxWidth: 150 }} value={dueState} onChange={(event) => setDueState(event.target.value)}>
+            <option value="">Any due state</option>
+            {PM_DUE_STATES.map((value) => (
               <option key={value} value={value}>
-                {WORK_ORDER_PRIORITY_LABELS[value as WorkOrderPriority]}
-              </option>
-            ))}
-          </select>
-          <select className="input" style={{ maxWidth: 170 }} value={categoryId} onChange={(event) => setCategoryId(event.target.value)}>
-            <option value="">All categories</option>
-            {categories.map((category) => (
-              <option key={category.id} value={category.id}>
-                {category.name}
+                {PM_DUE_STATE_LABELS[value]}
               </option>
             ))}
           </select>
@@ -169,10 +164,10 @@ export function WorkOrdersListPanel({
         </div>
         {canCreate ? (
           <Link
-            href={initialPropertyId ? `/work-orders/new?propertyId=${initialPropertyId}` : "/work-orders/new"}
+            href={initialPropertyId ? `/preventive-maintenance/new?propertyId=${initialPropertyId}` : "/preventive-maintenance/new"}
             className="button button-primary"
           >
-            New Work Order
+            New Plan
           </Link>
         ) : null}
       </div>
@@ -180,52 +175,38 @@ export function WorkOrdersListPanel({
       <div className="card">
         {loading ? (
           <p className="muted">Loading…</p>
-        ) : workOrders.length === 0 ? (
+        ) : plans.length === 0 ? (
           <p className="muted">
-            No work orders match your filters yet.{" "}
-            {canCreate ? <Link href="/work-orders/new">Create the first one.</Link> : null}
+            No preventive maintenance plans match your filters yet.{" "}
+            {canCreate ? <Link href="/preventive-maintenance/new">Create the first one.</Link> : null}
           </p>
         ) : (
           <div style={{ overflowX: "auto" }}>
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.9rem" }}>
               <thead>
                 <tr style={{ textAlign: "left", borderBottom: "1px solid var(--border)" }}>
-                  <th style={{ padding: "0.5rem" }}>Number</th>
-                  <th style={{ padding: "0.5rem" }}>Subject</th>
+                  <th style={{ padding: "0.5rem" }}>Plan</th>
                   <th style={{ padding: "0.5rem" }}>Property</th>
-                  <th style={{ padding: "0.5rem" }}>Category</th>
-                  <th style={{ padding: "0.5rem" }}>Priority</th>
+                  <th style={{ padding: "0.5rem" }}>Next due</th>
+                  <th style={{ padding: "0.5rem" }}>Due state</th>
                   <th style={{ padding: "0.5rem" }}>Status</th>
-                  <th style={{ padding: "0.5rem" }}>Source</th>
-                  <th style={{ padding: "0.5rem" }}>Assigned</th>
-                  <th style={{ padding: "0.5rem" }}>Updated</th>
+                  <th style={{ padding: "0.5rem" }}>Assignee</th>
                 </tr>
               </thead>
               <tbody>
-                {workOrders.map((wo) => (
-                  <tr key={wo.id} style={{ borderBottom: "1px solid var(--border)" }}>
+                {plans.map((plan) => (
+                  <tr key={plan.id} style={{ borderBottom: "1px solid var(--border)" }}>
                     <td style={{ padding: "0.5rem" }}>
-                      <Link href={`/work-orders/${wo.id}`}>{wo.number}</Link>
+                      <Link href={`/preventive-maintenance/${plan.id}`}>{plan.name}</Link>
                     </td>
+                    <td style={{ padding: "0.5rem" }}>{propertyNameById.get(plan.propertyId) ?? "—"}</td>
+                    <td style={{ padding: "0.5rem" }}>{plan.nextDueAt}</td>
                     <td style={{ padding: "0.5rem" }}>
-                      <Link href={`/work-orders/${wo.id}`}>{wo.subject}</Link>
+                      {plan.isActive ? <DueStateBadge nextDueAt={plan.nextDueAt} /> : "—"}
                     </td>
-                    <td style={{ padding: "0.5rem" }}>{propertyNameById.get(wo.propertyId) ?? "—"}</td>
-                    <td style={{ padding: "0.5rem" }}>{categoryNameById.get(wo.categoryId) ?? "—"}</td>
+                    <td style={{ padding: "0.5rem" }}>{plan.isActive ? "Active" : "Inactive"}</td>
                     <td style={{ padding: "0.5rem" }}>
-                      {WORK_ORDER_PRIORITY_LABELS[wo.priority as WorkOrderPriority] ?? wo.priority}
-                    </td>
-                    <td style={{ padding: "0.5rem" }}>
-                      {WORK_ORDER_STATUS_LABELS[wo.status as WorkOrderStatus] ?? wo.status}
-                    </td>
-                    <td style={{ padding: "0.5rem" }}>
-                      {WORK_ORDER_SOURCE_LABELS[wo.source as WorkOrderSource] ?? wo.source}
-                    </td>
-                    <td style={{ padding: "0.5rem" }}>
-                      {wo.assignedUserId ? (assigneeNameById.get(wo.assignedUserId) ?? "—") : "Unassigned"}
-                    </td>
-                    <td className="muted" style={{ padding: "0.5rem" }}>
-                      {new Date(wo.updatedAt).toLocaleString()}
+                      {plan.defaultAssigneeUserId ? (assigneeNameById.get(plan.defaultAssigneeUserId) ?? "—") : "Unassigned"}
                     </td>
                   </tr>
                 ))}

@@ -4,6 +4,7 @@ import { useState } from "react";
 
 import { EquipmentActivityPanel } from "@/components/equipment/EquipmentActivityPanel";
 import { EquipmentDocumentsPanel } from "@/components/equipment/EquipmentDocumentsPanel";
+import { EquipmentPreventiveMaintenancePanel } from "@/components/equipment/EquipmentPreventiveMaintenancePanel";
 import { EquipmentServiceHistoryPanel } from "@/components/equipment/EquipmentServiceHistoryPanel";
 import { EquipmentWorkOrdersPanel } from "@/components/equipment/EquipmentWorkOrdersPanel";
 import {
@@ -30,12 +31,13 @@ export interface EquipmentRecord {
   notes: string | null;
 }
 
-const TABS = ["overview", "service", "workorders", "documents", "activity"] as const;
+const TABS = ["overview", "service", "workorders", "maintenance", "documents", "activity"] as const;
 type Tab = (typeof TABS)[number];
 const TAB_LABELS: Record<Tab, string> = {
   overview: "Overview",
   service: "Service History",
   workorders: "Work Orders",
+  maintenance: "Preventive Maintenance",
   documents: "Documents",
   activity: "Activity",
 };
@@ -46,12 +48,14 @@ export function EquipmentDetailPanel({
   canManageService,
   canManageDocuments,
   canCreateWorkOrders,
+  canCreatePreventiveMaintenance,
 }: {
   initialEquipment: EquipmentRecord;
   canEdit: boolean;
   canManageService: boolean;
   canManageDocuments: boolean;
   canCreateWorkOrders: boolean;
+  canCreatePreventiveMaintenance: boolean;
 }) {
   const [equipment, setEquipment] = useState(initialEquipment);
   const [tab, setTab] = useState<Tab>("overview");
@@ -313,6 +317,12 @@ export function EquipmentDetailPanel({
       ) : null}
       {tab === "workorders" ? (
         <EquipmentWorkOrdersPanel propertyEquipmentId={equipment.id} canCreate={canCreateWorkOrders} />
+      ) : null}
+      {tab === "maintenance" ? (
+        <EquipmentPreventiveMaintenancePanel
+          propertyEquipmentId={equipment.id}
+          canCreate={canCreatePreventiveMaintenance}
+        />
       ) : null}
       {tab === "documents" ? (
         <EquipmentDocumentsPanel propertyEquipmentId={equipment.id} canManage={canManageDocuments} />

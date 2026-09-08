@@ -6,6 +6,7 @@ import { diffFields } from "@/lib/db/diff-fields";
 import { getAsset } from "@/lib/assets/assets";
 import { getPropertyEquipment } from "@/lib/equipment/property-equipment";
 import { createNotification } from "@/lib/notifications/notifications";
+import { syncPreventiveMaintenanceOccurrenceStatus } from "@/lib/preventive-maintenance/occurrences";
 import { updateWorkOrderSchema } from "@/lib/validation/work-orders";
 import { WORK_ORDER_CAPABILITIES, type WorkOrderStatus } from "@/lib/work-orders/constants";
 import {
@@ -119,6 +120,12 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
         before: pick(diff.before, ["status"]),
         after: pick(diff.after, ["status"]),
       });
+
+      await syncPreventiveMaintenanceOccurrenceStatus(
+        user.organizationId,
+        { ...updated, status: updated.status as WorkOrderStatus },
+        user.id,
+      );
 
       const recipientId = updated.requesterUserId;
       if (recipientId && recipientId !== user.id) {

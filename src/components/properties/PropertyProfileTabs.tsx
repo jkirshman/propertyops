@@ -8,6 +8,7 @@ import { DocumentsPanel } from "@/components/properties/DocumentsPanel";
 import { EquipmentPanel } from "@/components/properties/EquipmentPanel";
 import { NotesPanel } from "@/components/properties/NotesPanel";
 import { PropertyAssetsPanel } from "@/components/properties/PropertyAssetsPanel";
+import { PropertyPreventiveMaintenancePanel } from "@/components/properties/PropertyPreventiveMaintenancePanel";
 import { PropertyWorkOrdersPanel } from "@/components/properties/PropertyWorkOrdersPanel";
 import { OCCUPANCY_MODEL_LABELS, type OccupancyModel } from "@/lib/properties/constants";
 
@@ -33,6 +34,7 @@ const TABS = [
   "equipment",
   "assets",
   "workorders",
+  "maintenance",
   "contacts",
   "notes",
   "documents",
@@ -45,6 +47,7 @@ const TAB_LABELS: Record<Tab, string> = {
   equipment: "Equipment",
   assets: "Assets",
   workorders: "Work Orders",
+  maintenance: "Preventive Maintenance",
   contacts: "Contacts",
   notes: "Notes",
   documents: "Documents",
@@ -111,6 +114,7 @@ export function PropertyProfileTabs({
   canEditEquipment,
   canManageEquipmentTemplate,
   canAssignAssets,
+  canCreatePreventiveMaintenance,
 }: {
   propertyId: string;
   overview: PropertyOverview;
@@ -122,6 +126,7 @@ export function PropertyProfileTabs({
   canEditEquipment: boolean;
   canManageEquipmentTemplate: boolean;
   canAssignAssets: boolean;
+  canCreatePreventiveMaintenance: boolean;
 }) {
   const [tab, setTab] = useState<Tab>("overview");
 
@@ -162,6 +167,9 @@ export function PropertyProfileTabs({
       ) : null}
       {tab === "workorders" ? (
         <PropertyWorkOrdersPanel propertyId={propertyId} canCreate={canCreateWorkOrders} />
+      ) : null}
+      {tab === "maintenance" ? (
+        <PropertyPreventiveMaintenancePanel propertyId={propertyId} canCreate={canCreatePreventiveMaintenance} />
       ) : null}
       {tab === "contacts" ? <ContactsPanel propertyId={propertyId} canManage={canManageContacts} /> : null}
       {tab === "notes" ? <NotesPanel propertyId={propertyId} canManage={canManageNotes} /> : null}

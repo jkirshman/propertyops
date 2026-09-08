@@ -174,6 +174,19 @@ const ASSET_CAPABILITIES_SEED = [
   { key: "person.manage", description: "Manage people" },
 ];
 
+// Preventive maintenance capabilities. All are granted to the administrator role below;
+// future roles can be granted a subset without any schema change.
+const PREVENTIVE_MAINTENANCE_CAPABILITIES_SEED = [
+  { key: "preventive_maintenance.view", description: "View preventive maintenance plans" },
+  { key: "preventive_maintenance.create", description: "Create preventive maintenance plans" },
+  { key: "preventive_maintenance.edit", description: "Edit preventive maintenance plans" },
+  { key: "preventive_maintenance.generate", description: "Manually generate a preventive maintenance work order" },
+  {
+    key: "preventive_maintenance.manage_status",
+    description: "Activate or deactivate preventive maintenance plans",
+  },
+];
+
 const DEFAULT_ASSET_CATEGORIES = [
   { name: "Computer", slug: "computer" },
   { name: "Tablet", slug: "tablet" },
@@ -248,6 +261,7 @@ async function main() {
     ...WORK_ORDER_CAPABILITIES,
     ...EQUIPMENT_CAPABILITIES_SEED,
     ...ASSET_CAPABILITIES_SEED,
+    ...PREVENTIVE_MAINTENANCE_CAPABILITIES_SEED,
   ]) {
     let [cap] = await db.select().from(capabilities).where(eq(capabilities.key, key)).limit(1);
 

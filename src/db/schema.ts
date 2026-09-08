@@ -594,6 +594,76 @@ export const workOrderNotes = pgTable("work_order_notes", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
+export const preventiveMaintenancePlans = pgTable("preventive_maintenance_plans", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  organizationId: uuid("organization_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  propertyId: uuid("property_id")
+    .notNull()
+    .references(() => properties.id, { onDelete: "cascade" }),
+  propertyEquipmentId: uuid("property_equipment_id").references(() => propertyEquipment.id, {
+    onDelete: "set null",
+  }),
+  categoryId: uuid("category_id")
+    .notNull()
+    .references(() => workOrderCategories.id, { onDelete: "restrict" }),
+  name: text("name").notNull(),
+  description: text("description"),
+  instructions: text("instructions"),
+  defaultPriority: text("default_priority").notNull().default("normal"),
+  defaultAssigneeUserId: uuid("default_assignee_user_id").references(() => users.id, {
+    onDelete: "set null",
+  }),
+  // Deterministic recurrence, not a calendar rule designer: 'week' | 'month' plus
+  // a count (e.g. month/3 = quarterly, week/2 = every 2 weeks).
+  intervalUnit: text("interval_unit").notNull(),
+  intervalValue: integer("interval_value").notNull().default(1),
+  // Plain calendar date (no time-of-day component) so month/leap-year arithmetic
+  // is unambiguous without an org-level timezone concept.
+  nextDueAt: date("next_due_at").notNull(),
+  lastGeneratedAt: timestamp("last_generated_at", { withTimezone: true }),
+  lastCompletedAt: timestamp("last_completed_at", { withTimezone: true }),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+// First-class row per due occurrence: the (planId, dueDate) unique index is the
+// idempotency guarantee that a given due date generates at most one Work Order,
+// even under concurrent/duplicate cron execution.
+export const preventiveMaintenanceOccurrences = pgTable(
+  "preventive_maintenance_occurrences",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    planId: uuid("plan_id")
+      .notNull()
+      .references(() => preventiveMaintenancePlans.id, { onDelete: "cascade" }),
+    propertyId: uuid("property_id")
+      .notNull()
+      .references(() => properties.id, { onDelete: "cascade" }),
+    dueDate: date("due_date").notNull(),
+    // NULLs are distinct in a unique index (see notifications_recipient_dedupe_unique),
+    // so this stays unique per generated work order without blocking un-linked rows.
+    workOrderId: uuid("work_order_id").references(() => workOrders.id, { onDelete: "set null" }),
+    status: text("status").notNull().default("generated"),
+    generatedAt: timestamp("generated_at", { withTimezone: true }).notNull().defaultNow(),
+    generatedByUserId: uuid("generated_by_user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+    cancelledAt: timestamp("cancelled_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("pm_occurrences_plan_due_date_unique").on(table.planId, table.dueDate),
+    uniqueIndex("pm_occurrences_work_order_unique").on(table.workOrderId),
+  ],
+);
+
 export const auditLog = pgTable("audit_log", {
   id: uuid("id").primaryKey().defaultRandom(),
   organizationId: uuid("organization_id")

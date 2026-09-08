@@ -23,6 +23,7 @@ export function AppHeader({
   showAdminLink,
   showPropertiesLink,
   showWorkOrdersLink,
+  showPreventiveMaintenanceLink,
   showAssetsLink,
   showPeopleLink,
 }: {
@@ -31,6 +32,7 @@ export function AppHeader({
   showAdminLink: boolean;
   showPropertiesLink: boolean;
   showWorkOrdersLink: boolean;
+  showPreventiveMaintenanceLink: boolean;
   showAssetsLink: boolean;
   showPeopleLink: boolean;
 }) {
@@ -57,6 +59,9 @@ export function AppHeader({
             <NavLink href="/">Home</NavLink>
             {showPropertiesLink ? <NavLink href="/properties">Properties</NavLink> : null}
             {showWorkOrdersLink ? <NavLink href="/work-orders">Work Orders</NavLink> : null}
+            {showPreventiveMaintenanceLink ? (
+              <NavLink href="/preventive-maintenance">Preventive Maintenance</NavLink>
+            ) : null}
             {showAssetsLink ? <NavLink href="/assets">Assets</NavLink> : null}
             {showPeopleLink ? <NavLink href="/people">People</NavLink> : null}
             {showAdminLink ? <NavLink href="/admin">Admin Hub</NavLink> : null}
