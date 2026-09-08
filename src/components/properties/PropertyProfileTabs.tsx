@@ -8,6 +8,8 @@ import { DocumentsPanel } from "@/components/properties/DocumentsPanel";
 import { EquipmentPanel } from "@/components/properties/EquipmentPanel";
 import { NotesPanel } from "@/components/properties/NotesPanel";
 import { PropertyAssetsPanel } from "@/components/properties/PropertyAssetsPanel";
+import { PropertyCompliancePanel } from "@/components/properties/PropertyCompliancePanel";
+import { PropertyInspectionsPanel } from "@/components/properties/PropertyInspectionsPanel";
 import { PropertyPreventiveMaintenancePanel } from "@/components/properties/PropertyPreventiveMaintenancePanel";
 import { PropertyVendorsPanel } from "@/components/properties/PropertyVendorsPanel";
 import { PropertyWorkOrdersPanel } from "@/components/properties/PropertyWorkOrdersPanel";
@@ -37,6 +39,8 @@ const TABS = [
   "workorders",
   "maintenance",
   "vendors",
+  "inspections",
+  "compliance",
   "contacts",
   "notes",
   "documents",
@@ -51,6 +55,8 @@ const TAB_LABELS: Record<Tab, string> = {
   workorders: "Work Orders",
   maintenance: "Preventive Maintenance",
   vendors: "Vendors",
+  inspections: "Inspections",
+  compliance: "Compliance",
   contacts: "Contacts",
   notes: "Notes",
   documents: "Documents",
@@ -119,6 +125,8 @@ export function PropertyProfileTabs({
   canAssignAssets,
   canCreatePreventiveMaintenance,
   canManageVendorCoverage,
+  canCreateInspections,
+  canManageCompliance,
 }: {
   propertyId: string;
   overview: PropertyOverview;
@@ -132,6 +140,8 @@ export function PropertyProfileTabs({
   canAssignAssets: boolean;
   canCreatePreventiveMaintenance: boolean;
   canManageVendorCoverage: boolean;
+  canCreateInspections: boolean;
+  canManageCompliance: boolean;
 }) {
   const [tab, setTab] = useState<Tab>("overview");
 
@@ -178,6 +188,12 @@ export function PropertyProfileTabs({
       ) : null}
       {tab === "vendors" ? (
         <PropertyVendorsPanel propertyId={propertyId} canManage={canManageVendorCoverage} />
+      ) : null}
+      {tab === "inspections" ? (
+        <PropertyInspectionsPanel propertyId={propertyId} canCreate={canCreateInspections} />
+      ) : null}
+      {tab === "compliance" ? (
+        <PropertyCompliancePanel propertyId={propertyId} canManage={canManageCompliance} />
       ) : null}
       {tab === "contacts" ? <ContactsPanel propertyId={propertyId} canManage={canManageContacts} /> : null}
       {tab === "notes" ? <NotesPanel propertyId={propertyId} canManage={canManageNotes} /> : null}

@@ -1,5 +1,6 @@
 import { ASSET_CATEGORY_CAPABILITIES } from "@/lib/assets/constants";
 import { EQUIPMENT_CATALOG_CAPABILITIES, EQUIPMENT_TEMPLATE_CAPABILITIES } from "@/lib/equipment/constants";
+import { INSPECTION_TEMPLATE_CAPABILITIES } from "@/lib/inspections/constants";
 import { PROPERTY_TYPE_CAPABILITIES } from "@/lib/properties/constants";
 import { VENDOR_CATEGORY_CAPABILITIES } from "@/lib/vendors/constants";
 import { WORK_ORDER_CATEGORY_CAPABILITIES } from "@/lib/work-orders/constants";
@@ -27,6 +28,7 @@ export const ADMIN_TILE_GROUPS = [
   { id: "equipment", title: "Equipment" },
   { id: "assets", title: "Assets" },
   { id: "vendors", title: "Vendors" },
+  { id: "inspections", title: "Inspections" },
   { id: "access", title: "Access" },
   { id: "communications", title: "Communications" },
   { id: "platform", title: "Platform" },
@@ -80,6 +82,22 @@ export const ADMIN_TILES: AdminTile[] = [
     href: "/admin/vendor-categories",
     group: "vendors",
     requiredCapability: VENDOR_CATEGORY_CAPABILITIES.MANAGE,
+  },
+  {
+    id: "inspection-templates",
+    title: "Inspection Templates",
+    description: "Define reusable inspection checklists for Properties and Equipment.",
+    href: "/admin/inspection-templates",
+    group: "inspections",
+    requiredCapability: INSPECTION_TEMPLATE_CAPABILITIES.MANAGE,
+  },
+  {
+    id: "inspection-categories",
+    title: "Inspection Categories",
+    description: "Manage the category taxonomy used to organize Inspection Templates.",
+    href: "/admin/inspection-categories",
+    group: "inspections",
+    requiredCapability: INSPECTION_TEMPLATE_CAPABILITIES.MANAGE,
   },
   {
     id: "users",

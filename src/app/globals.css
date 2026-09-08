@@ -204,6 +204,16 @@ a.card:hover,
   outline-offset: 1px;
 }
 
+/* Invalid-field state: red border, matched focus ring — no layout-shifting
+   text block, just a clear visual cue paired with the form's top banner. */
+.input[aria-invalid="true"] {
+  border-color: var(--danger);
+}
+
+.input[aria-invalid="true"]:focus-visible {
+  outline-color: var(--danger);
+}
+
 .label {
   display: block;
   font-size: 0.85rem;

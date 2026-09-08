@@ -4,6 +4,7 @@ import { useState } from "react";
 
 import { EquipmentActivityPanel } from "@/components/equipment/EquipmentActivityPanel";
 import { EquipmentDocumentsPanel } from "@/components/equipment/EquipmentDocumentsPanel";
+import { EquipmentInspectionsPanel } from "@/components/equipment/EquipmentInspectionsPanel";
 import { EquipmentPreventiveMaintenancePanel } from "@/components/equipment/EquipmentPreventiveMaintenancePanel";
 import { EquipmentServiceHistoryPanel } from "@/components/equipment/EquipmentServiceHistoryPanel";
 import { EquipmentWorkOrdersPanel } from "@/components/equipment/EquipmentWorkOrdersPanel";
@@ -31,13 +32,14 @@ export interface EquipmentRecord {
   notes: string | null;
 }
 
-const TABS = ["overview", "service", "workorders", "maintenance", "documents", "activity"] as const;
+const TABS = ["overview", "service", "workorders", "maintenance", "inspections", "documents", "activity"] as const;
 type Tab = (typeof TABS)[number];
 const TAB_LABELS: Record<Tab, string> = {
   overview: "Overview",
   service: "Service History",
   workorders: "Work Orders",
   maintenance: "Preventive Maintenance",
+  inspections: "Inspections",
   documents: "Documents",
   activity: "Activity",
 };
@@ -49,6 +51,7 @@ export function EquipmentDetailPanel({
   canManageDocuments,
   canCreateWorkOrders,
   canCreatePreventiveMaintenance,
+  canCreateInspections,
 }: {
   initialEquipment: EquipmentRecord;
   canEdit: boolean;
@@ -56,6 +59,7 @@ export function EquipmentDetailPanel({
   canManageDocuments: boolean;
   canCreateWorkOrders: boolean;
   canCreatePreventiveMaintenance: boolean;
+  canCreateInspections: boolean;
 }) {
   const [equipment, setEquipment] = useState(initialEquipment);
   const [tab, setTab] = useState<Tab>("overview");
@@ -323,6 +327,9 @@ export function EquipmentDetailPanel({
           propertyEquipmentId={equipment.id}
           canCreate={canCreatePreventiveMaintenance}
         />
+      ) : null}
+      {tab === "inspections" ? (
+        <EquipmentInspectionsPanel propertyEquipmentId={equipment.id} canCreate={canCreateInspections} />
       ) : null}
       {tab === "documents" ? (
         <EquipmentDocumentsPanel propertyEquipmentId={equipment.id} canManage={canManageDocuments} />

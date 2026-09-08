@@ -10,6 +10,7 @@ import {
   equipmentCatalogItems,
   equipmentTemplateItems,
   equipmentTemplates,
+  inspectionCategories,
   organizations,
   propertyTypes,
   roleCapabilities,
@@ -219,6 +220,38 @@ const DEFAULT_VENDOR_CATEGORIES = [
   { name: "Other", slug: "other", sortOrder: 14 },
 ];
 
+// Inspection domain capabilities. All are granted to the administrator role below;
+// future roles can be granted a subset without any schema change.
+const INSPECTION_CAPABILITIES_SEED = [
+  { key: "inspection.view", description: "View inspections" },
+  { key: "inspection.create", description: "Start inspections" },
+  { key: "inspection.edit", description: "Edit and cancel inspections" },
+  { key: "inspection.complete", description: "Complete inspections" },
+  { key: "inspection_template.view", description: "View inspection templates" },
+  { key: "inspection_template.manage", description: "Manage inspection templates and categories" },
+];
+
+const DEFAULT_INSPECTION_CATEGORIES = [
+  { name: "Property Condition", slug: "property-condition", sortOrder: 1 },
+  { name: "Safety", slug: "safety", sortOrder: 2 },
+  { name: "Fire / Life Safety", slug: "fire-life-safety", sortOrder: 3 },
+  { name: "Exterior / Grounds", slug: "exterior-grounds", sortOrder: 4 },
+  { name: "Move-In / Move-Out", slug: "move-in-move-out", sortOrder: 5 },
+  { name: "Routine Property Review", slug: "routine-property-review", sortOrder: 6 },
+  { name: "Equipment Inspection", slug: "equipment-inspection", sortOrder: 7 },
+  { name: "Compliance", slug: "compliance", sortOrder: 8 },
+  { name: "Other", slug: "other", sortOrder: 9 },
+];
+
+// Compliance domain capabilities. All are granted to the administrator role below;
+// future roles can be granted a subset without any schema change.
+const COMPLIANCE_CAPABILITIES_SEED = [
+  { key: "compliance.view", description: "View property compliance records" },
+  { key: "compliance.create", description: "Create property compliance records" },
+  { key: "compliance.edit", description: "Edit property compliance records" },
+  { key: "compliance.manage_documents", description: "Manage compliance record documents" },
+];
+
 const DEFAULT_ASSET_CATEGORIES = [
   { name: "Computer", slug: "computer" },
   { name: "Tablet", slug: "tablet" },
@@ -295,6 +328,8 @@ async function main() {
     ...ASSET_CAPABILITIES_SEED,
     ...PREVENTIVE_MAINTENANCE_CAPABILITIES_SEED,
     ...VENDOR_CAPABILITIES_SEED,
+    ...INSPECTION_CAPABILITIES_SEED,
+    ...COMPLIANCE_CAPABILITIES_SEED,
   ]) {
     let [cap] = await db.select().from(capabilities).where(eq(capabilities.key, key)).limit(1);
 
@@ -439,6 +474,22 @@ async function main() {
         .values({ organizationId: org.id, name, slug, sortOrder })
         .returning();
       console.log(`Created vendor category ${category.id} (${slug})`);
+    }
+  }
+
+  for (const { name, slug, sortOrder } of DEFAULT_INSPECTION_CATEGORIES) {
+    const [existingCategory] = await db
+      .select()
+      .from(inspectionCategories)
+      .where(and(eq(inspectionCategories.organizationId, org.id), eq(inspectionCategories.slug, slug)))
+      .limit(1);
+
+    if (!existingCategory) {
+      const [category] = await db
+        .insert(inspectionCategories)
+        .values({ organizationId: org.id, name, slug, sortOrder })
+        .returning();
+      console.log(`Created inspection category ${category.id} (${slug})`);
     }
   }
 

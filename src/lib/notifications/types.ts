@@ -11,6 +11,9 @@ export const NOTIFICATION_TYPES = {
   PREVENTIVE_MAINTENANCE_OVERDUE: "preventive_maintenance.overdue",
   PREVENTIVE_MAINTENANCE_WORK_ORDER_GENERATED: "preventive_maintenance.work_order_generated",
   PREVENTIVE_MAINTENANCE_WORK_ORDER_COMPLETED: "preventive_maintenance.work_order_completed",
+  INSPECTION_COMPLETED_WITH_FINDINGS: "inspection.completed_with_findings",
+  COMPLIANCE_EXPIRING_SOON: "compliance.expiring_soon",
+  COMPLIANCE_EXPIRED: "compliance.expired",
 } as const;
 
 export type NotificationType = (typeof NOTIFICATION_TYPES)[keyof typeof NOTIFICATION_TYPES];

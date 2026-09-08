@@ -789,6 +789,160 @@ export const vendorContacts = pgTable("vendor_contacts", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
+export const inspectionCategories = pgTable(
+  "inspection_categories",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    slug: text("slug").notNull(),
+    description: text("description"),
+    isActive: boolean("is_active").notNull().default(true),
+    sortOrder: integer("sort_order").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("inspection_categories_org_slug_unique").on(table.organizationId, table.slug),
+  ],
+);
+
+export const inspectionTemplates = pgTable("inspection_templates", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  organizationId: uuid("organization_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  categoryId: uuid("category_id")
+    .notNull()
+    .references(() => inspectionCategories.id, { onDelete: "restrict" }),
+  propertyTypeId: uuid("property_type_id").references(() => propertyTypes.id, {
+    onDelete: "set null",
+  }),
+  name: text("name").notNull(),
+  description: text("description"),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const inspectionTemplateItems = pgTable("inspection_template_items", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  organizationId: uuid("organization_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  templateId: uuid("template_id")
+    .notNull()
+    .references(() => inspectionTemplates.id, { onDelete: "cascade" }),
+  label: text("label").notNull(),
+  description: text("description"),
+  // 'pass_fail' | 'yes_no' | 'text' | 'numeric' | 'date' | 'choice' — kept a
+  // small fixed vocabulary rather than a generalized form-builder engine.
+  responseType: text("response_type").notNull(),
+  isRequired: boolean("is_required").notNull().default(true),
+  allowNote: boolean("allow_note").notNull().default(true),
+  // Only populated (and only meaningful) when responseType === 'choice'.
+  choices: jsonb("choices").$type<string[]>(),
+  sortOrder: integer("sort_order").notNull().default(0),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const inspections = pgTable("inspections", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  organizationId: uuid("organization_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  propertyId: uuid("property_id")
+    .notNull()
+    .references(() => properties.id, { onDelete: "cascade" }),
+  propertyEquipmentId: uuid("property_equipment_id").references(() => propertyEquipment.id, {
+    onDelete: "set null",
+  }),
+  templateId: uuid("template_id")
+    .notNull()
+    .references(() => inspectionTemplates.id, { onDelete: "restrict" }),
+  // Snapshot: the template's name at the time this inspection was created, so
+  // the header stays meaningful even if the template is later renamed.
+  templateName: text("template_name").notNull(),
+  status: text("status").notNull().default("draft"),
+  scheduledDate: date("scheduled_date"),
+  startedAt: timestamp("started_at", { withTimezone: true }),
+  completedAt: timestamp("completed_at", { withTimezone: true }),
+  inspectorUserId: uuid("inspector_user_id").references(() => users.id, { onDelete: "set null" }),
+  // 'passed' | 'passed_with_findings' | 'failed' — null until completed.
+  overallResult: text("overall_result"),
+  summary: text("summary"),
+  createdByUserId: uuid("created_by_user_id").references(() => users.id, { onDelete: "set null" }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+// One row per template item, created when the inspection starts. Every
+// item-context field is snapshotted here so a later template edit (renamed,
+// reordered, removed item) never rewrites already-recorded history.
+export const inspectionResponses = pgTable(
+  "inspection_responses",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    inspectionId: uuid("inspection_id")
+      .notNull()
+      .references(() => inspections.id, { onDelete: "cascade" }),
+    templateItemId: uuid("template_item_id").references(() => inspectionTemplateItems.id, {
+      onDelete: "set null",
+    }),
+    itemLabel: text("item_label").notNull(),
+    itemDescription: text("item_description"),
+    itemResponseType: text("item_response_type").notNull(),
+    itemRequired: boolean("item_required").notNull().default(true),
+    itemAllowNote: boolean("item_allow_note").notNull().default(true),
+    itemChoices: jsonb("item_choices").$type<string[]>(),
+    itemSortOrder: integer("item_sort_order").notNull().default(0),
+    // Normalized as text regardless of response type (numeric/date included) —
+    // deliberately simple rather than a polymorphic multi-column value store.
+    value: text("value"),
+    // 'pass' | 'fail' — only ever set for itemResponseType === 'pass_fail'.
+    // Other response types carry no derived pass/fail semantics.
+    outcome: text("outcome"),
+    note: text("note"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("inspection_responses_inspection_item_unique").on(
+      table.inspectionId,
+      table.templateItemId,
+    ),
+  ],
+);
+
+export const complianceRecords = pgTable("compliance_records", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  organizationId: uuid("organization_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  propertyId: uuid("property_id")
+    .notNull()
+    .references(() => properties.id, { onDelete: "cascade" }),
+  // Fixed constant list (see lib/compliance/constants.ts) rather than a
+  // configurable taxonomy table — this domain doesn't need per-org categories.
+  category: text("category").notNull(),
+  name: text("name").notNull(),
+  issuer: text("issuer"),
+  issuedDate: date("issued_date"),
+  expirationDate: date("expiration_date"),
+  // Record lifecycle (active/superseded), independent of the derived
+  // expiration status (current/expiring_soon/expired) computed at read time.
+  isActive: boolean("is_active").notNull().default(true),
+  notes: text("notes"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
 export const auditLog = pgTable("audit_log", {
   id: uuid("id").primaryKey().defaultRandom(),
   organizationId: uuid("organization_id")

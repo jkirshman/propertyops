@@ -1,4 +1,5 @@
 import { ASSET_CAPABILITIES, ASSET_FILES_ENTITY_TYPE } from "@/lib/assets/constants";
+import { COMPLIANCE_CAPABILITIES, COMPLIANCE_FILES_ENTITY_TYPE } from "@/lib/compliance/constants";
 import { EQUIPMENT_CAPABILITIES, PROPERTY_EQUIPMENT_FILES_ENTITY_TYPE } from "@/lib/equipment/constants";
 import { PROPERTY_CAPABILITIES, PROPERTY_FILES_ENTITY_TYPE } from "@/lib/properties/constants";
 import { VENDOR_CAPABILITIES, VENDOR_FILES_ENTITY_TYPE } from "@/lib/vendors/constants";
@@ -34,6 +35,10 @@ const RELATED_ENTITY_FILE_RULES: Record<string, RelatedEntityFileRules> = {
   [VENDOR_FILES_ENTITY_TYPE]: {
     viewCapability: VENDOR_CAPABILITIES.VIEW,
     manageCapability: VENDOR_CAPABILITIES.MANAGE_DOCUMENTS,
+  },
+  [COMPLIANCE_FILES_ENTITY_TYPE]: {
+    viewCapability: COMPLIANCE_CAPABILITIES.VIEW,
+    manageCapability: COMPLIANCE_CAPABILITIES.MANAGE_DOCUMENTS,
   },
 };
 

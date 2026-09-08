@@ -43,6 +43,31 @@ describe("createVendorSchema", () => {
     ).toBe(false);
   });
 
+  it("produces a friendly (non-technical) message for a malformed compliance date", () => {
+    const result = createVendorSchema.safeParse({ ...VALID, insuranceExpiresAt: "09/01/2026" });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      const message = result.error.flatten().fieldErrors.insuranceExpiresAt?.[0];
+      expect(message).toBe("Enter a valid date.");
+      expect(message).not.toMatch(/invalid_type|expected string|received/i);
+    }
+  });
+
+  it("accepts blank compliance dates and normalizes them to undefined", () => {
+    const result = createVendorSchema.safeParse({
+      ...VALID,
+      insuranceExpiresAt: "",
+      licenseExpiresAt: "",
+      contractExpiresAt: "",
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.insuranceExpiresAt).toBeUndefined();
+      expect(result.data.licenseExpiresAt).toBeUndefined();
+      expect(result.data.contractExpiresAt).toBeUndefined();
+    }
+  });
+
   it("treats a blank email as absent", () => {
     const result = createVendorSchema.parse({ ...VALID, primaryEmail: "" });
     expect(result.primaryEmail).toBeUndefined();
@@ -130,6 +155,33 @@ describe("updateVendorSchema", () => {
   it("accepts an explicit null to clear a compliance date", () => {
     const result = updateVendorSchema.parse({ insuranceExpiresAt: null });
     expect(result.insuranceExpiresAt).toBeNull();
+  });
+
+  it("accepts a blank compliance date and normalizes it to undefined (not an error)", () => {
+    const result = updateVendorSchema.safeParse({ insuranceExpiresAt: "" });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.insuranceExpiresAt).toBeUndefined();
+    }
+  });
+
+  it("accepts blank values for all three optional compliance dates at once", () => {
+    const result = updateVendorSchema.safeParse({
+      insuranceExpiresAt: "",
+      licenseExpiresAt: "",
+      contractExpiresAt: "",
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("produces a friendly (non-technical) message for a malformed compliance date on update", () => {
+    const result = updateVendorSchema.safeParse({ insuranceExpiresAt: "not-a-date" });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      const message = result.error.flatten().fieldErrors.insuranceExpiresAt?.[0];
+      expect(message).toBe("Enter a valid date.");
+      expect(message).not.toMatch(/invalid_type|expected string|received/i);
+    }
   });
 
   it("accepts an explicit null to clear notes", () => {

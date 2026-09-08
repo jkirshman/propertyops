@@ -57,6 +57,13 @@
       "when": 1788869281990,
       "tag": "0007_bored_lady_mastermind",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1788872876095,
+      "tag": "0008_bizarre_doomsday",
+      "breakpoints": true
     }
   ]
 }

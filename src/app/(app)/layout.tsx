@@ -4,6 +4,7 @@ import { AppHeader } from "@/components/shell/AppHeader";
 import { hasAnyAdminCapability } from "@/lib/admin/admin-hub-config";
 import { ASSET_CAPABILITIES } from "@/lib/assets/constants";
 import { getCurrentUserWithCapabilities } from "@/lib/auth/current-user";
+import { INSPECTION_CAPABILITIES } from "@/lib/inspections/constants";
 import { PERSON_CAPABILITIES } from "@/lib/people/constants";
 import { PREVENTIVE_MAINTENANCE_CAPABILITIES } from "@/lib/preventive-maintenance/constants";
 import { PROPERTY_CAPABILITIES } from "@/lib/properties/constants";
@@ -27,6 +28,7 @@ export default async function AppShellLayout({ children }: { children: React.Rea
         showPropertiesLink={capabilityKeys.includes(PROPERTY_CAPABILITIES.VIEW)}
         showWorkOrdersLink={capabilityKeys.includes(WORK_ORDER_CAPABILITIES.VIEW)}
         showPreventiveMaintenanceLink={capabilityKeys.includes(PREVENTIVE_MAINTENANCE_CAPABILITIES.VIEW)}
+        showInspectionsLink={capabilityKeys.includes(INSPECTION_CAPABILITIES.VIEW)}
         showVendorsLink={capabilityKeys.includes(VENDOR_CAPABILITIES.VIEW)}
         showAssetsLink={capabilityKeys.includes(ASSET_CAPABILITIES.VIEW)}
         showPeopleLink={capabilityKeys.includes(PERSON_CAPABILITIES.VIEW)}

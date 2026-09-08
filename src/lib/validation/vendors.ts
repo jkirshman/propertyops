@@ -6,9 +6,18 @@ const emptyToUndefined = (value: unknown) =>
   typeof value === "string" && value.trim() === "" ? undefined : value;
 
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+const DATE_MESSAGE = "Enter a valid date.";
 const dateOnly = z.preprocess(
   emptyToUndefined,
-  z.string().regex(DATE_PATTERN, "Expected a YYYY-MM-DD date").optional(),
+  z.string().regex(DATE_PATTERN, DATE_MESSAGE).optional(),
+);
+// Same rule as dateOnly, but nullable — used on update schemas where an
+// explicit null clears a previously-set date. Blank/omitted values on both
+// variants normalize to undefined via emptyToUndefined before validation, so
+// they never fail with a raw regex/type-mismatch message.
+const nullableDateOnly = z.preprocess(
+  emptyToUndefined,
+  z.string().regex(DATE_PATTERN, DATE_MESSAGE).optional().nullable(),
 );
 
 export const createVendorSchema = z.object({
@@ -78,9 +87,9 @@ export const updateVendorSchema = z.object({
   accountNumber: z.preprocess(emptyToUndefined, z.string().trim().max(120).optional().nullable()),
   notes: z.preprocess(emptyToUndefined, z.string().trim().max(4000).optional().nullable()),
   coverageMode: z.enum(VENDOR_COVERAGE_MODES).optional(),
-  insuranceExpiresAt: z.preprocess(emptyToUndefined, z.string().regex(DATE_PATTERN).optional().nullable()),
-  licenseExpiresAt: z.preprocess(emptyToUndefined, z.string().regex(DATE_PATTERN).optional().nullable()),
-  contractExpiresAt: z.preprocess(emptyToUndefined, z.string().regex(DATE_PATTERN).optional().nullable()),
+  insuranceExpiresAt: nullableDateOnly,
+  licenseExpiresAt: nullableDateOnly,
+  contractExpiresAt: nullableDateOnly,
   categoryIds: z.array(z.string().uuid()).max(50).optional(),
 });
 

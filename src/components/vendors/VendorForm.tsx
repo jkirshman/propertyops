@@ -3,20 +3,16 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useState, type FormEvent } from "react";
 
+import { VALIDATION_BANNER_MESSAGE, invalidFieldProps } from "@/lib/forms/field-errors";
 import { createVendorSchema, updateVendorSchema } from "@/lib/validation/vendors";
 import { VENDOR_COVERAGE_MODES, VENDOR_COVERAGE_MODE_LABELS } from "@/lib/vendors/constants";
 import { describeVendorApiError, mapFieldErrors } from "@/lib/vendors/form-errors";
 
+// Presentation standard (see PROP-8): a red border (via aria-invalid) is
+// enough for ordinary missing/invalid input — no per-field text block. Only
+// fields whose failure reason isn't obvious from highlighting alone (email
+// format) get a short inline message, wired to the field via aria-describedby.
 type FieldErrors = Partial<Record<keyof VendorFormValues, string>>;
-
-function FieldError({ message }: { message?: string }) {
-  if (!message) return null;
-  return (
-    <p className="error-text" style={{ fontSize: "0.8rem", marginTop: "0.25rem" }}>
-      {message}
-    </p>
-  );
-}
 
 interface CategoryOption {
   id: string;
@@ -145,7 +141,7 @@ export function VendorForm({
     const localResult = schema.safeParse(payload);
     if (!localResult.success) {
       setFieldErrors(mapFieldErrors(localResult.error.flatten().fieldErrors));
-      setError("Please fix the highlighted fields below.");
+      setError(VALIDATION_BANNER_MESSAGE);
       return;
     }
 
@@ -165,7 +161,7 @@ export function VendorForm({
           | undefined;
         if (serverFieldErrors && Object.keys(serverFieldErrors).length > 0) {
           setFieldErrors(mapFieldErrors(serverFieldErrors));
-          setError("Please fix the highlighted fields below.");
+          setError(VALIDATION_BANNER_MESSAGE);
         } else {
           setError(describeVendorApiError(data?.error));
         }
@@ -197,10 +193,9 @@ export function VendorForm({
               className="input"
               value={values.name}
               onChange={(event) => update("name", event.target.value)}
-              aria-invalid={Boolean(fieldErrors.name)}
+              {...invalidFieldProps(Boolean(fieldErrors.name))}
               required
             />
-            <FieldError message={fieldErrors.name} />
           </div>
           <div>
             <label className="label" htmlFor="vendor-legal-name">
@@ -211,8 +206,8 @@ export function VendorForm({
               className="input"
               value={values.legalName}
               onChange={(event) => update("legalName", event.target.value)}
+              {...invalidFieldProps(Boolean(fieldErrors.legalName))}
             />
-            <FieldError message={fieldErrors.legalName} />
           </div>
           <div>
             <label className="label" htmlFor="vendor-phone">
@@ -223,8 +218,8 @@ export function VendorForm({
               className="input"
               value={values.primaryPhone}
               onChange={(event) => update("primaryPhone", event.target.value)}
+              {...invalidFieldProps(Boolean(fieldErrors.primaryPhone))}
             />
-            <FieldError message={fieldErrors.primaryPhone} />
           </div>
           <div>
             <label className="label" htmlFor="vendor-email">
@@ -236,9 +231,13 @@ export function VendorForm({
               className="input"
               value={values.primaryEmail}
               onChange={(event) => update("primaryEmail", event.target.value)}
-              aria-invalid={Boolean(fieldErrors.primaryEmail)}
+              {...invalidFieldProps(Boolean(fieldErrors.primaryEmail), "vendor-email-error")}
             />
-            <FieldError message={fieldErrors.primaryEmail} />
+            {fieldErrors.primaryEmail ? (
+              <p id="vendor-email-error" className="error-text" style={{ fontSize: "0.8rem", marginTop: "0.25rem" }}>
+                {fieldErrors.primaryEmail}
+              </p>
+            ) : null}
           </div>
           <div>
             <label className="label" htmlFor="vendor-website">
@@ -249,8 +248,8 @@ export function VendorForm({
               className="input"
               value={values.website}
               onChange={(event) => update("website", event.target.value)}
+              {...invalidFieldProps(Boolean(fieldErrors.website))}
             />
-            <FieldError message={fieldErrors.website} />
           </div>
           <div>
             <label className="label" htmlFor="vendor-account-number">
@@ -261,8 +260,8 @@ export function VendorForm({
               className="input"
               value={values.accountNumber}
               onChange={(event) => update("accountNumber", event.target.value)}
+              {...invalidFieldProps(Boolean(fieldErrors.accountNumber))}
             />
-            <FieldError message={fieldErrors.accountNumber} />
           </div>
           <div style={{ display: "flex", alignItems: "flex-end", gap: "0.4rem" }}>
             <input
@@ -288,8 +287,8 @@ export function VendorForm({
               className="input"
               value={values.addressLine1}
               onChange={(event) => update("addressLine1", event.target.value)}
+              {...invalidFieldProps(Boolean(fieldErrors.addressLine1))}
             />
-            <FieldError message={fieldErrors.addressLine1} />
           </div>
           <div>
             <label className="label" htmlFor="vendor-address2">
@@ -300,15 +299,20 @@ export function VendorForm({
               className="input"
               value={values.addressLine2}
               onChange={(event) => update("addressLine2", event.target.value)}
+              {...invalidFieldProps(Boolean(fieldErrors.addressLine2))}
             />
-            <FieldError message={fieldErrors.addressLine2} />
           </div>
           <div>
             <label className="label" htmlFor="vendor-city">
               City
             </label>
-            <input id="vendor-city" className="input" value={values.city} onChange={(event) => update("city", event.target.value)} />
-            <FieldError message={fieldErrors.city} />
+            <input
+              id="vendor-city"
+              className="input"
+              value={values.city}
+              onChange={(event) => update("city", event.target.value)}
+              {...invalidFieldProps(Boolean(fieldErrors.city))}
+            />
           </div>
           <div>
             <label className="label" htmlFor="vendor-state">
@@ -319,8 +323,8 @@ export function VendorForm({
               className="input"
               value={values.state}
               onChange={(event) => update("state", event.target.value)}
+              {...invalidFieldProps(Boolean(fieldErrors.state))}
             />
-            <FieldError message={fieldErrors.state} />
           </div>
           <div>
             <label className="label" htmlFor="vendor-postal-code">
@@ -331,8 +335,8 @@ export function VendorForm({
               className="input"
               value={values.postalCode}
               onChange={(event) => update("postalCode", event.target.value)}
+              {...invalidFieldProps(Boolean(fieldErrors.postalCode))}
             />
-            <FieldError message={fieldErrors.postalCode} />
           </div>
           <div>
             <label className="label" htmlFor="vendor-country">
@@ -343,8 +347,8 @@ export function VendorForm({
               className="input"
               value={values.country}
               onChange={(event) => update("country", event.target.value)}
+              {...invalidFieldProps(Boolean(fieldErrors.country))}
             />
-            <FieldError message={fieldErrors.country} />
           </div>
         </div>
       </section>
@@ -369,7 +373,6 @@ export function VendorForm({
               ))
             )}
           </div>
-          <FieldError message={fieldErrors.categoryIds} />
         </div>
         <div style={{ maxWidth: 320 }}>
           <label className="label" htmlFor="vendor-coverage-mode">
@@ -408,8 +411,8 @@ export function VendorForm({
               className="input"
               value={values.insuranceExpiresAt}
               onChange={(event) => update("insuranceExpiresAt", event.target.value)}
+              {...invalidFieldProps(Boolean(fieldErrors.insuranceExpiresAt))}
             />
-            <FieldError message={fieldErrors.insuranceExpiresAt} />
           </div>
           <div>
             <label className="label" htmlFor="vendor-license-expires">
@@ -421,8 +424,8 @@ export function VendorForm({
               className="input"
               value={values.licenseExpiresAt}
               onChange={(event) => update("licenseExpiresAt", event.target.value)}
+              {...invalidFieldProps(Boolean(fieldErrors.licenseExpiresAt))}
             />
-            <FieldError message={fieldErrors.licenseExpiresAt} />
           </div>
           <div>
             <label className="label" htmlFor="vendor-contract-expires">
@@ -434,8 +437,8 @@ export function VendorForm({
               className="input"
               value={values.contractExpiresAt}
               onChange={(event) => update("contractExpiresAt", event.target.value)}
+              {...invalidFieldProps(Boolean(fieldErrors.contractExpiresAt))}
             />
-            <FieldError message={fieldErrors.contractExpiresAt} />
           </div>
         </div>
       </section>
@@ -447,8 +450,8 @@ export function VendorForm({
           rows={3}
           value={values.notes}
           onChange={(event) => update("notes", event.target.value)}
+          {...invalidFieldProps(Boolean(fieldErrors.notes))}
         />
-        <FieldError message={fieldErrors.notes} />
       </section>
 
       <button
