@@ -3,7 +3,20 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useState, type FormEvent } from "react";
 
+import { createVendorSchema, updateVendorSchema } from "@/lib/validation/vendors";
 import { VENDOR_COVERAGE_MODES, VENDOR_COVERAGE_MODE_LABELS } from "@/lib/vendors/constants";
+import { describeVendorApiError, mapFieldErrors } from "@/lib/vendors/form-errors";
+
+type FieldErrors = Partial<Record<keyof VendorFormValues, string>>;
+
+function FieldError({ message }: { message?: string }) {
+  if (!message) return null;
+  return (
+    <p className="error-text" style={{ fontSize: "0.8rem", marginTop: "0.25rem" }}>
+      {message}
+    </p>
+  );
+}
 
 interface CategoryOption {
   id: string;
@@ -91,6 +104,7 @@ export function VendorForm({
   const [values, setValues] = useState<VendorFormValues>({ ...EMPTY_VALUES, ...initialValues });
   const [categories, setCategories] = useState<CategoryOption[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
@@ -101,6 +115,12 @@ export function VendorForm({
 
   function update<K extends keyof VendorFormValues>(key: K, value: VendorFormValues[K]) {
     setValues((prev) => ({ ...prev, [key]: value }));
+    setFieldErrors((prev) => {
+      if (!(key in prev)) return prev;
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
   }
 
   function toggleCategory(categoryId: string) {
@@ -115,9 +135,17 @@ export function VendorForm({
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
+    setFieldErrors({});
 
-    if (!values.name.trim()) {
-      setError("Enter a vendor name.");
+    const payload = toPayload(values);
+
+    // Reuse the real server-side schema on the client so the rules shown here
+    // can never drift from what the API actually enforces.
+    const schema = mode === "create" ? createVendorSchema : updateVendorSchema;
+    const localResult = schema.safeParse(payload);
+    if (!localResult.success) {
+      setFieldErrors(mapFieldErrors(localResult.error.flatten().fieldErrors));
+      setError("Please fix the highlighted fields below.");
       return;
     }
 
@@ -128,11 +156,19 @@ export function VendorForm({
       const response = await fetch(url, {
         method,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(toPayload(values)),
+        body: JSON.stringify(payload),
       });
       const data = await response.json().catch(() => null);
       if (!response.ok) {
-        setError(data?.error ?? "Could not save the vendor. Check the fields and try again.");
+        const serverFieldErrors = data?.details?.fieldErrors as
+          | Record<string, string[] | undefined>
+          | undefined;
+        if (serverFieldErrors && Object.keys(serverFieldErrors).length > 0) {
+          setFieldErrors(mapFieldErrors(serverFieldErrors));
+          setError("Please fix the highlighted fields below.");
+        } else {
+          setError(describeVendorApiError(data?.error));
+        }
         return;
       }
       const vendor = data.vendor;
@@ -161,8 +197,10 @@ export function VendorForm({
               className="input"
               value={values.name}
               onChange={(event) => update("name", event.target.value)}
+              aria-invalid={Boolean(fieldErrors.name)}
               required
             />
+            <FieldError message={fieldErrors.name} />
           </div>
           <div>
             <label className="label" htmlFor="vendor-legal-name">
@@ -174,6 +212,7 @@ export function VendorForm({
               value={values.legalName}
               onChange={(event) => update("legalName", event.target.value)}
             />
+            <FieldError message={fieldErrors.legalName} />
           </div>
           <div>
             <label className="label" htmlFor="vendor-phone">
@@ -185,6 +224,7 @@ export function VendorForm({
               value={values.primaryPhone}
               onChange={(event) => update("primaryPhone", event.target.value)}
             />
+            <FieldError message={fieldErrors.primaryPhone} />
           </div>
           <div>
             <label className="label" htmlFor="vendor-email">
@@ -196,7 +236,9 @@ export function VendorForm({
               className="input"
               value={values.primaryEmail}
               onChange={(event) => update("primaryEmail", event.target.value)}
+              aria-invalid={Boolean(fieldErrors.primaryEmail)}
             />
+            <FieldError message={fieldErrors.primaryEmail} />
           </div>
           <div>
             <label className="label" htmlFor="vendor-website">
@@ -208,6 +250,7 @@ export function VendorForm({
               value={values.website}
               onChange={(event) => update("website", event.target.value)}
             />
+            <FieldError message={fieldErrors.website} />
           </div>
           <div>
             <label className="label" htmlFor="vendor-account-number">
@@ -219,6 +262,7 @@ export function VendorForm({
               value={values.accountNumber}
               onChange={(event) => update("accountNumber", event.target.value)}
             />
+            <FieldError message={fieldErrors.accountNumber} />
           </div>
           <div style={{ display: "flex", alignItems: "flex-end", gap: "0.4rem" }}>
             <input
@@ -245,6 +289,7 @@ export function VendorForm({
               value={values.addressLine1}
               onChange={(event) => update("addressLine1", event.target.value)}
             />
+            <FieldError message={fieldErrors.addressLine1} />
           </div>
           <div>
             <label className="label" htmlFor="vendor-address2">
@@ -256,12 +301,14 @@ export function VendorForm({
               value={values.addressLine2}
               onChange={(event) => update("addressLine2", event.target.value)}
             />
+            <FieldError message={fieldErrors.addressLine2} />
           </div>
           <div>
             <label className="label" htmlFor="vendor-city">
               City
             </label>
             <input id="vendor-city" className="input" value={values.city} onChange={(event) => update("city", event.target.value)} />
+            <FieldError message={fieldErrors.city} />
           </div>
           <div>
             <label className="label" htmlFor="vendor-state">
@@ -273,6 +320,7 @@ export function VendorForm({
               value={values.state}
               onChange={(event) => update("state", event.target.value)}
             />
+            <FieldError message={fieldErrors.state} />
           </div>
           <div>
             <label className="label" htmlFor="vendor-postal-code">
@@ -284,6 +332,7 @@ export function VendorForm({
               value={values.postalCode}
               onChange={(event) => update("postalCode", event.target.value)}
             />
+            <FieldError message={fieldErrors.postalCode} />
           </div>
           <div>
             <label className="label" htmlFor="vendor-country">
@@ -295,6 +344,7 @@ export function VendorForm({
               value={values.country}
               onChange={(event) => update("country", event.target.value)}
             />
+            <FieldError message={fieldErrors.country} />
           </div>
         </div>
       </section>
@@ -319,6 +369,7 @@ export function VendorForm({
               ))
             )}
           </div>
+          <FieldError message={fieldErrors.categoryIds} />
         </div>
         <div style={{ maxWidth: 320 }}>
           <label className="label" htmlFor="vendor-coverage-mode">
@@ -358,6 +409,7 @@ export function VendorForm({
               value={values.insuranceExpiresAt}
               onChange={(event) => update("insuranceExpiresAt", event.target.value)}
             />
+            <FieldError message={fieldErrors.insuranceExpiresAt} />
           </div>
           <div>
             <label className="label" htmlFor="vendor-license-expires">
@@ -370,6 +422,7 @@ export function VendorForm({
               value={values.licenseExpiresAt}
               onChange={(event) => update("licenseExpiresAt", event.target.value)}
             />
+            <FieldError message={fieldErrors.licenseExpiresAt} />
           </div>
           <div>
             <label className="label" htmlFor="vendor-contract-expires">
@@ -382,18 +435,20 @@ export function VendorForm({
               value={values.contractExpiresAt}
               onChange={(event) => update("contractExpiresAt", event.target.value)}
             />
+            <FieldError message={fieldErrors.contractExpiresAt} />
           </div>
         </div>
       </section>
 
       <section className="card" style={{ display: "flex", flexDirection: "column", gap: "0.9rem" }}>
-        <h2 style={{ fontSize: "1rem" }}>Notes</h2>
+        <h2 style={{ fontSize: "1rem" }}>Notes (optional)</h2>
         <textarea
           className="input"
           rows={3}
           value={values.notes}
           onChange={(event) => update("notes", event.target.value)}
         />
+        <FieldError message={fieldErrors.notes} />
       </section>
 
       <button

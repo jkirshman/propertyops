@@ -12,11 +12,24 @@ const dateOnly = z.preprocess(
 );
 
 export const createVendorSchema = z.object({
-  name: z.string().trim().min(1).max(200),
+  name: z
+    .string({ error: "Vendor name is required." })
+    .trim()
+    .min(1, "Vendor name is required.")
+    .max(200, "Vendor name must be 200 characters or fewer."),
   legalName: z.preprocess(emptyToUndefined, z.string().trim().max(200).optional()),
   isPreferred: z.boolean().optional(),
   primaryPhone: z.preprocess(emptyToUndefined, z.string().trim().max(40).optional()),
-  primaryEmail: z.preprocess(emptyToUndefined, z.string().trim().toLowerCase().email().max(200).optional()),
+  primaryEmail: z.preprocess(
+    emptyToUndefined,
+    z
+      .string()
+      .trim()
+      .toLowerCase()
+      .email("Email address is invalid.")
+      .max(200, "Email address must be 200 characters or fewer.")
+      .optional(),
+  ),
   website: z.preprocess(emptyToUndefined, z.string().trim().max(300).optional()),
   addressLine1: z.preprocess(emptyToUndefined, z.string().trim().max(200).optional()),
   addressLine2: z.preprocess(emptyToUndefined, z.string().trim().max(200).optional()),
@@ -34,14 +47,26 @@ export const createVendorSchema = z.object({
 });
 
 export const updateVendorSchema = z.object({
-  name: z.string().trim().min(1).max(200).optional(),
+  name: z
+    .string({ error: "Vendor name is required." })
+    .trim()
+    .min(1, "Vendor name is required.")
+    .max(200, "Vendor name must be 200 characters or fewer.")
+    .optional(),
   legalName: z.preprocess(emptyToUndefined, z.string().trim().max(200).optional().nullable()),
   isActive: z.boolean().optional(),
   isPreferred: z.boolean().optional(),
   primaryPhone: z.preprocess(emptyToUndefined, z.string().trim().max(40).optional().nullable()),
   primaryEmail: z.preprocess(
     emptyToUndefined,
-    z.string().trim().toLowerCase().email().max(200).optional().nullable(),
+    z
+      .string()
+      .trim()
+      .toLowerCase()
+      .email("Email address is invalid.")
+      .max(200, "Email address must be 200 characters or fewer.")
+      .optional()
+      .nullable(),
   ),
   website: z.preprocess(emptyToUndefined, z.string().trim().max(300).optional().nullable()),
   addressLine1: z.preprocess(emptyToUndefined, z.string().trim().max(200).optional().nullable()),
