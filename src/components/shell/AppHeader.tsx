@@ -26,6 +26,7 @@ export function AppHeader({
   showPreventiveMaintenanceLink,
   showInspectionsLink,
   showVendorsLink,
+  showTenantsLink,
   showAssetsLink,
   showPeopleLink,
 }: {
@@ -37,6 +38,7 @@ export function AppHeader({
   showPreventiveMaintenanceLink: boolean;
   showInspectionsLink: boolean;
   showVendorsLink: boolean;
+  showTenantsLink: boolean;
   showAssetsLink: boolean;
   showPeopleLink: boolean;
 }) {
@@ -68,6 +70,7 @@ export function AppHeader({
             ) : null}
             {showInspectionsLink ? <NavLink href="/inspections">Inspections</NavLink> : null}
             {showVendorsLink ? <NavLink href="/vendors">Vendors</NavLink> : null}
+            {showTenantsLink ? <NavLink href="/tenants">Tenants</NavLink> : null}
             {showAssetsLink ? <NavLink href="/assets">Assets</NavLink> : null}
             {showPeopleLink ? <NavLink href="/people">People</NavLink> : null}
             {showAdminLink ? <NavLink href="/admin">Admin Hub</NavLink> : null}

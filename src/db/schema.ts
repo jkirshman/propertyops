@@ -943,6 +943,88 @@ export const complianceRecords = pgTable("compliance_records", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
+export const tenants = pgTable("tenants", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  organizationId: uuid("organization_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  tenantType: text("tenant_type").notNull().default("individual"),
+  name: text("name").notNull(),
+  legalName: text("legal_name"),
+  isActive: boolean("is_active").notNull().default(true),
+  primaryPhone: text("primary_phone"),
+  primaryEmail: text("primary_email"),
+  website: text("website"),
+  addressLine1: text("address_line1"),
+  addressLine2: text("address_line2"),
+  city: text("city"),
+  state: text("state"),
+  postalCode: text("postal_code"),
+  country: text("country"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const tenantContacts = pgTable("tenant_contacts", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  organizationId: uuid("organization_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  tenantId: uuid("tenant_id")
+    .notNull()
+    .references(() => tenants.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  title: text("title"),
+  email: text("email"),
+  phone: text("phone"),
+  mobilePhone: text("mobile_phone"),
+  notes: text("notes"),
+  isPrimary: boolean("is_primary").notNull().default(false),
+  isEmergencyContact: boolean("is_emergency_contact").notNull().default(false),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+// The relationship between Tenant and Property — a Property never carries a
+// tenant reference directly, and a Tenant may have multiple leases (historical
+// or, if the business needs it, concurrent) across one or more properties.
+export const leases = pgTable("leases", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  organizationId: uuid("organization_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  propertyId: uuid("property_id")
+    .notNull()
+    .references(() => properties.id, { onDelete: "cascade" }),
+  tenantId: uuid("tenant_id")
+    .notNull()
+    .references(() => tenants.id, { onDelete: "restrict" }),
+  label: text("label").notNull(),
+  leaseType: text("lease_type").notNull().default("residential"),
+  // Small lifecycle enum — only the states nothing else can derive
+  // (draft/month_to_month/terminated). 'active' plus the dates below is
+  // enough to derive upcoming/active/expired at read time (see
+  // lib/leases/status.ts) without a cron flipping stored state.
+  status: text("status").notNull().default("draft"),
+  startDate: date("start_date").notNull(),
+  endDate: date("end_date"),
+  noticeDate: date("notice_date"),
+  renewalOptionDate: date("renewal_option_date"),
+  moveInDate: date("move_in_date"),
+  moveOutDate: date("move_out_date"),
+  // Informational only in PROP-9 — no ledger, no payment processing.
+  securityDeposit: numeric("security_deposit", { precision: 10, scale: 2, mode: "number" }),
+  baseRent: numeric("base_rent", { precision: 10, scale: 2, mode: "number" }),
+  rentFrequency: text("rent_frequency"),
+  squareFootageLeased: integer("square_footage_leased"),
+  unitLabel: text("unit_label"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
 export const auditLog = pgTable("audit_log", {
   id: uuid("id").primaryKey().defaultRandom(),
   organizationId: uuid("organization_id")

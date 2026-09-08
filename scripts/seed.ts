@@ -252,6 +252,26 @@ const COMPLIANCE_CAPABILITIES_SEED = [
   { key: "compliance.manage_documents", description: "Manage compliance record documents" },
 ];
 
+// Tenant domain capabilities. All are granted to the administrator role below;
+// future roles can be granted a subset without any schema change.
+const TENANT_CAPABILITIES_SEED = [
+  { key: "tenant.view", description: "View tenants" },
+  { key: "tenant.create", description: "Create tenants" },
+  { key: "tenant.edit", description: "Edit and deactivate tenants" },
+  { key: "tenant.manage_contacts", description: "Manage tenant contacts" },
+  { key: "tenant.manage_documents", description: "Manage tenant documents" },
+];
+
+// Lease domain capabilities. All are granted to the administrator role below;
+// future roles can be granted a subset without any schema change.
+const LEASE_CAPABILITIES_SEED = [
+  { key: "lease.view", description: "View leases" },
+  { key: "lease.create", description: "Create leases" },
+  { key: "lease.edit", description: "Edit leases" },
+  { key: "lease.manage_documents", description: "Manage lease documents" },
+  { key: "lease.manage_status", description: "Change lease status" },
+];
+
 const DEFAULT_ASSET_CATEGORIES = [
   { name: "Computer", slug: "computer" },
   { name: "Tablet", slug: "tablet" },
@@ -330,6 +350,8 @@ async function main() {
     ...VENDOR_CAPABILITIES_SEED,
     ...INSPECTION_CAPABILITIES_SEED,
     ...COMPLIANCE_CAPABILITIES_SEED,
+    ...TENANT_CAPABILITIES_SEED,
+    ...LEASE_CAPABILITIES_SEED,
   ]) {
     let [cap] = await db.select().from(capabilities).where(eq(capabilities.key, key)).limit(1);
 

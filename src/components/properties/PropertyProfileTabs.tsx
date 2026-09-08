@@ -10,6 +10,7 @@ import { NotesPanel } from "@/components/properties/NotesPanel";
 import { PropertyAssetsPanel } from "@/components/properties/PropertyAssetsPanel";
 import { PropertyCompliancePanel } from "@/components/properties/PropertyCompliancePanel";
 import { PropertyInspectionsPanel } from "@/components/properties/PropertyInspectionsPanel";
+import { PropertyLeasesPanel } from "@/components/properties/PropertyLeasesPanel";
 import { PropertyPreventiveMaintenancePanel } from "@/components/properties/PropertyPreventiveMaintenancePanel";
 import { PropertyVendorsPanel } from "@/components/properties/PropertyVendorsPanel";
 import { PropertyWorkOrdersPanel } from "@/components/properties/PropertyWorkOrdersPanel";
@@ -41,6 +42,7 @@ const TABS = [
   "vendors",
   "inspections",
   "compliance",
+  "leases",
   "contacts",
   "notes",
   "documents",
@@ -57,6 +59,7 @@ const TAB_LABELS: Record<Tab, string> = {
   vendors: "Vendors",
   inspections: "Inspections",
   compliance: "Compliance",
+  leases: "Tenants / Leases",
   contacts: "Contacts",
   notes: "Notes",
   documents: "Documents",
@@ -127,6 +130,7 @@ export function PropertyProfileTabs({
   canManageVendorCoverage,
   canCreateInspections,
   canManageCompliance,
+  canCreateLeases,
 }: {
   propertyId: string;
   overview: PropertyOverview;
@@ -142,6 +146,7 @@ export function PropertyProfileTabs({
   canManageVendorCoverage: boolean;
   canCreateInspections: boolean;
   canManageCompliance: boolean;
+  canCreateLeases: boolean;
 }) {
   const [tab, setTab] = useState<Tab>("overview");
 
@@ -194,6 +199,9 @@ export function PropertyProfileTabs({
       ) : null}
       {tab === "compliance" ? (
         <PropertyCompliancePanel propertyId={propertyId} canManage={canManageCompliance} />
+      ) : null}
+      {tab === "leases" ? (
+        <PropertyLeasesPanel propertyId={propertyId} canCreate={canCreateLeases} />
       ) : null}
       {tab === "contacts" ? <ContactsPanel propertyId={propertyId} canManage={canManageContacts} /> : null}
       {tab === "notes" ? <NotesPanel propertyId={propertyId} canManage={canManageNotes} /> : null}

@@ -14,6 +14,10 @@ export const NOTIFICATION_TYPES = {
   INSPECTION_COMPLETED_WITH_FINDINGS: "inspection.completed_with_findings",
   COMPLIANCE_EXPIRING_SOON: "compliance.expiring_soon",
   COMPLIANCE_EXPIRED: "compliance.expired",
+  LEASE_EXPIRING: "lease.expiring",
+  LEASE_EXPIRED: "lease.expired",
+  LEASE_NOTICE_DATE_APPROACHING: "lease.notice_date_approaching",
+  LEASE_RENEWAL_OPTION_APPROACHING: "lease.renewal_option_approaching",
 } as const;
 
 export type NotificationType = (typeof NOTIFICATION_TYPES)[keyof typeof NOTIFICATION_TYPES];

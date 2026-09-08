@@ -8,6 +8,7 @@ import { INSPECTION_CAPABILITIES } from "@/lib/inspections/constants";
 import { PERSON_CAPABILITIES } from "@/lib/people/constants";
 import { PREVENTIVE_MAINTENANCE_CAPABILITIES } from "@/lib/preventive-maintenance/constants";
 import { PROPERTY_CAPABILITIES } from "@/lib/properties/constants";
+import { TENANT_CAPABILITIES } from "@/lib/tenants/constants";
 import { VENDOR_CAPABILITIES } from "@/lib/vendors/constants";
 import { WORK_ORDER_CAPABILITIES } from "@/lib/work-orders/constants";
 
@@ -30,6 +31,7 @@ export default async function AppShellLayout({ children }: { children: React.Rea
         showPreventiveMaintenanceLink={capabilityKeys.includes(PREVENTIVE_MAINTENANCE_CAPABILITIES.VIEW)}
         showInspectionsLink={capabilityKeys.includes(INSPECTION_CAPABILITIES.VIEW)}
         showVendorsLink={capabilityKeys.includes(VENDOR_CAPABILITIES.VIEW)}
+        showTenantsLink={capabilityKeys.includes(TENANT_CAPABILITIES.VIEW)}
         showAssetsLink={capabilityKeys.includes(ASSET_CAPABILITIES.VIEW)}
         showPeopleLink={capabilityKeys.includes(PERSON_CAPABILITIES.VIEW)}
       />

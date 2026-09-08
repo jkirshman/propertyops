@@ -64,6 +64,13 @@
       "when": 1788872876095,
       "tag": "0008_bizarre_doomsday",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1788875073557,
+      "tag": "0009_strong_green_goblin",
+      "breakpoints": true
     }
   ]
 }

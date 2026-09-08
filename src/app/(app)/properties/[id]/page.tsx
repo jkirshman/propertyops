@@ -7,6 +7,7 @@ import { requireCapability } from "@/lib/auth/require-capability";
 import { COMPLIANCE_CAPABILITIES } from "@/lib/compliance/constants";
 import { EQUIPMENT_CAPABILITIES } from "@/lib/equipment/constants";
 import { INSPECTION_CAPABILITIES } from "@/lib/inspections/constants";
+import { LEASE_CAPABILITIES } from "@/lib/leases/constants";
 import { PREVENTIVE_MAINTENANCE_CAPABILITIES } from "@/lib/preventive-maintenance/constants";
 import { PROPERTY_CAPABILITIES } from "@/lib/properties/constants";
 import { VENDOR_CAPABILITIES } from "@/lib/vendors/constants";
@@ -66,6 +67,7 @@ export default async function PropertyDetailPage({
         canManageVendorCoverage={context.capabilityKeys.includes(VENDOR_CAPABILITIES.MANAGE_COVERAGE)}
         canCreateInspections={context.capabilityKeys.includes(INSPECTION_CAPABILITIES.CREATE)}
         canManageCompliance={context.capabilityKeys.includes(COMPLIANCE_CAPABILITIES.EDIT)}
+        canCreateLeases={context.capabilityKeys.includes(LEASE_CAPABILITIES.CREATE)}
       />
     </div>
   );
