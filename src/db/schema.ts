@@ -84,6 +84,12 @@ export const users = pgTable(
     passwordSalt: text("password_salt").notNull(),
     displayName: text("display_name").notNull(),
     isActive: boolean("is_active").notNull().default(true),
+    // Set only while a POLISH-5 admin-created invite is pending. A non-null
+    // hash means the user has never completed account activation (their
+    // passwordHash/passwordSalt is an unguessable placeholder no one knows).
+    // Cleared to null the moment /activate succeeds — never reused afterward.
+    activationTokenHash: text("activation_token_hash"),
+    activationTokenExpiresAt: timestamp("activation_token_expires_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
@@ -196,6 +202,30 @@ export const files = pgTable("files", {
   relatedEntityId: text("related_entity_id"),
   title: text("title"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+// External (e.g. SharePoint) document references — deliberately separate from
+// `files` rather than a shared/polymorphic table: PropertyOps never stores or
+// fetches the underlying document for these, only a validated https:// link
+// plus display metadata (POLISH-4). Same generic relatedEntityType/
+// relatedEntityId shape as `files` so it reuses RELATED_ENTITY_FILE_RULES for
+// authorization instead of a parallel registry.
+export const externalDocumentLinks = pgTable("external_document_links", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  organizationId: uuid("organization_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  relatedEntityType: text("related_entity_type").notNull(),
+  relatedEntityId: text("related_entity_id").notNull(),
+  displayName: text("display_name").notNull(),
+  externalUrl: text("external_url").notNull(),
+  category: text("category"),
+  description: text("description"),
+  // Archive state, same convention as isActive elsewhere — never hard-deleted.
+  isActive: boolean("is_active").notNull().default(true),
+  createdByUserId: uuid("created_by_user_id").references(() => users.id, { onDelete: "set null" }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
 export const propertyTypes = pgTable(

@@ -61,3 +61,21 @@ export async function revokeSession(token: string) {
   const tokenHash = hashSessionToken(token);
   await db.delete(sessions).where(eq(sessions.tokenHash, tokenHash));
 }
+
+/**
+ * Admin "sign out all sessions" action (POLISH-5) — deletes every session row
+ * for a user, not just the caller's own. Deactivation alone already blocks
+ * new activity (verifySessionToken re-checks isActive on every call), but
+ * this makes revocation an explicit, auditable, immediate action.
+ */
+export async function revokeAllSessionsForUser(userId: string): Promise<number> {
+  const deleted = await db.delete(sessions).where(eq(sessions.userId, userId)).returning({ id: sessions.id });
+  return deleted.length;
+}
+
+/** Non-expired session count — a coarse "how many active sessions" signal for admin display. */
+export async function countActiveSessionsForUser(userId: string): Promise<number> {
+  const rows = await db.select({ expiresAt: sessions.expiresAt }).from(sessions).where(eq(sessions.userId, userId));
+  const now = Date.now();
+  return rows.filter((row) => row.expiresAt.getTime() >= now).length;
+}

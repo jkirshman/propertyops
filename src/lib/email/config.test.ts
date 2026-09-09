@@ -23,6 +23,7 @@ describe("getEmailConfigStatus", () => {
       enabled: false,
       hasApiKey: false,
       hasFromAddress: false,
+      hasAppBaseUrl: false,
     });
   });
 
@@ -32,7 +33,12 @@ describe("getEmailConfigStatus", () => {
         EMAIL_ENABLED: "true",
         RESEND_API_KEY: "re_test",
         EMAIL_FROM_ADDRESS: "noreply@example.com",
+        APP_BASE_URL: "https://propertyops.lawassetgroup.com",
       }),
-    ).toEqual({ enabled: true, hasApiKey: true, hasFromAddress: true });
+    ).toEqual({ enabled: true, hasApiKey: true, hasFromAddress: true, hasAppBaseUrl: true });
+  });
+
+  it("reports hasAppBaseUrl independently of the other flags", () => {
+    expect(getEmailConfigStatus({ APP_BASE_URL: "https://example.com" }).hasAppBaseUrl).toBe(true);
   });
 });

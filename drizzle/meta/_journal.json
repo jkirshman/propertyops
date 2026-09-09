@@ -92,6 +92,13 @@
       "when": 1788957906576,
       "tag": "0012_add_app_brief_enabled_preference",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1788960064622,
+      "tag": "0013_polish_4_5_external_documents_and_user_activation",
+      "breakpoints": true
     }
   ]
 }
