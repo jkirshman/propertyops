@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
-import { PropertyProfileTabs, TABS, type Tab } from "@/components/properties/PropertyProfileTabs";
+import { PropertyProfileTabs } from "@/components/properties/PropertyProfileTabs";
 import { ASSET_CAPABILITIES } from "@/lib/assets/constants";
 import { requireCapability } from "@/lib/auth/require-capability";
 import { COMPLIANCE_CAPABILITIES } from "@/lib/compliance/constants";
@@ -10,6 +10,7 @@ import { INSPECTION_CAPABILITIES } from "@/lib/inspections/constants";
 import { LEASE_CAPABILITIES } from "@/lib/leases/constants";
 import { PREVENTIVE_MAINTENANCE_CAPABILITIES } from "@/lib/preventive-maintenance/constants";
 import { PROPERTY_CAPABILITIES } from "@/lib/properties/constants";
+import { parseTab } from "@/lib/properties/property-profile-tabs";
 import { VENDOR_CAPABILITIES } from "@/lib/vendors/constants";
 import { getProperty } from "@/lib/properties/properties";
 import { getPropertyType } from "@/lib/properties/property-types";
@@ -24,7 +25,7 @@ export default async function PropertyDetailPage({
 }) {
   const { id } = await params;
   const { tab } = await searchParams;
-  const initialTab = (TABS as readonly string[]).includes(tab ?? "") ? (tab as Tab) : undefined;
+  const initialTab = parseTab(tab);
   const context = await requireCapability(PROPERTY_CAPABILITIES.VIEW, "/properties");
 
   const property = await getProperty(context.user.organizationId, id);

@@ -15,6 +15,7 @@ import { PropertyPreventiveMaintenancePanel } from "@/components/properties/Prop
 import { PropertyVendorsPanel } from "@/components/properties/PropertyVendorsPanel";
 import { PropertyWorkOrdersPanel } from "@/components/properties/PropertyWorkOrdersPanel";
 import { OCCUPANCY_MODEL_LABELS, type OccupancyModel } from "@/lib/properties/constants";
+import { TABS, type Tab } from "@/lib/properties/property-profile-tabs";
 
 interface PropertyOverview {
   addressLine1: string | null;
@@ -32,23 +33,6 @@ interface PropertyOverview {
   primaryPhone: string | null;
   primaryEmail: string | null;
 }
-
-export const TABS = [
-  "overview",
-  "equipment",
-  "assets",
-  "workorders",
-  "maintenance",
-  "vendors",
-  "inspections",
-  "compliance",
-  "leases",
-  "contacts",
-  "notes",
-  "documents",
-  "activity",
-] as const;
-export type Tab = (typeof TABS)[number];
 
 const TAB_LABELS: Record<Tab, string> = {
   overview: "Overview",
