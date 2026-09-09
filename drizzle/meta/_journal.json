@@ -85,6 +85,13 @@
       "when": 1788916479438,
       "tag": "0011_flawless_fallen_one",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1788957906576,
+      "tag": "0012_add_app_brief_enabled_preference",
+      "breakpoints": true
     }
   ]
 }

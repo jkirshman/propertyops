@@ -8,6 +8,7 @@ interface PreferenceRow {
   category: NotificationCategory;
   inAppEnabled: boolean;
   emailEnabled: boolean;
+  appBriefEnabled: boolean;
 }
 
 export function NotificationPreferencesPanel() {
@@ -25,7 +26,7 @@ export function NotificationPreferencesPanel() {
       .finally(() => setLoading(false));
   }, []);
 
-  async function toggle(category: NotificationCategory, field: "inAppEnabled" | "emailEnabled") {
+  async function toggle(category: NotificationCategory, field: "inAppEnabled" | "emailEnabled" | "appBriefEnabled") {
     const current = preferences.find((p) => p.category === category);
     if (!current) return;
 
@@ -56,40 +57,56 @@ export function NotificationPreferencesPanel() {
   return (
     <div>
       {error ? <p className="error-text">{error}</p> : null}
-      <table style={{ width: "100%", borderCollapse: "collapse" }}>
-        <thead>
-          <tr style={{ textAlign: "left", borderBottom: "1px solid var(--border)" }}>
-            <th style={{ padding: "0.5rem 0" }}>Category</th>
-            <th style={{ padding: "0.5rem 0", textAlign: "center" }}>In-App</th>
-            <th style={{ padding: "0.5rem 0", textAlign: "center" }}>Email</th>
-          </tr>
-        </thead>
-        <tbody>
-          {preferences.map((preference) => (
-            <tr key={preference.category} style={{ borderBottom: "1px solid var(--border)" }}>
-              <td style={{ padding: "0.5rem 0" }}>{NOTIFICATION_CATEGORY_LABELS[preference.category]}</td>
-              <td style={{ padding: "0.5rem 0", textAlign: "center" }}>
-                <input
-                  type="checkbox"
-                  checked={preference.inAppEnabled}
-                  disabled={savingCategory === preference.category}
-                  onChange={() => toggle(preference.category, "inAppEnabled")}
-                  aria-label={`${NOTIFICATION_CATEGORY_LABELS[preference.category]} in-app notifications`}
-                />
-              </td>
-              <td style={{ padding: "0.5rem 0", textAlign: "center" }}>
-                <input
-                  type="checkbox"
-                  checked={preference.emailEnabled}
-                  disabled={savingCategory === preference.category}
-                  onChange={() => toggle(preference.category, "emailEnabled")}
-                  aria-label={`${NOTIFICATION_CATEGORY_LABELS[preference.category]} email notifications`}
-                />
-              </td>
+      <p className="muted" style={{ fontSize: "0.8rem", marginBottom: "0.5rem" }}>
+        In-App and Email control notification delivery. App Brief controls whether the category appears on Home —
+        turning it off never affects your notifications.
+      </p>
+      <div style={{ overflowX: "auto" }}>
+        <table style={{ width: "100%", borderCollapse: "collapse", minWidth: "420px" }}>
+          <thead>
+            <tr style={{ textAlign: "left", borderBottom: "1px solid var(--border)" }}>
+              <th style={{ padding: "0.5rem 0" }}>Category</th>
+              <th style={{ padding: "0.5rem 0", textAlign: "center" }}>In-App</th>
+              <th style={{ padding: "0.5rem 0", textAlign: "center" }}>Email</th>
+              <th style={{ padding: "0.5rem 0", textAlign: "center" }}>App Brief</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {preferences.map((preference) => (
+              <tr key={preference.category} style={{ borderBottom: "1px solid var(--border)" }}>
+                <td style={{ padding: "0.5rem 0" }}>{NOTIFICATION_CATEGORY_LABELS[preference.category]}</td>
+                <td style={{ padding: "0.5rem 0", textAlign: "center" }}>
+                  <input
+                    type="checkbox"
+                    checked={preference.inAppEnabled}
+                    disabled={savingCategory === preference.category}
+                    onChange={() => toggle(preference.category, "inAppEnabled")}
+                    aria-label={`${NOTIFICATION_CATEGORY_LABELS[preference.category]} in-app notifications`}
+                  />
+                </td>
+                <td style={{ padding: "0.5rem 0", textAlign: "center" }}>
+                  <input
+                    type="checkbox"
+                    checked={preference.emailEnabled}
+                    disabled={savingCategory === preference.category}
+                    onChange={() => toggle(preference.category, "emailEnabled")}
+                    aria-label={`${NOTIFICATION_CATEGORY_LABELS[preference.category]} email notifications`}
+                  />
+                </td>
+                <td style={{ padding: "0.5rem 0", textAlign: "center" }}>
+                  <input
+                    type="checkbox"
+                    checked={preference.appBriefEnabled}
+                    disabled={savingCategory === preference.category}
+                    onChange={() => toggle(preference.category, "appBriefEnabled")}
+                    aria-label={`${NOTIFICATION_CATEGORY_LABELS[preference.category]} App Brief visibility on Home`}
+                  />
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

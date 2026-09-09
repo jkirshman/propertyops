@@ -149,6 +149,9 @@ export const notificationPreferences = pgTable(
     category: text("category").notNull(),
     inAppEnabled: boolean("in_app_enabled").notNull().default(true),
     emailEnabled: boolean("email_enabled").notNull().default(true),
+    // Independent of inAppEnabled/emailEnabled — controls only whether this
+    // category's Home App Brief sections render, not notification delivery.
+    appBriefEnabled: boolean("app_brief_enabled").notNull().default(true),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },

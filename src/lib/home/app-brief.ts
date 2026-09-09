@@ -14,12 +14,38 @@ import {
 import { isDateApproaching, isLeaseExpiringWithin } from "@/lib/leases/alerts";
 import { listLeases } from "@/lib/leases/leases";
 import { getEffectiveLeaseStatus } from "@/lib/leases/status";
+import { type NotificationCategory } from "@/lib/notifications/categories";
+import { getNotificationPreferencesForUser } from "@/lib/notifications/preferences";
 import { PREVENTIVE_MAINTENANCE_CAPABILITIES } from "@/lib/preventive-maintenance/constants";
 import { listPreventiveMaintenancePlans } from "@/lib/preventive-maintenance/plans";
 import { listProperties } from "@/lib/properties/properties";
 import { WORK_ORDER_CAPABILITIES, WORK_ORDER_STALE_THRESHOLD_DAYS } from "@/lib/work-orders/constants";
 import { isWorkOrderOverdue, isWorkOrderUrgentPriority } from "@/lib/work-orders/attention";
 import { listOpenWorkOrdersForBrief } from "@/lib/work-orders/work-orders";
+
+// Maps every Home App Brief section to the Notification Preferences category
+// that controls its visibility. `as const satisfies` keeps this exhaustive
+// against NotificationCategory at compile time — adding a section without
+// mapping it here (or mapping it to a made-up category) is a type error.
+export const APP_BRIEF_SECTION_CATEGORY = {
+  overdueWorkOrders: "work_orders",
+  urgentWorkOrders: "work_orders",
+  duePmPlans: "preventive_maintenance",
+  dueInspections: "inspections",
+  expiringCompliance: "compliance",
+  leaseMilestones: "leases",
+  attentionEquipment: "equipment_assets",
+} as const satisfies Record<string, NotificationCategory>;
+
+/**
+ * A Home App Brief section renders only if the user is BOTH authorized
+ * (capability) AND has not turned that category's App Brief preference off.
+ * Authorization is always authoritative — a preference can only narrow what
+ * renders, never expand it, so this is a strict AND with no fallback branch.
+ */
+export function isAppBriefSectionVisible(hasCapability: boolean, appBriefPreferenceEnabled: boolean): boolean {
+  return hasCapability && appBriefPreferenceEnabled;
+}
 
 // Inspections have no existing "due soon" classifier (unlike PM/leases/
 // compliance) — this is the one new threshold this module introduces.
@@ -196,29 +222,81 @@ export interface AppBrief {
   expiringCompliance: AppBriefSection<AppBriefComplianceItem & { status: "expired" | "expiring_soon" }> | null;
   leaseMilestones: AppBriefSection<AppBriefLeaseItem> | null;
   attentionEquipment: AppBriefSection<AppBriefEquipmentItem> | null;
+  // True if the user's role grants at least one module VIEW capability the
+  // brief draws on — independent of App Brief preferences. Lets the Home UI
+  // distinguish "your role has no App Brief sections" from "you turned every
+  // section off," which need different empty-state copy.
+  hasCapabilityForAnySection: boolean;
 }
 
 /**
  * Personalized "what needs my attention" data for the Home App Brief.
- * Personalization is capability-only (no property/location access-scoping
- * model exists yet) — a section is `null` (not rendered at all) when the
- * caller lacks that module's VIEW capability, vs. an empty-but-present
- * section when the capability is granted and there's simply nothing due.
+ * Personalization is capability-only for authorization (no property/location
+ * access-scoping model exists yet), narrowed further by each category's App
+ * Brief preference. A section is `null` (not rendered at all, and never
+ * queried) when the caller lacks that module's VIEW capability OR has turned
+ * that category's App Brief preference off; an empty-but-present section
+ * means both checks passed and there's simply nothing due. Preferences never
+ * expand what capability already restricts — see `isAppBriefSectionVisible`.
  */
-export async function getAppBrief(organizationId: string, capabilityKeys: string[]): Promise<AppBrief> {
+export async function getAppBrief(
+  organizationId: string,
+  capabilityKeys: string[],
+  userId: string,
+): Promise<AppBrief> {
   const today = todayDateString();
   const has = (capability: string) => capabilityKeys.includes(capability);
 
+  const appBriefPreferences = await getNotificationPreferencesForUser(userId);
+  const appBriefEnabledByCategory = new Map(
+    appBriefPreferences.map((preference) => [preference.category, preference.appBriefEnabled]),
+  );
+  // Defaults to true (visible) for a category with no explicit row, matching
+  // getNotificationPreferencesForUser's own default — see that function.
+  const briefEnabled = (category: NotificationCategory) => appBriefEnabledByCategory.get(category) ?? true;
+
+  const workOrdersVisible = isAppBriefSectionVisible(
+    has(WORK_ORDER_CAPABILITIES.VIEW),
+    briefEnabled(APP_BRIEF_SECTION_CATEGORY.overdueWorkOrders),
+  );
+  const pmVisible = isAppBriefSectionVisible(
+    has(PREVENTIVE_MAINTENANCE_CAPABILITIES.VIEW),
+    briefEnabled(APP_BRIEF_SECTION_CATEGORY.duePmPlans),
+  );
+  const complianceVisible = isAppBriefSectionVisible(
+    has(COMPLIANCE_CAPABILITIES.VIEW),
+    briefEnabled(APP_BRIEF_SECTION_CATEGORY.expiringCompliance),
+  );
+  const leasesVisible = isAppBriefSectionVisible(
+    has(LEASE_CAPABILITIES.VIEW),
+    briefEnabled(APP_BRIEF_SECTION_CATEGORY.leaseMilestones),
+  );
+  const inspectionsVisible = isAppBriefSectionVisible(
+    has(INSPECTION_CAPABILITIES.VIEW),
+    briefEnabled(APP_BRIEF_SECTION_CATEGORY.dueInspections),
+  );
+  const equipmentVisible = isAppBriefSectionVisible(
+    has(EQUIPMENT_CAPABILITIES.VIEW),
+    briefEnabled(APP_BRIEF_SECTION_CATEGORY.attentionEquipment),
+  );
+
   const [workOrderRows, pmRows, complianceRows, leaseRows, inspectionRows, equipmentRows] = await Promise.all([
-    has(WORK_ORDER_CAPABILITIES.VIEW) ? listOpenWorkOrdersForBrief(organizationId) : null,
-    has(PREVENTIVE_MAINTENANCE_CAPABILITIES.VIEW)
-      ? listPreventiveMaintenancePlans(organizationId, { isActive: true })
-      : null,
-    has(COMPLIANCE_CAPABILITIES.VIEW) ? listComplianceRecords(organizationId, { isActive: true }) : null,
-    has(LEASE_CAPABILITIES.VIEW) ? listLeases(organizationId) : null,
-    has(INSPECTION_CAPABILITIES.VIEW) ? listInspections(organizationId) : null,
-    has(EQUIPMENT_CAPABILITIES.VIEW) ? listPropertyEquipmentNeedingAttention(organizationId) : null,
+    workOrdersVisible ? listOpenWorkOrdersForBrief(organizationId) : null,
+    pmVisible ? listPreventiveMaintenancePlans(organizationId, { isActive: true }) : null,
+    complianceVisible ? listComplianceRecords(organizationId, { isActive: true }) : null,
+    leasesVisible ? listLeases(organizationId) : null,
+    inspectionsVisible ? listInspections(organizationId) : null,
+    equipmentVisible ? listPropertyEquipmentNeedingAttention(organizationId) : null,
   ]);
+
+  const hasCapabilityForAnySection = [
+    WORK_ORDER_CAPABILITIES.VIEW,
+    PREVENTIVE_MAINTENANCE_CAPABILITIES.VIEW,
+    COMPLIANCE_CAPABILITIES.VIEW,
+    LEASE_CAPABILITIES.VIEW,
+    INSPECTION_CAPABILITIES.VIEW,
+    EQUIPMENT_CAPABILITIES.VIEW,
+  ].some(has);
 
   // PM/compliance/lease/inspection list functions don't join property name —
   // resolved once here rather than adding a join to each of those
@@ -290,5 +368,6 @@ export async function getAppBrief(organizationId: string, capabilityKeys: string
           equipmentRows.map((row) => ({ ...row, propertyName: row.propertyName })),
         )
       : null,
+    hasCapabilityForAnySection,
   };
 }

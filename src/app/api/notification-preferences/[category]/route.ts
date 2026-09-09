@@ -35,7 +35,11 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ ca
     entityType: "notification_preference",
     entityId: `${user.id}:${category}`,
     before,
-    after: { inAppEnabled: updated.inAppEnabled, emailEnabled: updated.emailEnabled },
+    after: {
+      inAppEnabled: updated.inAppEnabled,
+      emailEnabled: updated.emailEnabled,
+      appBriefEnabled: updated.appBriefEnabled,
+    },
   });
 
   return NextResponse.json({ preference: updated });

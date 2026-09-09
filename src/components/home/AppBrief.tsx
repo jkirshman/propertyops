@@ -212,6 +212,14 @@ export function AppBrief({ brief }: { brief: AppBriefData }) {
   }
 
   if (sections.length === 0) {
+    if (brief.hasCapabilityForAnySection) {
+      return (
+        <p className="muted">
+          Your App Brief is clear. You can choose what appears here from{" "}
+          <Link href="/profile">Profile</Link>.
+        </p>
+      );
+    }
     return <p className="muted">Nothing to show here yet — your role has no App Brief sections to display.</p>;
   }
 

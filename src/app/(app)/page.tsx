@@ -10,7 +10,7 @@ export default async function DashboardHomePage() {
   const canViewCalendar = Boolean(context?.capabilityKeys.includes(CALENDAR_CAPABILITIES.VIEW));
 
   const brief = context
-    ? await getAppBrief(context.user.organizationId, context.capabilityKeys)
+    ? await getAppBrief(context.user.organizationId, context.capabilityKeys, context.user.id)
     : null;
 
   return (
