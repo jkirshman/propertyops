@@ -81,12 +81,12 @@ export function AppHeader({
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", flexWrap: "wrap" }}>
           <NotificationBell />
-          <div style={{ textAlign: "right" }}>
+          <Link href="/profile" style={{ textAlign: "right", color: "inherit", textDecoration: "none" }}>
             <div style={{ fontSize: "0.85rem", fontWeight: 600 }}>{displayName}</div>
             <div className="muted" style={{ fontSize: "0.75rem" }}>
               {email}
             </div>
-          </div>
+          </Link>
           <LogoutButton />
         </div>
       </div>

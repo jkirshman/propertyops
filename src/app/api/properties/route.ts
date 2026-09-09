@@ -19,12 +19,14 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const search = searchParams.get("search") ?? undefined;
   const propertyTypeId = searchParams.get("propertyTypeId") ?? undefined;
+  const propertyCompanyId = searchParams.get("propertyCompanyId") ?? undefined;
   const activeParam = searchParams.get("active");
   const isActive = activeParam === "true" ? true : activeParam === "false" ? false : undefined;
 
   const results = await listProperties(context.user.organizationId, {
     search,
     propertyTypeId,
+    propertyCompanyId: propertyCompanyId as string | "unassigned" | undefined,
     isActive,
   });
 

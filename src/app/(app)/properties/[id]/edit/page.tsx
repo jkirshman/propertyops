@@ -5,6 +5,7 @@ import { requireCapability } from "@/lib/auth/require-capability";
 import { PROPERTY_CAPABILITIES } from "@/lib/properties/constants";
 import { getProperty } from "@/lib/properties/properties";
 import { listPropertyTypes } from "@/lib/properties/property-types";
+import { listPropertyCompanies } from "@/lib/property-companies/property-companies";
 
 export default async function EditPropertyPage({
   params,
@@ -14,9 +15,10 @@ export default async function EditPropertyPage({
   const { id } = await params;
   const context = await requireCapability(PROPERTY_CAPABILITIES.EDIT, `/properties/${id}`);
 
-  const [property, propertyTypes] = await Promise.all([
+  const [property, propertyTypes, propertyCompanies] = await Promise.all([
     getProperty(context.user.organizationId, id),
     listPropertyTypes(context.user.organizationId, { activeOnly: true }),
+    listPropertyCompanies(context.user.organizationId, { activeOnly: true }),
   ]);
 
   if (!property) {
@@ -25,6 +27,7 @@ export default async function EditPropertyPage({
 
   const initialValues: Partial<PropertyFormValues> = {
     propertyTypeId: property.propertyTypeId,
+    propertyCompanyId: property.propertyCompanyId ?? "",
     name: property.name,
     propertyCode: property.propertyCode ?? "",
     occupancyModel: property.occupancyModel,
@@ -52,6 +55,7 @@ export default async function EditPropertyPage({
         mode="edit"
         propertyId={property.id}
         propertyTypes={propertyTypes}
+        propertyCompanies={propertyCompanies}
         initialValues={initialValues}
       />
     </div>

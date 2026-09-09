@@ -11,6 +11,7 @@ interface LeaseRow {
   label: string;
   tenantId: string;
   unitLabel: string | null;
+  propertyUnitId: string | null;
   status: string;
   startDate: string;
   endDate: string | null;
@@ -26,6 +27,7 @@ interface TenantOption {
 export function PropertyLeasesPanel({ propertyId, canCreate }: { propertyId: string; canCreate: boolean }) {
   const [leases, setLeases] = useState<LeaseRow[]>([]);
   const [tenants, setTenants] = useState<TenantOption[]>([]);
+  const [unitLabelById, setUnitLabelById] = useState<Map<string, string>>(new Map());
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -38,6 +40,11 @@ export function PropertyLeasesPanel({ propertyId, canCreate }: { propertyId: str
     fetch("/api/tenants?active=true")
       .then((response) => (response.ok ? response.json() : null))
       .then((data) => data && setTenants(data.tenants ?? []));
+    fetch(`/api/properties/${propertyId}/units`)
+      .then((response) => (response.ok ? response.json() : null))
+      .then((data) => {
+        if (data) setUnitLabelById(new Map((data.units ?? []).map((u: { id: string; unitLabel: string }) => [u.id, u.unitLabel])));
+      });
   }, [propertyId]);
 
   const tenantNameById = new Map(tenants.map((tenant) => [tenant.id, tenant.name]));
@@ -68,7 +75,10 @@ export function PropertyLeasesPanel({ propertyId, canCreate }: { propertyId: str
                   <div>
                     <div style={{ fontWeight: 600 }}>
                       {lease.label}
-                      {lease.unitLabel ? ` · Unit ${lease.unitLabel}` : ""}
+                      {(() => {
+                        const unit = (lease.propertyUnitId && unitLabelById.get(lease.propertyUnitId)) || lease.unitLabel;
+                        return unit ? ` · Unit ${unit}` : "";
+                      })()}
                     </div>
                     <div className="muted" style={{ fontSize: "0.85rem" }}>
                       {tenantNameById.get(lease.tenantId) ?? "Unknown tenant"}

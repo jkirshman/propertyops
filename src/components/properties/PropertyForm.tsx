@@ -10,8 +10,14 @@ interface PropertyTypeOption {
   name: string;
 }
 
+interface PropertyCompanyOption {
+  id: string;
+  name: string;
+}
+
 export interface PropertyFormValues {
   propertyTypeId: string;
+  propertyCompanyId: string;
   name: string;
   propertyCode: string;
   occupancyModel: string;
@@ -32,6 +38,7 @@ export interface PropertyFormValues {
 
 const EMPTY_VALUES: PropertyFormValues = {
   propertyTypeId: "",
+  propertyCompanyId: "",
   name: "",
   propertyCode: "",
   occupancyModel: "other",
@@ -50,9 +57,13 @@ const EMPTY_VALUES: PropertyFormValues = {
   primaryEmail: "",
 };
 
-function toPayload(values: PropertyFormValues) {
+function toPayload(values: PropertyFormValues, mode: "create" | "edit") {
   return {
     propertyTypeId: values.propertyTypeId,
+    // On edit, an explicit "Unassigned" selection must clear a prior company
+    // (null), distinct from never having touched the field (undefined) — on
+    // create there's nothing to clear, so omit it instead.
+    propertyCompanyId: values.propertyCompanyId || (mode === "edit" ? null : undefined),
     name: values.name,
     propertyCode: values.propertyCode,
     occupancyModel: values.occupancyModel,
@@ -76,11 +87,13 @@ export function PropertyForm({
   mode,
   propertyId,
   propertyTypes,
+  propertyCompanies,
   initialValues,
 }: {
   mode: "create" | "edit";
   propertyId?: string;
   propertyTypes: PropertyTypeOption[];
+  propertyCompanies: PropertyCompanyOption[];
   initialValues?: Partial<PropertyFormValues>;
 }) {
   const router = useRouter();
@@ -112,7 +125,7 @@ export function PropertyForm({
       const response = await fetch(url, {
         method,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(toPayload(values)),
+        body: JSON.stringify(toPayload(values, mode)),
       });
       const data = await response.json().catch(() => null);
       if (!response.ok) {
@@ -164,6 +177,24 @@ export function PropertyForm({
               {propertyTypes.map((type) => (
                 <option key={type.id} value={type.id}>
                   {type.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="label" htmlFor="propertyCompanyId">
+              Property company (optional)
+            </label>
+            <select
+              id="propertyCompanyId"
+              className="input"
+              value={values.propertyCompanyId}
+              onChange={(event) => update("propertyCompanyId", event.target.value)}
+            >
+              <option value="">Unassigned</option>
+              {propertyCompanies.map((company) => (
+                <option key={company.id} value={company.id}>
+                  {company.name}
                 </option>
               ))}
             </select>

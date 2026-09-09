@@ -8,9 +8,11 @@ const emptyToUndefined = (value: unknown) =>
 export const createPropertyContactSchema = z.object({
   name: z.string().trim().min(1).max(200),
   contactType: z.enum(CONTACT_TYPES),
+  title: z.preprocess(emptyToUndefined, z.string().trim().max(200).optional()),
   company: z.preprocess(emptyToUndefined, z.string().trim().max(200).optional()),
   email: z.preprocess(emptyToUndefined, z.string().trim().toLowerCase().email().max(200).optional()),
   phone: z.preprocess(emptyToUndefined, z.string().trim().max(40).optional()),
+  mobilePhone: z.preprocess(emptyToUndefined, z.string().trim().max(40).optional()),
   notes: z.preprocess(emptyToUndefined, z.string().trim().max(2000).optional()),
   isPrimary: z.boolean().optional(),
 });

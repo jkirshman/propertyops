@@ -38,6 +38,7 @@ export default async function EditPreventiveMaintenancePlanPage({
   const initialValues: Partial<PreventiveMaintenanceFormValues> = {
     propertyId: plan.propertyId,
     propertyEquipmentId: plan.propertyEquipmentId ?? "",
+    propertyComponentId: plan.propertyComponentId ?? "",
     categoryId: plan.categoryId,
     name: plan.name,
     description: plan.description ?? "",

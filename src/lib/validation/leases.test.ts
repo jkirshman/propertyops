@@ -120,4 +120,17 @@ describe("updateLeaseSchema", () => {
     // route's job (see getLeaseDateOrderingIssues) when only one side is sent.
     expect(updateLeaseSchema.safeParse({ endDate: "2026-01-01" }).success).toBe(true);
   });
+
+  it("accepts an explicit null to clear the linked property unit", () => {
+    expect(updateLeaseSchema.parse({ propertyUnitId: null }).propertyUnitId).toBeNull();
+  });
+
+  it("accepts a valid propertyUnitId", () => {
+    const id = "5b7f1e0a-9c1b-4a2e-8f0a-1c2d3e4f5678";
+    expect(updateLeaseSchema.parse({ propertyUnitId: id }).propertyUnitId).toBe(id);
+  });
+
+  it("rejects a non-uuid propertyUnitId", () => {
+    expect(updateLeaseSchema.safeParse({ propertyUnitId: "not-a-uuid" }).success).toBe(false);
+  });
 });

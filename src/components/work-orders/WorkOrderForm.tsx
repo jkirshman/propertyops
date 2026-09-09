@@ -3,7 +3,14 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useState, type FormEvent } from "react";
 
+import { COMPONENT_TYPE_LABELS, type ComponentType } from "@/lib/property-components/constants";
 import { WORK_ORDER_PRIORITIES, WORK_ORDER_PRIORITY_LABELS } from "@/lib/work-orders/constants";
+
+function componentLabel(component: ComponentOption): string {
+  const typeLabel = COMPONENT_TYPE_LABELS[component.componentType as ComponentType] ?? component.componentType;
+  const label = component.componentType === "other" && component.otherTypeLabel ? component.otherTypeLabel : typeLabel;
+  return component.name ? `${label} — ${component.name}` : label;
+}
 
 interface OptionRecord {
   id: string;
@@ -19,6 +26,13 @@ interface UserOption {
 interface EquipmentOption {
   id: string;
   displayName: string;
+}
+
+interface ComponentOption {
+  id: string;
+  componentType: string;
+  otherTypeLabel: string | null;
+  name: string | null;
 }
 
 interface AssetOption {
@@ -41,6 +55,7 @@ export function WorkOrderForm({
   canAssignVendor,
   initialPropertyId,
   initialEquipmentId,
+  initialComponentId,
   initialAssetId,
 }: {
   properties: OptionRecord[];
@@ -51,6 +66,7 @@ export function WorkOrderForm({
   canAssignVendor: boolean;
   initialPropertyId?: string;
   initialEquipmentId?: string;
+  initialComponentId?: string;
   initialAssetId?: string;
 }) {
   const router = useRouter();
@@ -62,9 +78,11 @@ export function WorkOrderForm({
   const [assignedUserId, setAssignedUserId] = useState("");
   const [requesterUserId, setRequesterUserId] = useState("");
   const [propertyEquipmentId, setPropertyEquipmentId] = useState(initialEquipmentId ?? "");
+  const [propertyComponentId, setPropertyComponentId] = useState(initialComponentId ?? "");
   const [assetId, setAssetId] = useState(initialAssetId ?? "");
   const [vendorId, setVendorId] = useState("");
   const [equipmentOptions, setEquipmentOptions] = useState<EquipmentOption[]>([]);
+  const [componentOptions, setComponentOptions] = useState<ComponentOption[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -79,6 +97,20 @@ export function WorkOrderForm({
       const options: EquipmentOption[] = data?.equipment ?? [];
       setEquipmentOptions(options);
       setPropertyEquipmentId((current) =>
+        current && !options.some((option) => option.id === current) ? "" : current,
+      );
+    });
+
+    const componentRequest = propertyId
+      ? fetch(`/api/properties/${propertyId}/components?activeOnly=true`).then((response) =>
+          response.ok ? response.json() : null,
+        )
+      : Promise.resolve(null);
+
+    componentRequest.then((data) => {
+      const options: ComponentOption[] = data?.components ?? [];
+      setComponentOptions(options);
+      setPropertyComponentId((current) =>
         current && !options.some((option) => option.id === current) ? "" : current,
       );
     });
@@ -109,6 +141,7 @@ export function WorkOrderForm({
         body: JSON.stringify({
           propertyId,
           propertyEquipmentId: propertyEquipmentId || undefined,
+          propertyComponentId: propertyComponentId || undefined,
           assetId: assetId || undefined,
           categoryId,
           priority,
@@ -191,6 +224,25 @@ export function WorkOrderForm({
             {equipmentOptions.map((option) => (
               <option key={option.id} value={option.id}>
                 {option.displayName}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="label" htmlFor="wo-component">
+            Related property component (optional)
+          </label>
+          <select
+            id="wo-component"
+            className="input"
+            value={propertyComponentId}
+            onChange={(event) => setPropertyComponentId(event.target.value)}
+            disabled={!propertyId || componentOptions.length === 0}
+          >
+            <option value="">None</option>
+            {componentOptions.map((option) => (
+              <option key={option.id} value={option.id}>
+                {componentLabel(option)}
               </option>
             ))}
           </select>

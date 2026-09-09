@@ -5,6 +5,7 @@ import { requireCapability } from "@/lib/auth/require-capability";
 import { LEASE_CAPABILITIES } from "@/lib/leases/constants";
 import { getLease } from "@/lib/leases/leases";
 import { getProperty } from "@/lib/properties/properties";
+import { getPropertyUnit } from "@/lib/property-units/property-units";
 import { getTenant } from "@/lib/tenants/tenants";
 
 export default async function LeaseDetailPage({
@@ -20,9 +21,12 @@ export default async function LeaseDetailPage({
     notFound();
   }
 
-  const [property, tenant] = await Promise.all([
+  const [property, tenant, unit] = await Promise.all([
     getProperty(context.user.organizationId, lease.propertyId),
     getTenant(context.user.organizationId, lease.tenantId),
+    lease.propertyUnitId
+      ? getPropertyUnit(context.user.organizationId, lease.propertyId, lease.propertyUnitId)
+      : Promise.resolve(null),
   ]);
 
   const { capabilityKeys } = context;
@@ -40,6 +44,7 @@ export default async function LeaseDetailPage({
         initialLease={lease}
         propertyName={property?.name ?? "Unknown property"}
         tenantName={tenant?.name ?? "Unknown tenant"}
+        unitRecordLabel={unit?.unitLabel ?? null}
         canEdit={capabilityKeys.includes(LEASE_CAPABILITIES.EDIT)}
         canManageStatus={capabilityKeys.includes(LEASE_CAPABILITIES.MANAGE_STATUS)}
         canManageDocuments={capabilityKeys.includes(LEASE_CAPABILITIES.MANAGE_DOCUMENTS)}

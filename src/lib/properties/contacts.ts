@@ -52,9 +52,11 @@ export async function createPropertyContact(
       propertyId,
       name: input.name,
       contactType: input.contactType,
+      title: input.title ?? null,
       company: input.company ?? null,
       email: input.email ?? null,
       phone: input.phone ?? null,
+      mobilePhone: input.mobilePhone ?? null,
       notes: input.notes ?? null,
       isPrimary: input.isPrimary ?? false,
     })

@@ -50,14 +50,39 @@ const PROPERTY_CAPABILITIES = [
 ];
 
 const DEFAULT_PROPERTY_TYPES = [
-  { name: "Residential Rental", slug: "residential-rental", sortOrder: 1 },
+  { name: "Residential Rental", slug: "residential-rental", sortOrder: 1, supportsUnits: false },
   {
     name: "Strip Mall / Multi-Tenant Commercial",
     slug: "strip-mall-multi-tenant-commercial",
     sortOrder: 2,
+    supportsUnits: true,
   },
-  { name: "Freestanding Commercial", slug: "freestanding-commercial", sortOrder: 3 },
-  { name: "Leased Property", slug: "leased-property", sortOrder: 4 },
+  { name: "Freestanding Commercial", slug: "freestanding-commercial", sortOrder: 3, supportsUnits: false },
+  { name: "Leased Property", slug: "leased-property", sortOrder: 4, supportsUnits: false },
+];
+
+// Property Company domain capabilities (POLISH-2).
+const PROPERTY_COMPANY_CAPABILITIES_SEED = [
+  { key: "property_company.view", description: "View property companies" },
+  { key: "property_company.manage", description: "Manage the property company taxonomy" },
+];
+
+// Property Unit domain capabilities (POLISH-2) — granted alongside lease.create/
+// lease.edit for operational roles so the Lease form's Unit dropdown works in
+// practice without requiring full Unit-management rights.
+const PROPERTY_UNIT_CAPABILITIES_SEED = [
+  { key: "property_unit.view", description: "View property units/suites" },
+  { key: "property_unit.create", description: "Create property units/suites" },
+  { key: "property_unit.edit", description: "Edit or deactivate property units/suites" },
+];
+
+// Property Component domain capabilities (POLISH-3).
+const PROPERTY_COMPONENT_CAPABILITIES_SEED = [
+  { key: "property_component.view", description: "View property components" },
+  { key: "property_component.create", description: "Create property components" },
+  { key: "property_component.edit", description: "Edit or deactivate property components" },
+  { key: "property_component.manage_service", description: "Manage property component service history" },
+  { key: "property_component.manage_documents", description: "Manage property component documents" },
 ];
 
 // Work Order domain capabilities. All are granted to the administrator role below;
@@ -363,6 +388,9 @@ async function main() {
     ...TENANT_CAPABILITIES_SEED,
     ...LEASE_CAPABILITIES_SEED,
     ...CALENDAR_CAPABILITIES_SEED,
+    ...PROPERTY_COMPANY_CAPABILITIES_SEED,
+    ...PROPERTY_UNIT_CAPABILITIES_SEED,
+    ...PROPERTY_COMPONENT_CAPABILITIES_SEED,
   ]) {
     let [cap] = await db.select().from(capabilities).where(eq(capabilities.key, key)).limit(1);
 
@@ -377,7 +405,7 @@ async function main() {
       .onConflictDoNothing();
   }
 
-  for (const { name, slug, sortOrder } of DEFAULT_PROPERTY_TYPES) {
+  for (const { name, slug, sortOrder, supportsUnits } of DEFAULT_PROPERTY_TYPES) {
     const [existingType] = await db
       .select()
       .from(propertyTypes)
@@ -387,9 +415,19 @@ async function main() {
     if (!existingType) {
       const [type] = await db
         .insert(propertyTypes)
-        .values({ organizationId: org.id, name, slug, sortOrder })
+        .values({ organizationId: org.id, name, slug, sortOrder, supportsUnits })
         .returning();
       console.log(`Created property type ${type.id} (${slug})`);
+    } else if (existingType.supportsUnits !== supportsUnits) {
+      // Data-only sync (POLISH-2) — the insert-if-missing loop above never
+      // updates an existing row's other fields, so this keeps supportsUnits
+      // in sync with DEFAULT_PROPERTY_TYPES on every seed run, for orgs that
+      // already existed before this flag was introduced.
+      await db
+        .update(propertyTypes)
+        .set({ supportsUnits })
+        .where(eq(propertyTypes.id, existingType.id));
+      console.log(`Synced supportsUnits=${supportsUnits} for property type ${existingType.id} (${slug})`);
     }
   }
 

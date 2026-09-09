@@ -3,6 +3,10 @@ import { COMPLIANCE_CAPABILITIES, COMPLIANCE_FILES_ENTITY_TYPE } from "@/lib/com
 import { EQUIPMENT_CAPABILITIES, PROPERTY_EQUIPMENT_FILES_ENTITY_TYPE } from "@/lib/equipment/constants";
 import { LEASE_CAPABILITIES, LEASE_FILES_ENTITY_TYPE } from "@/lib/leases/constants";
 import { PROPERTY_CAPABILITIES, PROPERTY_FILES_ENTITY_TYPE } from "@/lib/properties/constants";
+import {
+  PROPERTY_COMPONENT_CAPABILITIES,
+  PROPERTY_COMPONENT_FILES_ENTITY_TYPE,
+} from "@/lib/property-components/constants";
 import { TENANT_CAPABILITIES, TENANT_FILES_ENTITY_TYPE } from "@/lib/tenants/constants";
 import { VENDOR_CAPABILITIES, VENDOR_FILES_ENTITY_TYPE } from "@/lib/vendors/constants";
 import { WORK_ORDER_CAPABILITIES, WORK_ORDER_FILES_ENTITY_TYPE } from "@/lib/work-orders/constants";
@@ -49,6 +53,10 @@ const RELATED_ENTITY_FILE_RULES: Record<string, RelatedEntityFileRules> = {
   [LEASE_FILES_ENTITY_TYPE]: {
     viewCapability: LEASE_CAPABILITIES.VIEW,
     manageCapability: LEASE_CAPABILITIES.MANAGE_DOCUMENTS,
+  },
+  [PROPERTY_COMPONENT_FILES_ENTITY_TYPE]: {
+    viewCapability: PROPERTY_COMPONENT_CAPABILITIES.VIEW,
+    manageCapability: PROPERTY_COMPONENT_CAPABILITIES.MANAGE_DOCUMENTS,
   },
 };
 

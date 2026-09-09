@@ -7,6 +7,7 @@ const emptyToUndefined = (value: unknown) =>
 
 export const createPropertySchema = z.object({
   propertyTypeId: z.string().uuid(),
+  propertyCompanyId: z.preprocess(emptyToUndefined, z.string().uuid().optional()),
   name: z.string().trim().min(1).max(200),
   propertyCode: z.preprocess(emptyToUndefined, z.string().trim().max(50).optional()),
   occupancyModel: z.enum(OCCUPANCY_MODELS).default("other"),
@@ -30,6 +31,9 @@ export const createPropertySchema = z.object({
 
 export const updatePropertySchema = createPropertySchema.partial().extend({
   isActive: z.boolean().optional(),
+  // Overrides the partial'd (non-nullable) create-schema field so an explicit
+  // "Unassigned" selection can clear it, distinct from "left untouched".
+  propertyCompanyId: z.preprocess(emptyToUndefined, z.string().uuid().optional().nullable()),
 });
 
 export type CreatePropertyInput = z.infer<typeof createPropertySchema>;

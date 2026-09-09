@@ -5,7 +5,7 @@ import { getCurrentUserWithCapabilities } from "@/lib/auth/current-user";
 import { getFileRecord, streamPrivateFile } from "@/lib/files/files";
 import { getRelatedEntityFileRules } from "@/lib/files/related-entity-rules";
 
-export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const context = await getCurrentUserWithCapabilities();
   if (!context) {
     return NextResponse.json({ error: "unauthenticated" }, { status: 401 });
@@ -13,6 +13,9 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
 
   const { user, capabilityKeys } = context;
   const { id } = await params;
+  // Opt-in only, and only for images — every other caller/file type keeps
+  // today's forced-download behavior unchanged (e.g. PDFs, docs).
+  const inline = new URL(request.url).searchParams.get("inline") === "1";
 
   // Org-scoped lookup IS the baseline permission check: a file outside the
   // caller's organization resolves to nothing, never to someone else's private blob.
@@ -50,10 +53,14 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     });
   }
 
+  const renderInline = inline && record.mimeType.startsWith("image/");
+
   return new Response(blob.stream, {
     headers: {
       "Content-Type": record.mimeType,
-      "Content-Disposition": `attachment; filename="${encodeURIComponent(record.fileName)}"`,
+      "Content-Disposition": renderInline
+        ? `inline; filename="${encodeURIComponent(record.fileName)}"`
+        : `attachment; filename="${encodeURIComponent(record.fileName)}"`,
     },
   });
 }

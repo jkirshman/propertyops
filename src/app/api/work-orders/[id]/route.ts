@@ -7,6 +7,7 @@ import { getAsset } from "@/lib/assets/assets";
 import { getPropertyEquipment } from "@/lib/equipment/property-equipment";
 import { createNotification } from "@/lib/notifications/notifications";
 import { syncPreventiveMaintenanceOccurrenceStatus } from "@/lib/preventive-maintenance/occurrences";
+import { getPropertyComponent } from "@/lib/property-components/property-components";
 import { VENDOR_CAPABILITIES } from "@/lib/vendors/constants";
 import { getVendor } from "@/lib/vendors/vendors";
 import { updateWorkOrderSchema } from "@/lib/validation/work-orders";
@@ -90,6 +91,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     fields.categoryId !== undefined ||
     fields.priority !== undefined ||
     fields.propertyEquipmentId !== undefined ||
+    fields.propertyComponentId !== undefined ||
     fields.assetId !== undefined ||
     fields.resolutionSummary !== undefined;
   if (otherFieldsTouched && !capabilityKeys.includes(WORK_ORDER_CAPABILITIES.EDIT)) {
@@ -100,6 +102,13 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     const equipment = await getPropertyEquipment(user.organizationId, fields.propertyEquipmentId);
     if (!equipment || equipment.propertyId !== existing.propertyId) {
       return NextResponse.json({ error: "invalid_equipment" }, { status: 400 });
+    }
+  }
+
+  if (fields.propertyComponentId) {
+    const component = await getPropertyComponent(user.organizationId, fields.propertyComponentId);
+    if (!component || component.propertyId !== existing.propertyId) {
+      return NextResponse.json({ error: "invalid_component" }, { status: 400 });
     }
   }
 
@@ -276,6 +285,20 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       });
     }
 
+    if (changedKeys.includes("propertyComponentId")) {
+      await recordAuditEvent({
+        organizationId: user.organizationId,
+        actorUserId: user.id,
+        action: updated.propertyComponentId
+          ? "work_order.component_linked"
+          : "work_order.component_unlinked",
+        entityType: "work_order",
+        entityId: id,
+        before: pick(diff.before, ["propertyComponentId"]),
+        after: pick(diff.after, ["propertyComponentId"]),
+      });
+    }
+
     if (changedKeys.includes("assetId")) {
       await recordAuditEvent({
         organizationId: user.organizationId,
@@ -297,6 +320,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
           "assignedUserId",
           "vendorId",
           "propertyEquipmentId",
+          "propertyComponentId",
           "assetId",
           "scheduledStartAt",
           "scheduledEndAt",

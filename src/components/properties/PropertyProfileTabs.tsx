@@ -11,7 +11,10 @@ import { PropertyAssetsPanel } from "@/components/properties/PropertyAssetsPanel
 import { PropertyCompliancePanel } from "@/components/properties/PropertyCompliancePanel";
 import { PropertyInspectionsPanel } from "@/components/properties/PropertyInspectionsPanel";
 import { PropertyLeasesPanel } from "@/components/properties/PropertyLeasesPanel";
+import { PropertyComponentsPanel } from "@/components/properties/PropertyComponentsPanel";
+import { PropertyPhotosPanel } from "@/components/properties/PropertyPhotosPanel";
 import { PropertyPreventiveMaintenancePanel } from "@/components/properties/PropertyPreventiveMaintenancePanel";
+import { PropertyUnitsPanel } from "@/components/properties/PropertyUnitsPanel";
 import { PropertyVendorsPanel } from "@/components/properties/PropertyVendorsPanel";
 import { PropertyWorkOrdersPanel } from "@/components/properties/PropertyWorkOrdersPanel";
 import { OCCUPANCY_MODEL_LABELS, type OccupancyModel } from "@/lib/properties/constants";
@@ -44,6 +47,9 @@ const TAB_LABELS: Record<Tab, string> = {
   inspections: "Inspections",
   compliance: "Compliance",
   leases: "Tenants / Leases",
+  units: "Units / Suites",
+  components: "Components",
+  photos: "Photos",
   contacts: "Contacts",
   notes: "Notes",
   documents: "Documents",
@@ -116,6 +122,11 @@ export function PropertyProfileTabs({
   canCreateInspections,
   canManageCompliance,
   canCreateLeases,
+  supportsUnits,
+  canCreateUnits,
+  canEditUnits,
+  canCreateComponents,
+  canManagePhotos,
 }: {
   propertyId: string;
   overview: PropertyOverview;
@@ -133,13 +144,19 @@ export function PropertyProfileTabs({
   canCreateInspections: boolean;
   canManageCompliance: boolean;
   canCreateLeases: boolean;
+  supportsUnits: boolean;
+  canCreateUnits: boolean;
+  canEditUnits: boolean;
+  canCreateComponents: boolean;
+  canManagePhotos: boolean;
 }) {
   const [tab, setTab] = useState<Tab>(initialTab ?? "overview");
+  const visibleTabs = TABS.filter((value) => value !== "units" || supportsUnits);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
       <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", borderBottom: "1px solid var(--border)" }}>
-        {TABS.map((value) => (
+        {visibleTabs.map((value) => (
           <button
             key={value}
             type="button"
@@ -188,6 +205,15 @@ export function PropertyProfileTabs({
       ) : null}
       {tab === "leases" ? (
         <PropertyLeasesPanel propertyId={propertyId} canCreate={canCreateLeases} />
+      ) : null}
+      {tab === "units" && supportsUnits ? (
+        <PropertyUnitsPanel propertyId={propertyId} canCreate={canCreateUnits} canEdit={canEditUnits} />
+      ) : null}
+      {tab === "components" ? (
+        <PropertyComponentsPanel propertyId={propertyId} canCreate={canCreateComponents} />
+      ) : null}
+      {tab === "photos" ? (
+        <PropertyPhotosPanel propertyId={propertyId} supportsUnits={supportsUnits} canManage={canManagePhotos} />
       ) : null}
       {tab === "contacts" ? <ContactsPanel propertyId={propertyId} canManage={canManageContacts} /> : null}
       {tab === "notes" ? <NotesPanel propertyId={propertyId} canManage={canManageNotes} /> : null}

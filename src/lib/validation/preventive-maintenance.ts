@@ -11,6 +11,7 @@ const dateOnly = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Expected a YYYY-MM-DD 
 export const createPreventiveMaintenancePlanSchema = z.object({
   propertyId: z.string().uuid(),
   propertyEquipmentId: z.preprocess(emptyToUndefined, z.string().uuid().optional()),
+  propertyComponentId: z.preprocess(emptyToUndefined, z.string().uuid().optional()),
   categoryId: z.string().uuid(),
   name: z.string().trim().min(1).max(200),
   description: z.preprocess(emptyToUndefined, z.string().trim().max(2000).optional()),
@@ -25,6 +26,7 @@ export const createPreventiveMaintenancePlanSchema = z.object({
 
 export const updatePreventiveMaintenancePlanSchema = z.object({
   propertyEquipmentId: z.preprocess(emptyToUndefined, z.string().uuid().optional().nullable()),
+  propertyComponentId: z.preprocess(emptyToUndefined, z.string().uuid().optional().nullable()),
   categoryId: z.string().uuid().optional(),
   name: z.string().trim().min(1).max(200).optional(),
   description: z.preprocess(emptyToUndefined, z.string().trim().max(2000).optional().nullable()),

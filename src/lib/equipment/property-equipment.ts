@@ -1,7 +1,7 @@
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, eq, or } from "drizzle-orm";
 
 import { db } from "@/db/client";
-import { propertyEquipment } from "@/db/schema";
+import { properties, propertyEquipment } from "@/db/schema";
 import { stripUndefined } from "@/lib/db/strip-undefined";
 import type {
   CreatePropertyEquipmentInput,
@@ -26,6 +26,30 @@ export async function listPropertyEquipment(
     .from(propertyEquipment)
     .where(and(...conditions))
     .orderBy(asc(propertyEquipment.displayName));
+}
+
+// Org-wide (unlike listPropertyEquipment, which is single-property) — powers
+// the Home App Brief's "Equipment needing attention" section.
+export async function listPropertyEquipmentNeedingAttention(organizationId: string) {
+  return db
+    .select({
+      id: propertyEquipment.id,
+      displayName: propertyEquipment.displayName,
+      condition: propertyEquipment.condition,
+      status: propertyEquipment.status,
+      propertyId: propertyEquipment.propertyId,
+      propertyName: properties.name,
+    })
+    .from(propertyEquipment)
+    .innerJoin(properties, eq(properties.id, propertyEquipment.propertyId))
+    .where(
+      and(
+        eq(propertyEquipment.organizationId, organizationId),
+        eq(propertyEquipment.isActive, true),
+        or(eq(propertyEquipment.condition, "poor"), eq(propertyEquipment.status, "out_of_service")),
+      ),
+    )
+    .orderBy(asc(properties.name), asc(propertyEquipment.displayName));
 }
 
 export async function getPropertyEquipment(organizationId: string, id: string) {

@@ -10,6 +10,7 @@ import {
   type PmIntervalUnit,
   type PmRecurrencePreset,
 } from "@/lib/preventive-maintenance/constants";
+import { COMPONENT_TYPE_LABELS, type ComponentType } from "@/lib/property-components/constants";
 import { WORK_ORDER_PRIORITIES, WORK_ORDER_PRIORITY_LABELS } from "@/lib/work-orders/constants";
 
 interface OptionRecord {
@@ -27,6 +28,19 @@ interface EquipmentOption {
   displayName: string;
 }
 
+interface ComponentOption {
+  id: string;
+  componentType: string;
+  otherTypeLabel: string | null;
+  name: string | null;
+}
+
+function componentLabel(component: ComponentOption): string {
+  const typeLabel = COMPONENT_TYPE_LABELS[component.componentType as ComponentType] ?? component.componentType;
+  const label = component.componentType === "other" && component.otherTypeLabel ? component.otherTypeLabel : typeLabel;
+  return component.name ? `${label} — ${component.name}` : label;
+}
+
 interface VendorOption {
   id: string;
   name: string;
@@ -35,6 +49,7 @@ interface VendorOption {
 export interface PreventiveMaintenanceFormValues {
   propertyId: string;
   propertyEquipmentId: string;
+  propertyComponentId: string;
   categoryId: string;
   name: string;
   description: string;
@@ -51,6 +66,7 @@ export interface PreventiveMaintenanceFormValues {
 const EMPTY_VALUES: PreventiveMaintenanceFormValues = {
   propertyId: "",
   propertyEquipmentId: "",
+  propertyComponentId: "",
   categoryId: "",
   name: "",
   description: "",
@@ -103,6 +119,7 @@ export function PreventiveMaintenanceForm({
     ...initialValues,
   });
   const [equipmentOptions, setEquipmentOptions] = useState<EquipmentOption[]>([]);
+  const [componentOptions, setComponentOptions] = useState<ComponentOption[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -127,6 +144,23 @@ export function PreventiveMaintenanceForm({
         ...prev,
         propertyEquipmentId: options.some((option) => option.id === prev.propertyEquipmentId)
           ? prev.propertyEquipmentId
+          : "",
+      }));
+    });
+
+    const componentRequest = values.propertyId
+      ? fetch(`/api/properties/${values.propertyId}/components?activeOnly=true`).then((response) =>
+          response.ok ? response.json() : null,
+        )
+      : Promise.resolve(null);
+
+    componentRequest.then((data) => {
+      const options: ComponentOption[] = data?.components ?? [];
+      setComponentOptions(options);
+      setValues((prev) => ({
+        ...prev,
+        propertyComponentId: options.some((option) => option.id === prev.propertyComponentId)
+          ? prev.propertyComponentId
           : "",
       }));
     });
@@ -158,6 +192,7 @@ export function PreventiveMaintenanceForm({
     const payload = {
       ...(mode === "create" ? { propertyId: values.propertyId } : {}),
       propertyEquipmentId: values.propertyEquipmentId || null,
+      propertyComponentId: values.propertyComponentId || null,
       categoryId: values.categoryId,
       name: values.name,
       description: values.description || undefined,
@@ -236,6 +271,25 @@ export function PreventiveMaintenanceForm({
             {equipmentOptions.map((option) => (
               <option key={option.id} value={option.id}>
                 {option.displayName}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="label" htmlFor="pm-component">
+            Property component (optional)
+          </label>
+          <select
+            id="pm-component"
+            className="input"
+            value={values.propertyComponentId}
+            onChange={(event) => update("propertyComponentId", event.target.value)}
+            disabled={mode === "create" && (!values.propertyId || componentOptions.length === 0)}
+          >
+            <option value="">None</option>
+            {componentOptions.map((option) => (
+              <option key={option.id} value={option.id}>
+                {componentLabel(option)}
               </option>
             ))}
           </select>

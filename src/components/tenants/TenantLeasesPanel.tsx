@@ -16,6 +16,7 @@ interface LeaseRow {
   label: string;
   propertyId: string;
   unitLabel: string | null;
+  propertyUnitId: string | null;
   status: string;
   startDate: string;
   endDate: string | null;
@@ -24,6 +25,7 @@ interface LeaseRow {
 export function TenantLeasesPanel({ tenantId, canCreate }: { tenantId: string; canCreate: boolean }) {
   const [leases, setLeases] = useState<LeaseRow[]>([]);
   const [properties, setProperties] = useState<OptionRecord[]>([]);
+  const [unitLabelById, setUnitLabelById] = useState<Map<string, string>>(new Map());
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -37,6 +39,24 @@ export function TenantLeasesPanel({ tenantId, canCreate }: { tenantId: string; c
       .then((response) => (response.ok ? response.json() : null))
       .then((data) => data && setProperties(data.properties ?? []));
   }, [tenantId]);
+
+  useEffect(() => {
+    const propertyIds = Array.from(new Set(leases.filter((l) => l.propertyUnitId).map((l) => l.propertyId)));
+    if (propertyIds.length === 0) return;
+    Promise.all(
+      propertyIds.map((propertyId) =>
+        fetch(`/api/properties/${propertyId}/units`).then((response) => (response.ok ? response.json() : null)),
+      ),
+    ).then((results) => {
+      const map = new Map<string, string>();
+      for (const data of results) {
+        for (const unit of data?.units ?? []) {
+          map.set(unit.id, unit.unitLabel);
+        }
+      }
+      setUnitLabelById(map);
+    });
+  }, [leases]);
 
   const propertyNameById = new Map(properties.map((property) => [property.id, property.name]));
 
@@ -67,7 +87,10 @@ export function TenantLeasesPanel({ tenantId, canCreate }: { tenantId: string; c
                     <div style={{ fontWeight: 600 }}>{lease.label}</div>
                     <div className="muted" style={{ fontSize: "0.85rem" }}>
                       {propertyNameById.get(lease.propertyId) ?? "Unknown property"}
-                      {lease.unitLabel ? ` · Unit ${lease.unitLabel}` : ""}
+                      {(() => {
+                        const label = (lease.propertyUnitId && unitLabelById.get(lease.propertyUnitId)) || lease.unitLabel;
+                        return label ? ` · Unit ${label}` : "";
+                      })()}
                     </div>
                   </div>
                   <div className="muted" style={{ fontSize: "0.85rem", textAlign: "right" }}>

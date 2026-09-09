@@ -42,6 +42,7 @@ export default async function EditLeasePage({
     rentFrequency: (lease.rentFrequency as LeaseFormValues["rentFrequency"]) ?? "",
     squareFootageLeased: lease.squareFootageLeased != null ? String(lease.squareFootageLeased) : "",
     unitLabel: lease.unitLabel ?? "",
+    propertyUnitId: lease.propertyUnitId ?? "",
     notes: lease.notes ?? "",
   };
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 
 import { VALIDATION_BANNER_MESSAGE, describeApiError, invalidFieldProps, mapFieldErrors } from "@/lib/forms/field-errors";
 import {
@@ -39,7 +39,14 @@ export interface LeaseFormValues {
   rentFrequency: RentFrequency | "";
   squareFootageLeased: string;
   unitLabel: string;
+  propertyUnitId: string;
   notes: string;
+}
+
+interface UnitOption {
+  id: string;
+  unitLabel: string;
+  isActive: boolean;
 }
 
 const EMPTY_VALUES: LeaseFormValues = {
@@ -59,10 +66,11 @@ const EMPTY_VALUES: LeaseFormValues = {
   rentFrequency: "",
   squareFootageLeased: "",
   unitLabel: "",
+  propertyUnitId: "",
   notes: "",
 };
 
-function toPayload(values: LeaseFormValues) {
+function toPayload(values: LeaseFormValues, mode: "create" | "edit") {
   return {
     propertyId: values.propertyId,
     tenantId: values.tenantId,
@@ -80,6 +88,9 @@ function toPayload(values: LeaseFormValues) {
     rentFrequency: values.rentFrequency || undefined,
     squareFootageLeased: values.squareFootageLeased === "" ? undefined : Number(values.squareFootageLeased),
     unitLabel: values.unitLabel || undefined,
+    // On edit, an explicit "No unit" selection must clear a prior link
+    // (null), distinct from never having touched the field (undefined).
+    propertyUnitId: values.propertyUnitId || (mode === "edit" ? null : undefined),
     notes: values.notes || undefined,
   };
 }
@@ -102,6 +113,26 @@ export function LeaseForm({
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
+  const [units, setUnits] = useState<UnitOption[]>([]);
+
+  // Only shown when the selected property actually has units — no need to
+  // separately thread a property-type "supportsUnits" flag down here.
+  useEffect(() => {
+    let cancelled = false;
+    const request = values.propertyId
+      ? fetch(`/api/properties/${values.propertyId}/units`).then((response) => (response.ok ? response.json() : null))
+      : Promise.resolve(null);
+    request.then((data) => {
+      if (!cancelled) setUnits(data?.units ?? []);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [values.propertyId]);
+
+  // Active units, plus the currently-assigned one even if it has since gone
+  // inactive — so an existing lease's unit always still appears selected.
+  const selectableUnits = units.filter((unit) => unit.isActive || unit.id === values.propertyUnitId);
 
   function update<K extends keyof LeaseFormValues>(key: K, value: LeaseFormValues[K]) {
     setValues((prev) => ({ ...prev, [key]: value }));
@@ -118,7 +149,7 @@ export function LeaseForm({
     setError(null);
     setFieldErrors({});
 
-    const payload = toPayload(values);
+    const payload = toPayload(values, mode);
     const schema = mode === "create" ? createLeaseSchema : updateLeaseSchema;
     const localResult = schema.safeParse(mode === "create" ? payload : { ...payload, propertyId: undefined, tenantId: undefined });
     if (!localResult.success) {
@@ -219,7 +250,7 @@ export function LeaseForm({
           />
         </div>
         <div>
-          <label className="label" htmlFor="lease-unit">Unit / suite (optional)</label>
+          <label className="label" htmlFor="lease-unit">Unit / suite (optional, free text)</label>
           <input
             id="lease-unit"
             className="input"
@@ -227,6 +258,25 @@ export function LeaseForm({
             onChange={(event) => update("unitLabel", event.target.value)}
           />
         </div>
+        {selectableUnits.length > 0 ? (
+          <div>
+            <label className="label" htmlFor="lease-property-unit">Unit record (optional)</label>
+            <select
+              id="lease-property-unit"
+              className="input"
+              value={values.propertyUnitId}
+              onChange={(event) => update("propertyUnitId", event.target.value)}
+            >
+              <option value="">No unit selected</option>
+              {selectableUnits.map((unit) => (
+                <option key={unit.id} value={unit.id}>
+                  {unit.unitLabel}
+                  {!unit.isActive ? " (inactive)" : ""}
+                </option>
+              ))}
+            </select>
+          </div>
+        ) : null}
         <div>
           <label className="label" htmlFor="lease-type">Lease type</label>
           <select id="lease-type" className="input" value={values.leaseType} onChange={(event) => update("leaseType", event.target.value as LeaseType)}>

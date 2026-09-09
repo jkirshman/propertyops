@@ -37,6 +37,23 @@ describe("createPropertyContactSchema", () => {
     });
     expect(result.email).toBeUndefined();
   });
+
+  it("accepts the asset_manager contact type", () => {
+    expect(
+      createPropertyContactSchema.safeParse({ name: "Jane Doe", contactType: "asset_manager" }).success,
+    ).toBe(true);
+  });
+
+  it("accepts title and mobilePhone", () => {
+    const result = createPropertyContactSchema.parse({
+      name: "Jane Doe",
+      contactType: "asset_manager",
+      title: "Regional Asset Manager",
+      mobilePhone: "555-0100",
+    });
+    expect(result.title).toBe("Regional Asset Manager");
+    expect(result.mobilePhone).toBe("555-0100");
+  });
 });
 
 describe("updatePropertyContactSchema", () => {

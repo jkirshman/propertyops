@@ -9,6 +9,7 @@ import {
   getPreventiveMaintenancePlan,
   updatePreventiveMaintenancePlan,
 } from "@/lib/preventive-maintenance/plans";
+import { getPropertyComponent } from "@/lib/property-components/property-components";
 import { getWorkOrderCategory } from "@/lib/work-orders/categories";
 import { updatePreventiveMaintenancePlanSchema } from "@/lib/validation/preventive-maintenance";
 import { vendorCoversProperty } from "@/lib/vendors/coverage";
@@ -66,6 +67,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   }
   const otherFieldsTouched =
     fields.propertyEquipmentId !== undefined ||
+    fields.propertyComponentId !== undefined ||
     fields.categoryId !== undefined ||
     fields.name !== undefined ||
     fields.description !== undefined ||
@@ -91,6 +93,13 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     const equipment = await getPropertyEquipment(user.organizationId, fields.propertyEquipmentId);
     if (!equipment || equipment.propertyId !== existing.propertyId) {
       return NextResponse.json({ error: "invalid_equipment" }, { status: 400 });
+    }
+  }
+
+  if (fields.propertyComponentId) {
+    const component = await getPropertyComponent(user.organizationId, fields.propertyComponentId);
+    if (!component || component.propertyId !== existing.propertyId) {
+      return NextResponse.json({ error: "invalid_component" }, { status: 400 });
     }
   }
 

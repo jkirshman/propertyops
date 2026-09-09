@@ -6,6 +6,7 @@ import { diffFields } from "@/lib/db/diff-fields";
 import { getLeaseDateOrderingIssues } from "@/lib/leases/date-ordering";
 import { LEASE_CAPABILITIES } from "@/lib/leases/constants";
 import { getLease, updateLease } from "@/lib/leases/leases";
+import { getPropertyUnit } from "@/lib/property-units/property-units";
 import { updateLeaseSchema } from "@/lib/validation/leases";
 
 function pick<T extends Record<string, unknown>>(obj: T, keys: string[]): Partial<T> {
@@ -74,6 +75,13 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     moveInDate: fields.moveInDate === null ? null : (fields.moveInDate ?? existing.moveInDate),
     moveOutDate: fields.moveOutDate === null ? null : (fields.moveOutDate ?? existing.moveOutDate),
   };
+  if (fields.propertyUnitId) {
+    const unit = await getPropertyUnit(user.organizationId, existing.propertyId, fields.propertyUnitId);
+    if (!unit || !unit.isActive) {
+      return NextResponse.json({ error: "invalid_unit" }, { status: 400 });
+    }
+  }
+
   const dateIssues = getLeaseDateOrderingIssues(mergedDates);
   if (dateIssues.length > 0) {
     const fieldErrors: Record<string, string[]> = {};

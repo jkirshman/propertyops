@@ -56,6 +56,7 @@ export async function createLease(organizationId: string, input: CreateLeaseInpu
       rentFrequency: input.rentFrequency ?? null,
       squareFootageLeased: input.squareFootageLeased ?? null,
       unitLabel: input.unitLabel ?? null,
+      propertyUnitId: input.propertyUnitId ?? null,
       notes: input.notes ?? null,
     })
     .returning();

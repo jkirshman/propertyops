@@ -79,6 +79,7 @@ export async function createPreventiveMaintenancePlan(
       organizationId,
       propertyId: input.propertyId,
       propertyEquipmentId: input.propertyEquipmentId ?? null,
+      propertyComponentId: input.propertyComponentId ?? null,
       categoryId: input.categoryId,
       name: input.name,
       description: input.description ?? null,

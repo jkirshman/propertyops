@@ -213,11 +213,32 @@ export const propertyTypes = pgTable(
       (): typeof equipmentTemplates.id => equipmentTemplates.id,
       { onDelete: "set null" },
     ),
+    // Gates whether a Property Profile of this type shows the Units/Suites
+    // workflow (POLISH-2) — data-driven rather than hardcoding a type slug in
+    // application code, so a future multi-tenant type can opt in without a
+    // code change.
+    supportsUnits: boolean("supports_units").notNull().default(false),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [uniqueIndex("property_types_org_slug_unique").on(table.organizationId, table.slug)],
 );
+
+// A configurable, org-scoped ownership entity ("who owns this property"),
+// referenced by Property but never required — many properties may not yet
+// have an assigned company (POLISH-2).
+export const propertyCompanies = pgTable("property_companies", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  organizationId: uuid("organization_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  legalName: text("legal_name"),
+  isActive: boolean("is_active").notNull().default(true),
+  notes: text("notes"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
 
 export const properties = pgTable("properties", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -227,6 +248,12 @@ export const properties = pgTable("properties", {
   propertyTypeId: uuid("property_type_id")
     .notNull()
     .references(() => propertyTypes.id, { onDelete: "restrict" }),
+  // Nullable: no existing property has an ownership entity to preserve, and
+  // requiring one would block editing properties whose ownership hasn't been
+  // sorted out yet (POLISH-2).
+  propertyCompanyId: uuid("property_company_id").references(() => propertyCompanies.id, {
+    onDelete: "set null",
+  }),
   name: text("name").notNull(),
   propertyCode: text("property_code"),
   isActive: boolean("is_active").notNull().default(true),
@@ -265,9 +292,11 @@ export const propertyContacts = pgTable("property_contacts", {
     .references(() => properties.id, { onDelete: "cascade" }),
   name: text("name").notNull(),
   contactType: text("contact_type").notNull(),
+  title: text("title"),
   company: text("company"),
   email: text("email"),
   phone: text("phone"),
+  mobilePhone: text("mobile_phone"),
   notes: text("notes"),
   isPrimary: boolean("is_primary").notNull().default(false),
   isActive: boolean("is_active").notNull().default(true),
@@ -287,6 +316,60 @@ export const propertyNotes = pgTable("property_notes", {
   body: text("body").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+// Flat, per-property list of Units/Suites (POLISH-2) — no floor-plan/spatial
+// layout. Occupancy is derived at read time from active Leases referencing
+// this unit, never stored here.
+export const propertyUnits = pgTable(
+  "property_units",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    propertyId: uuid("property_id")
+      .notNull()
+      .references(() => properties.id, { onDelete: "cascade" }),
+    unitLabel: text("unit_label").notNull(),
+    name: text("name"),
+    squareFootage: integer("square_footage"),
+    isActive: boolean("is_active").notNull().default(true),
+    notes: text("notes"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [uniqueIndex("property_units_property_label_unique").on(table.propertyId, table.unitLabel)],
+);
+
+// Photo-specific metadata layered on top of a generic `files` row (fileId) —
+// keeps `files` itself free of photo-only columns that every other module's
+// attachments would carry unused (POLISH-3).
+export const propertyPhotos = pgTable("property_photos", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  organizationId: uuid("organization_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  propertyId: uuid("property_id")
+    .notNull()
+    .references(() => properties.id, { onDelete: "cascade" }),
+  fileId: uuid("file_id")
+    .notNull()
+    .references(() => files.id, { onDelete: "cascade" }),
+  category: text("category").notNull(),
+  caption: text("caption"),
+  // Only populated for properties with Units (POLISH-2); a unit_suite-category
+  // photo is still valid without one (vacant/unassigned space, or taken before
+  // Units existed).
+  propertyUnitId: uuid("property_unit_id").references(() => propertyUnits.id, {
+    onDelete: "set null",
+  }),
+  // Exactly one cover photo per property is an application-level invariant
+  // (setting a new one unsets the prior one), not a DB constraint — same
+  // pattern as property_contacts.isPrimary.
+  isCover: boolean("is_cover").notNull().default(false),
+  uploadedByUserId: uuid("uploaded_by_user_id").references(() => users.id, { onDelete: "set null" }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
 export const equipmentCatalogItems = pgTable(
@@ -401,6 +484,68 @@ export const equipmentServiceRecords = pgTable("equipment_service_records", {
     onDelete: "set null",
   }),
   notes: text("notes"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+// Physical, non-movable building/site features (roof, parking lot,
+// landscaping, ...) — distinct from Equipment (which is scoped to a required
+// equipment-catalog item and carries the template/expected-vs-actual
+// machinery Components don't need) and from Assets (movable, custody-tracked).
+export const propertyComponents = pgTable("property_components", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  organizationId: uuid("organization_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  propertyId: uuid("property_id")
+    .notNull()
+    .references(() => properties.id, { onDelete: "cascade" }),
+  // Fixed, seeded vocabulary (see lib/property-components/constants.ts), not a
+  // per-organization configurable taxonomy — short, unlikely to need per-org
+  // customization.
+  componentType: text("component_type").notNull(),
+  // Only populated (and only meaningful) when componentType === 'other'.
+  otherTypeLabel: text("other_type_label"),
+  name: text("name"),
+  description: text("description"),
+  installedDate: date("installed_date"),
+  replacementDate: date("replacement_date"),
+  expectedUsefulLifeYears: integer("expected_useful_life_years"),
+  warrantyExpiration: date("warranty_expiration"),
+  vendorId: uuid("vendor_id").references((): typeof vendors.id => vendors.id, {
+    onDelete: "set null",
+  }),
+  // Reuses Equipment's condition vocabulary (good/fair/poor/unknown) for
+  // consistency across the app rather than a second condition scale.
+  condition: text("condition").notNull().default("unknown"),
+  notes: text("notes"),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+// Mirrors equipment_service_records' shape where it applies to a physical
+// component; deliberately simpler (no serviceType/meterReading, which don't
+// apply to a roof or parking lot) — a parallel, component-scoped table rather
+// than generalizing equipment_service_records into a shared polymorphic one.
+export const propertyComponentServiceRecords = pgTable("property_component_service_records", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  organizationId: uuid("organization_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  propertyComponentId: uuid("property_component_id")
+    .notNull()
+    .references(() => propertyComponents.id, { onDelete: "cascade" }),
+  serviceDate: date("service_date").notNull(),
+  description: text("description").notNull(),
+  vendorId: uuid("vendor_id").references((): typeof vendors.id => vendors.id, {
+    onDelete: "set null",
+  }),
+  cost: numeric("cost", { precision: 10, scale: 2, mode: "number" }),
+  notes: text("notes"),
+  performedByUserId: uuid("performed_by_user_id").references(() => users.id, {
+    onDelete: "set null",
+  }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
@@ -567,6 +712,11 @@ export const workOrders = pgTable(
       onDelete: "set null",
     }),
     assetId: uuid("asset_id").references(() => assets.id, { onDelete: "set null" }),
+    // Optional alongside Equipment/Asset (POLISH-3) — a Work Order may be
+    // about a physical site feature instead of (or as well as) Equipment.
+    propertyComponentId: uuid("property_component_id").references(() => propertyComponents.id, {
+      onDelete: "set null",
+    }),
     // One primary vendor per Work Order in PROP-7 — no multi-vendor dispatch yet.
     vendorId: uuid("vendor_id").references((): typeof vendors.id => vendors.id, {
       onDelete: "set null",
@@ -620,6 +770,11 @@ export const preventiveMaintenancePlans = pgTable("preventive_maintenance_plans"
     .notNull()
     .references(() => properties.id, { onDelete: "cascade" }),
   propertyEquipmentId: uuid("property_equipment_id").references(() => propertyEquipment.id, {
+    onDelete: "set null",
+  }),
+  // Optional alongside propertyEquipmentId (POLISH-3), mirroring it exactly —
+  // a PM plan may maintain a physical site feature instead of Equipment.
+  propertyComponentId: uuid("property_component_id").references(() => propertyComponents.id, {
     onDelete: "set null",
   }),
   categoryId: uuid("category_id")
@@ -1032,7 +1187,13 @@ export const leases = pgTable("leases", {
   baseRent: numeric("base_rent", { precision: 10, scale: 2, mode: "number" }),
   rentFrequency: text("rent_frequency"),
   squareFootageLeased: integer("square_footage_leased"),
+  // Preserved as-is for backward compatibility — never removed, renamed, or
+  // auto-matched to propertyUnitId (POLISH-2). Both fields stay independently
+  // editable; propertyUnitId is the source of truth once set.
   unitLabel: text("unit_label"),
+  propertyUnitId: uuid("property_unit_id").references(() => propertyUnits.id, {
+    onDelete: "set null",
+  }),
   notes: text("notes"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),

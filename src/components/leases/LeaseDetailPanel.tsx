@@ -37,6 +37,7 @@ export interface LeaseRecord {
   rentFrequency: string | null;
   squareFootageLeased: number | null;
   unitLabel: string | null;
+  propertyUnitId: string | null;
   notes: string | null;
 }
 
@@ -60,6 +61,7 @@ export function LeaseDetailPanel({
   initialLease,
   propertyName,
   tenantName,
+  unitRecordLabel,
   canEdit,
   canManageStatus,
   canManageDocuments,
@@ -67,6 +69,10 @@ export function LeaseDetailPanel({
   initialLease: LeaseRecord;
   propertyName: string;
   tenantName: string;
+  // The linked property_units row's label, resolved server-side — preferred
+  // for display over the legacy free-text unitLabel when both exist, per
+  // POLISH-2's backward-compatibility rule (never overwrite unitLabel itself).
+  unitRecordLabel?: string | null;
   canEdit: boolean;
   canManageStatus: boolean;
   canManageDocuments: boolean;
@@ -202,7 +208,7 @@ export function LeaseDetailPanel({
           </div>
           <div>
             <div className="muted" style={{ fontSize: "0.8rem" }}>Unit / suite</div>
-            <div>{lease.unitLabel ?? "Not set"}</div>
+            <div>{unitRecordLabel ?? lease.unitLabel ?? "Not set"}</div>
           </div>
           <div>
             <div className="muted" style={{ fontSize: "0.8rem" }}>Lease type</div>

@@ -63,7 +63,10 @@ export const createLeaseSchema = z
       emptyToUndefined,
       z.number().int().min(0).max(10_000_000).optional(),
     ),
+    // Preserved alongside propertyUnitId (POLISH-2) — both stay independently
+    // editable, never auto-matched to each other.
     unitLabel: z.preprocess(emptyToUndefined, z.string().trim().max(80).optional()),
+    propertyUnitId: z.preprocess(emptyToUndefined, z.string().uuid().optional()),
     notes: z.preprocess(emptyToUndefined, z.string().trim().max(4000).optional()),
   })
   .superRefine(checkDateOrdering);
@@ -87,6 +90,7 @@ export const updateLeaseSchema = z
       z.number().int().min(0).max(10_000_000).optional().nullable(),
     ),
     unitLabel: z.preprocess(emptyToUndefined, z.string().trim().max(80).optional().nullable()),
+    propertyUnitId: z.preprocess(emptyToUndefined, z.string().uuid().optional().nullable()),
     notes: z.preprocess(emptyToUndefined, z.string().trim().max(4000).optional().nullable()),
   })
   .superRefine((data, ctx) =>

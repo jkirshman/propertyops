@@ -2,6 +2,7 @@ import { ASSET_CATEGORY_CAPABILITIES } from "@/lib/assets/constants";
 import { EQUIPMENT_CATALOG_CAPABILITIES, EQUIPMENT_TEMPLATE_CAPABILITIES } from "@/lib/equipment/constants";
 import { INSPECTION_TEMPLATE_CAPABILITIES } from "@/lib/inspections/constants";
 import { PROPERTY_TYPE_CAPABILITIES } from "@/lib/properties/constants";
+import { PROPERTY_COMPANY_CAPABILITIES } from "@/lib/property-companies/constants";
 import { VENDOR_CATEGORY_CAPABILITIES } from "@/lib/vendors/constants";
 import { WORK_ORDER_CATEGORY_CAPABILITIES } from "@/lib/work-orders/constants";
 
@@ -42,6 +43,14 @@ export const ADMIN_TILES: AdminTile[] = [
     href: "/admin/property-types",
     group: "properties",
     requiredCapability: PROPERTY_TYPE_CAPABILITIES.MANAGE,
+  },
+  {
+    id: "property-companies",
+    title: "Property Companies",
+    description: "Manage the ownership-entity taxonomy selectable on each Property.",
+    href: "/admin/property-companies",
+    group: "properties",
+    requiredCapability: PROPERTY_COMPANY_CAPABILITIES.MANAGE,
   },
   {
     id: "work-order-categories",

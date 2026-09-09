@@ -5,6 +5,7 @@ import { getCurrentUserWithCapabilities } from "@/lib/auth/current-user";
 import { LEASE_CAPABILITIES } from "@/lib/leases/constants";
 import { createLease, listLeases } from "@/lib/leases/leases";
 import { getProperty } from "@/lib/properties/properties";
+import { getPropertyUnit } from "@/lib/property-units/property-units";
 import { getTenant } from "@/lib/tenants/tenants";
 import { createLeaseSchema } from "@/lib/validation/leases";
 
@@ -56,6 +57,13 @@ export async function POST(request: Request) {
   }
   if (!tenant) {
     return NextResponse.json({ error: "invalid_tenant" }, { status: 400 });
+  }
+
+  if (parsed.data.propertyUnitId) {
+    const unit = await getPropertyUnit(user.organizationId, parsed.data.propertyId, parsed.data.propertyUnitId);
+    if (!unit || !unit.isActive) {
+      return NextResponse.json({ error: "invalid_unit" }, { status: 400 });
+    }
   }
 
   const lease = await createLease(user.organizationId, parsed.data);

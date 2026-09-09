@@ -8,9 +8,11 @@ interface ContactRecord {
   id: string;
   name: string;
   contactType: string;
+  title: string | null;
   company: string | null;
   email: string | null;
   phone: string | null;
+  mobilePhone: string | null;
   notes: string | null;
   isPrimary: boolean;
   isActive: boolean;
@@ -19,9 +21,11 @@ interface ContactRecord {
 interface ContactFormState {
   name: string;
   contactType: ContactType;
+  title: string;
   company: string;
   email: string;
   phone: string;
+  mobilePhone: string;
   notes: string;
   isPrimary: boolean;
 }
@@ -29,9 +33,11 @@ interface ContactFormState {
 const EMPTY_FORM: ContactFormState = {
   name: "",
   contactType: "other",
+  title: "",
   company: "",
   email: "",
   phone: "",
+  mobilePhone: "",
   notes: "",
   isPrimary: false,
 };
@@ -40,9 +46,11 @@ function toFormState(contact: ContactRecord): ContactFormState {
   return {
     name: contact.name,
     contactType: contact.contactType as ContactType,
+    title: contact.title ?? "",
     company: contact.company ?? "",
     email: contact.email ?? "",
     phone: contact.phone ?? "",
+    mobilePhone: contact.mobilePhone ?? "",
     notes: contact.notes ?? "",
     isPrimary: contact.isPrimary,
   };
@@ -181,6 +189,17 @@ export function ContactsPanel({ propertyId, canManage }: { propertyId: string; c
                   </select>
                 </div>
                 <div>
+                  <label className="label" htmlFor="contact-title">
+                    Title
+                  </label>
+                  <input
+                    id="contact-title"
+                    className="input"
+                    value={form.title}
+                    onChange={(event) => setForm((prev) => ({ ...prev, title: event.target.value }))}
+                  />
+                </div>
+                <div>
                   <label className="label" htmlFor="contact-company">
                     Company
                   </label>
@@ -212,6 +231,17 @@ export function ContactsPanel({ propertyId, canManage }: { propertyId: string; c
                     className="input"
                     value={form.phone}
                     onChange={(event) => setForm((prev) => ({ ...prev, phone: event.target.value }))}
+                  />
+                </div>
+                <div>
+                  <label className="label" htmlFor="contact-mobile-phone">
+                    Mobile phone
+                  </label>
+                  <input
+                    id="contact-mobile-phone"
+                    className="input"
+                    value={form.mobilePhone}
+                    onChange={(event) => setForm((prev) => ({ ...prev, mobilePhone: event.target.value }))}
                   />
                 </div>
                 <div style={{ display: "flex", alignItems: "flex-end", gap: "0.4rem" }}>
@@ -265,10 +295,13 @@ export function ContactsPanel({ propertyId, canManage }: { propertyId: string; c
                   </div>
                   <div className="muted" style={{ fontSize: "0.85rem" }}>
                     {CONTACT_TYPE_LABELS[contact.contactType as ContactType] ?? contact.contactType}
+                    {contact.title ? ` · ${contact.title}` : ""}
                     {contact.company ? ` · ${contact.company}` : ""}
                   </div>
                   <div className="muted" style={{ fontSize: "0.85rem" }}>
-                    {[contact.email, contact.phone].filter(Boolean).join(" · ")}
+                    {[contact.email, contact.phone, contact.mobilePhone ? `${contact.mobilePhone} (mobile)` : null]
+                      .filter(Boolean)
+                      .join(" · ")}
                   </div>
                   {contact.notes ? (
                     <div className="muted" style={{ fontSize: "0.85rem", marginTop: "0.25rem" }}>

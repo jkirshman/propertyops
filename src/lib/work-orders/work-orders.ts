@@ -1,9 +1,10 @@
-import { and, desc, eq, ilike, or, sql } from "drizzle-orm";
+import { and, desc, eq, ilike, inArray, or, sql } from "drizzle-orm";
 
 import { db } from "@/db/client";
-import { workOrderCounters, workOrders } from "@/db/schema";
+import { properties, workOrderCounters, workOrders } from "@/db/schema";
 import { stripUndefined } from "@/lib/db/strip-undefined";
 import { formatWorkOrderNumber } from "@/lib/work-orders/numbering";
+import { WORK_ORDER_NON_TERMINAL_STATUSES } from "@/lib/work-orders/constants";
 import type { CreateWorkOrderInput, UpdateWorkOrderInput } from "@/lib/validation/work-orders";
 
 async function getNextWorkOrderSequenceNumber(organizationId: string): Promise<number> {
@@ -25,6 +26,7 @@ export interface ListWorkOrdersOptions {
   search?: string;
   propertyId?: string;
   propertyEquipmentId?: string;
+  propertyComponentId?: string;
   assetId?: string;
   status?: string;
   priority?: string;
@@ -41,6 +43,9 @@ export async function listWorkOrders(organizationId: string, options: ListWorkOr
   }
   if (options.propertyEquipmentId) {
     conditions.push(eq(workOrders.propertyEquipmentId, options.propertyEquipmentId));
+  }
+  if (options.propertyComponentId) {
+    conditions.push(eq(workOrders.propertyComponentId, options.propertyComponentId));
   }
   if (options.assetId) {
     conditions.push(eq(workOrders.assetId, options.assetId));
@@ -72,6 +77,32 @@ export async function listWorkOrders(organizationId: string, options: ListWorkOr
     .orderBy(desc(workOrders.updatedAt));
 }
 
+// Powers the Home App Brief's Overdue / High-Urgent Work Orders sections —
+// listWorkOrders' status filter only supports a single exact value, not "any
+// non-terminal status," so this is a dedicated query rather than a reuse.
+export async function listOpenWorkOrdersForBrief(organizationId: string) {
+  return db
+    .select({
+      id: workOrders.id,
+      number: workOrders.number,
+      subject: workOrders.subject,
+      priority: workOrders.priority,
+      status: workOrders.status,
+      openedAt: workOrders.openedAt,
+      propertyId: workOrders.propertyId,
+      propertyName: properties.name,
+    })
+    .from(workOrders)
+    .innerJoin(properties, eq(properties.id, workOrders.propertyId))
+    .where(
+      and(
+        eq(workOrders.organizationId, organizationId),
+        inArray(workOrders.status, WORK_ORDER_NON_TERMINAL_STATUSES),
+      ),
+    )
+    .orderBy(workOrders.openedAt);
+}
+
 export async function getWorkOrder(organizationId: string, id: string) {
   const [row] = await db
     .select()
@@ -97,6 +128,7 @@ export async function createWorkOrder(
       organizationId,
       propertyId: input.propertyId,
       propertyEquipmentId: input.propertyEquipmentId ?? null,
+      propertyComponentId: input.propertyComponentId ?? null,
       assetId: input.assetId ?? null,
       vendorId: input.vendorId ?? null,
       categoryId: input.categoryId,

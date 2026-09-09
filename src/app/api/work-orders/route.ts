@@ -5,6 +5,7 @@ import { getAsset } from "@/lib/assets/assets";
 import { getCurrentUserWithCapabilities } from "@/lib/auth/current-user";
 import { getPropertyEquipment } from "@/lib/equipment/property-equipment";
 import { createNotification } from "@/lib/notifications/notifications";
+import { getPropertyComponent } from "@/lib/property-components/property-components";
 import {
   buildWorkOrderAssignedNotification,
   buildWorkOrderScheduledNotification,
@@ -31,6 +32,7 @@ export async function GET(request: Request) {
     propertyId: searchParams.get("propertyId") ?? undefined,
     propertyEquipmentId: searchParams.get("propertyEquipmentId") ?? undefined,
     assetId: searchParams.get("assetId") ?? undefined,
+    propertyComponentId: searchParams.get("propertyComponentId") ?? undefined,
     status: searchParams.get("status") ?? undefined,
     priority: searchParams.get("priority") ?? undefined,
     categoryId: searchParams.get("categoryId") ?? undefined,
@@ -66,6 +68,13 @@ export async function POST(request: Request) {
     const equipment = await getPropertyEquipment(user.organizationId, parsed.data.propertyEquipmentId);
     if (!equipment || equipment.propertyId !== parsed.data.propertyId) {
       return NextResponse.json({ error: "invalid_equipment" }, { status: 400 });
+    }
+  }
+
+  if (parsed.data.propertyComponentId) {
+    const component = await getPropertyComponent(user.organizationId, parsed.data.propertyComponentId);
+    if (!component || component.propertyId !== parsed.data.propertyId) {
+      return NextResponse.json({ error: "invalid_component" }, { status: 400 });
     }
   }
 

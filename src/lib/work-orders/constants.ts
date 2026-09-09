@@ -35,6 +35,19 @@ export const WORK_ORDER_STATUS_LABELS: Record<WorkOrderStatus, string> = {
   cancelled: "Cancelled",
 };
 
+// The non-terminal subset of WORK_ORDER_STATUSES — still "open" work, in the
+// operational sense used by the Home App Brief and elsewhere.
+export const WORK_ORDER_NON_TERMINAL_STATUSES: WorkOrderStatus[] = [
+  "new",
+  "open",
+  "in_progress",
+  "waiting",
+];
+
+// A Work Order with no due-date field is treated as "stale" for App Brief
+// purposes once open longer than this many calendar days.
+export const WORK_ORDER_STALE_THRESHOLD_DAYS = 7;
+
 export const WORK_ORDER_PRIORITIES = ["low", "normal", "high", "urgent"] as const;
 export type WorkOrderPriority = (typeof WORK_ORDER_PRIORITIES)[number];
 
