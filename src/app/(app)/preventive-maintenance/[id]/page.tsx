@@ -10,6 +10,7 @@ import { getProperty } from "@/lib/properties/properties";
 import { listOrganizationUsers } from "@/lib/users/users";
 import { getVendor } from "@/lib/vendors/vendors";
 import { getWorkOrderCategory } from "@/lib/work-orders/categories";
+import { WORK_ORDER_CAPABILITIES } from "@/lib/work-orders/constants";
 
 export default async function PreventiveMaintenancePlanDetailPage({
   params,
@@ -74,6 +75,7 @@ export default async function PreventiveMaintenancePlanDetailPage({
         canEdit={capabilityKeys.includes(PREVENTIVE_MAINTENANCE_CAPABILITIES.EDIT)}
         canManageStatus={capabilityKeys.includes(PREVENTIVE_MAINTENANCE_CAPABILITIES.MANAGE_STATUS)}
         canGenerate={capabilityKeys.includes(PREVENTIVE_MAINTENANCE_CAPABILITIES.GENERATE)}
+        canViewWorkOrders={capabilityKeys.includes(WORK_ORDER_CAPABILITIES.VIEW)}
       />
     </div>
   );

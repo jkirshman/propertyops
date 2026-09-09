@@ -8,7 +8,12 @@ import {
   type PmOccurrenceStatus,
 } from "@/lib/preventive-maintenance/constants";
 import { classifyDueState } from "@/lib/preventive-maintenance/recurrence";
-import { WORK_ORDER_PRIORITY_LABELS, type WorkOrderPriority } from "@/lib/work-orders/constants";
+import {
+  WORK_ORDER_PRIORITY_LABELS,
+  WORK_ORDER_STATUS_LABELS,
+  type WorkOrderPriority,
+  type WorkOrderStatus,
+} from "@/lib/work-orders/constants";
 
 export interface PreventiveMaintenancePlanRecord {
   id: string;
@@ -22,6 +27,14 @@ export interface PreventiveMaintenancePlanRecord {
   lastCompletedAt: string | null;
   intervalUnit: string;
   intervalValue: number;
+}
+
+interface OpenWorkOrderConflict {
+  id: string;
+  number: string;
+  status: WorkOrderStatus;
+  assignedUserId: string | null;
+  assigneeName: string | null;
 }
 
 interface OccurrenceRow {
@@ -51,6 +64,7 @@ export function PreventiveMaintenanceDetailPanel({
   canEdit,
   canManageStatus,
   canGenerate,
+  canViewWorkOrders,
 }: {
   initialPlan: PreventiveMaintenancePlanRecord;
   propertyName: string;
@@ -61,6 +75,7 @@ export function PreventiveMaintenanceDetailPanel({
   canEdit: boolean;
   canManageStatus: boolean;
   canGenerate: boolean;
+  canViewWorkOrders: boolean;
 }) {
   const [plan, setPlan] = useState(initialPlan);
   const [occurrences, setOccurrences] = useState<OccurrenceRow[]>([]);
@@ -68,6 +83,8 @@ export function PreventiveMaintenanceDetailPanel({
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [openConflict, setOpenConflict] = useState<OpenWorkOrderConflict | null>(null);
+  const [confirmingDuplicate, setConfirmingDuplicate] = useState(false);
 
   const loadOccurrences = useCallback(() => {
     return fetch(`/api/preventive-maintenance-plans/${plan.id}/occurrences`)
@@ -98,15 +115,23 @@ export function PreventiveMaintenanceDetailPanel({
     setPlan(data.plan);
   }
 
-  async function generateNow() {
+  async function generateNow(confirmDuplicate: boolean) {
     setError(null);
     setNotice(null);
     setBusy(true);
     const response = await fetch(`/api/preventive-maintenance-plans/${plan.id}/generate`, {
       method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ confirmDuplicate }),
     });
     const data = await response.json().catch(() => null);
     setBusy(false);
+
+    if (response.status === 409 && data?.status === "blocked") {
+      setOpenConflict(data.openWorkOrder);
+      setConfirmingDuplicate(false);
+      return;
+    }
     if (response.status === 409) {
       setNotice("A work order for the current due occurrence has already been generated.");
       return;
@@ -115,6 +140,9 @@ export function PreventiveMaintenanceDetailPanel({
       setError(data?.error ?? "Could not generate a work order.");
       return;
     }
+
+    setOpenConflict(null);
+    setConfirmingDuplicate(false);
     setPlan(data.plan);
     setNotice(`Generated work order ${data.workOrder.number}.`);
     loadOccurrences();
@@ -191,12 +219,75 @@ export function PreventiveMaintenanceDetailPanel({
             {plan.isActive ? "Deactivate plan" : "Activate plan"}
           </button>
         ) : null}
-        {canGenerate && plan.isActive ? (
-          <button type="button" className="button button-primary" onClick={generateNow} disabled={busy}>
+        {canGenerate && plan.isActive && !openConflict ? (
+          <button
+            type="button"
+            className="button button-primary"
+            onClick={() => generateNow(false)}
+            disabled={busy}
+          >
             {busy ? "Generating…" : "Generate Due Work Order"}
           </button>
         ) : null}
       </div>
+
+      {canGenerate && openConflict ? (
+        <div className="card" style={{ borderColor: "var(--danger)", display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+          <div>
+            <p style={{ fontWeight: 600, marginBottom: "0.5rem" }}>
+              An open Preventive Maintenance Work Order already exists for this item.
+            </p>
+            <ul className="muted" style={{ fontSize: "0.9rem", paddingLeft: "1.1rem", display: "flex", flexDirection: "column", gap: "0.2rem" }}>
+              <li>
+                Work Order {openConflict.number} · {WORK_ORDER_STATUS_LABELS[openConflict.status] ?? openConflict.status}
+              </li>
+              <li>Property: {propertyName}</li>
+              {equipmentName ? <li>Equipment: {equipmentName}</li> : null}
+              {openConflict.assigneeName ? <li>Assigned to: {openConflict.assigneeName}</li> : null}
+            </ul>
+          </div>
+
+          {!confirmingDuplicate ? (
+            <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", alignItems: "center" }}>
+              {canViewWorkOrders ? (
+                <Link href={`/work-orders/${openConflict.id}`} className="button button-primary">
+                  Open Existing Work Order
+                </Link>
+              ) : (
+                <span className="muted">
+                  Work order {openConflict.number} ({WORK_ORDER_STATUS_LABELS[openConflict.status] ?? openConflict.status})
+                </span>
+              )}
+              <button type="button" className="button" onClick={() => setConfirmingDuplicate(true)}>
+                Generate Another Work Order
+              </button>
+              <button type="button" className="button" onClick={() => setOpenConflict(null)}>
+                Dismiss
+              </button>
+            </div>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: "0.6rem" }}>
+              <p>
+                Are you sure? This will create an additional Work Order for the same Preventive
+                Maintenance item.
+              </p>
+              <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+                <button type="button" className="button" onClick={() => setConfirmingDuplicate(false)} disabled={busy}>
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="button button-primary"
+                  onClick={() => generateNow(true)}
+                  disabled={busy}
+                >
+                  {busy ? "Generating…" : "Yes, Generate Another Work Order"}
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      ) : null}
 
       <div className="card">
         <h2 style={{ fontSize: "1rem", marginBottom: "0.75rem" }}>Occurrence history</h2>

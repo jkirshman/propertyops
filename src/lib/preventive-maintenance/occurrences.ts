@@ -2,12 +2,12 @@ import { and, desc, eq } from "drizzle-orm";
 
 import { recordAuditEvent } from "@/db/audit";
 import { db } from "@/db/client";
-import { preventiveMaintenanceOccurrences, preventiveMaintenancePlans, workOrders } from "@/db/schema";
+import { preventiveMaintenanceOccurrences, preventiveMaintenancePlans, users, workOrders } from "@/db/schema";
 import { createNotification } from "@/lib/notifications/notifications";
 import type { WorkOrderPriority, WorkOrderSource, WorkOrderStatus } from "@/lib/work-orders/constants";
 import { createWorkOrder } from "@/lib/work-orders/work-orders";
 
-import { mapWorkOrderStatusToOccurrenceStatus } from "./occurrence-status";
+import { isNonTerminalWorkOrderStatus, mapWorkOrderStatusToOccurrenceStatus } from "./occurrence-status";
 import {
   buildPmWorkOrderCompletedNotification,
   buildPmWorkOrderGeneratedNotification,
@@ -16,6 +16,13 @@ import { computeNextDueDate, todayDateString } from "./recurrence";
 import type { PreventiveMaintenancePlanRow } from "./plans";
 
 const PM_WORK_ORDER_SOURCE: WorkOrderSource = "preventive_maintenance";
+
+// How long an occurrence can sit unlinked to a Work Order before a later
+// request is allowed to treat it as abandoned (crashed mid-generation) rather
+// than still in flight. Far longer than any real double-click or concurrent
+// request, short enough that a genuinely interrupted generation is repaired
+// promptly.
+const ABANDONED_OCCURRENCE_REPAIR_DELAY_MS = 30_000;
 
 export type PreventiveMaintenanceOccurrenceRow = typeof preventiveMaintenanceOccurrences.$inferSelect;
 
@@ -44,6 +51,17 @@ export async function listOccurrencesForPlan(organizationId: string, planId: str
     .orderBy(desc(preventiveMaintenanceOccurrences.dueDate));
 }
 
+export interface OpenPmWorkOrderInfo {
+  occurrenceId: string;
+  workOrder: {
+    id: string;
+    number: string;
+    status: WorkOrderStatus;
+    assignedUserId: string | null;
+    assigneeName: string | null;
+  };
+}
+
 export type GeneratePreventiveMaintenanceResult =
   | {
       status: "generated";
@@ -51,7 +69,78 @@ export type GeneratePreventiveMaintenanceResult =
       occurrence: PreventiveMaintenanceOccurrenceRow;
       plan: PreventiveMaintenancePlanRow;
     }
-  | { status: "skipped"; reason: "inactive" | "not_due" | "already_generated" };
+  | { status: "skipped"; reason: "inactive" | "not_due" | "already_generated" }
+  | { status: "blocked"; openWorkOrder: OpenPmWorkOrderInfo["workOrder"] };
+
+/**
+ * The plan's most recent occurrence that has a linked Work Order, with that
+ * Work Order's *current* status/assignee joined live (never trusting the
+ * occurrence's own cached status column, which is only refreshed when a Work
+ * Order transition happens to route through the sync path). Returns null when
+ * the plan has never generated a Work Order. Callers decide blocking via
+ * `isNonTerminalWorkOrderStatus` on the returned status.
+ */
+export async function getOpenPmWorkOrderForPlan(
+  organizationId: string,
+  planId: string,
+): Promise<OpenPmWorkOrderInfo | null> {
+  const [row] = await db
+    .select({
+      occurrenceId: preventiveMaintenanceOccurrences.id,
+      workOrderId: workOrders.id,
+      workOrderNumber: workOrders.number,
+      workOrderStatus: workOrders.status,
+      assignedUserId: workOrders.assignedUserId,
+      assigneeName: users.displayName,
+    })
+    .from(preventiveMaintenanceOccurrences)
+    .innerJoin(workOrders, eq(workOrders.id, preventiveMaintenanceOccurrences.workOrderId))
+    .leftJoin(users, eq(users.id, workOrders.assignedUserId))
+    .where(
+      and(
+        eq(preventiveMaintenanceOccurrences.organizationId, organizationId),
+        eq(preventiveMaintenanceOccurrences.planId, planId),
+      ),
+    )
+    .orderBy(desc(preventiveMaintenanceOccurrences.dueDate), desc(preventiveMaintenanceOccurrences.generatedAt))
+    .limit(1);
+
+  if (!row) {
+    return null;
+  }
+
+  return {
+    occurrenceId: row.occurrenceId,
+    workOrder: {
+      id: row.workOrderId,
+      number: row.workOrderNumber,
+      status: row.workOrderStatus as WorkOrderStatus,
+      assignedUserId: row.assignedUserId,
+      assigneeName: row.assigneeName,
+    },
+  };
+}
+
+export type GenerationGateResult =
+  | { blocked: false }
+  | { blocked: true; openWorkOrder: OpenPmWorkOrderInfo["workOrder"] };
+
+/**
+ * Pure decision of whether a plan's most recent PM Work Order should block a
+ * new generation. A candidate only blocks when it is still non-terminal *and*
+ * the caller hasn't already passed the explicit "Generate Another Work Order"
+ * confirmation — a terminal (resolved/closed/cancelled) candidate never
+ * blocks, confirmed or not.
+ */
+export function resolveGenerationGate(
+  candidate: OpenPmWorkOrderInfo | null,
+  confirmDuplicate: boolean,
+): GenerationGateResult {
+  if (candidate && isNonTerminalWorkOrderStatus(candidate.workOrder.status) && !confirmDuplicate) {
+    return { blocked: true, openWorkOrder: candidate.workOrder };
+  }
+  return { blocked: false };
+}
 
 /**
  * The single work-order-generation service used by both the daily cron and the
@@ -62,7 +151,7 @@ export type GeneratePreventiveMaintenanceResult =
 export async function generatePreventiveMaintenanceOccurrence(
   organizationId: string,
   plan: PreventiveMaintenancePlanRow,
-  options: { requireDue?: boolean; triggeredByUserId?: string | null } = {},
+  options: { requireDue?: boolean; triggeredByUserId?: string | null; confirmDuplicate?: boolean } = {},
 ): Promise<GeneratePreventiveMaintenanceResult> {
   if (!plan.isActive) {
     return { status: "skipped", reason: "inactive" };
@@ -70,6 +159,24 @@ export async function generatePreventiveMaintenanceOccurrence(
 
   if (options.requireDue && plan.nextDueAt > todayDateString()) {
     return { status: "skipped", reason: "not_due" };
+  }
+
+  const openCandidate = await getOpenPmWorkOrderForPlan(organizationId, plan.id);
+  const gate = resolveGenerationGate(openCandidate, Boolean(options.confirmDuplicate));
+  if (gate.blocked) {
+    await recordAuditEvent({
+      organizationId,
+      actorUserId: options.triggeredByUserId ?? null,
+      action: "preventive_maintenance_plan.occurrence_generation_blocked",
+      entityType: "preventive_maintenance_plan",
+      entityId: plan.id,
+      after: {
+        workOrderId: gate.openWorkOrder.id,
+        workOrderNumber: gate.openWorkOrder.number,
+        workOrderStatus: gate.openWorkOrder.status,
+      },
+    });
+    return { status: "blocked", openWorkOrder: gate.openWorkOrder };
   }
 
   const [inserted] = await db
@@ -92,7 +199,14 @@ export async function generatePreventiveMaintenanceOccurrence(
     // Either this due date is already fully generated, or a previous attempt
     // was interrupted after reserving the occurrence but before linking a
     // work order (no transactions on the neon-http driver — see PROP-6 known
-    // limitations). Repair the latter instead of silently skipping it.
+    // limitations). Repair the latter instead of silently skipping it — but
+    // only once the other attempt has had time to finish on its own. Without
+    // this delay, two near-simultaneous requests (a double-click, or a
+    // manual click racing the cron) both lose the insert, both see the same
+    // still-unlinked row, and both "repair" it — creating two Work Orders for
+    // one occurrence. Treating a *recent* unlinked row as still in flight
+    // (and skipping instead of repairing) closes that window while still
+    // recovering a genuinely abandoned occurrence after the fact.
     const [existing] = await db
       .select()
       .from(preventiveMaintenanceOccurrences)
@@ -104,7 +218,12 @@ export async function generatePreventiveMaintenanceOccurrence(
       )
       .limit(1);
 
-    if (!existing || existing.workOrderId) {
+    const isAbandoned =
+      existing !== undefined &&
+      !existing.workOrderId &&
+      Date.now() - existing.generatedAt.getTime() > ABANDONED_OCCURRENCE_REPAIR_DELAY_MS;
+
+    if (!existing || existing.workOrderId || !isAbandoned) {
       return { status: "skipped", reason: "already_generated" };
     }
     occurrence = existing;
@@ -153,6 +272,7 @@ export async function generatePreventiveMaintenanceOccurrence(
       dueDate: occurrence.dueDate,
       nextDueAt,
       manual: Boolean(options.triggeredByUserId),
+      duplicateConfirmed: Boolean(options.confirmDuplicate),
     },
   });
 

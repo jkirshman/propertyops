@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   createPreventiveMaintenancePlanSchema,
+  generatePreventiveMaintenanceOccurrenceSchema,
   updatePreventiveMaintenancePlanSchema,
 } from "./preventive-maintenance";
 
@@ -98,6 +99,27 @@ describe("updatePreventiveMaintenancePlanSchema", () => {
   it("rejects an invalid priority", () => {
     expect(
       updatePreventiveMaintenancePlanSchema.safeParse({ defaultPriority: "critical" }).success,
+    ).toBe(false);
+  });
+});
+
+describe("generatePreventiveMaintenanceOccurrenceSchema", () => {
+  it("accepts an empty body (normal generation)", () => {
+    expect(generatePreventiveMaintenanceOccurrenceSchema.safeParse({}).success).toBe(true);
+  });
+
+  it("defaults confirmDuplicate to undefined when omitted", () => {
+    expect(generatePreventiveMaintenanceOccurrenceSchema.parse({}).confirmDuplicate).toBeUndefined();
+  });
+
+  it("accepts an explicit confirmDuplicate flag", () => {
+    const result = generatePreventiveMaintenanceOccurrenceSchema.parse({ confirmDuplicate: true });
+    expect(result.confirmDuplicate).toBe(true);
+  });
+
+  it("rejects a non-boolean confirmDuplicate", () => {
+    expect(
+      generatePreventiveMaintenanceOccurrenceSchema.safeParse({ confirmDuplicate: "yes" }).success,
     ).toBe(false);
   });
 });

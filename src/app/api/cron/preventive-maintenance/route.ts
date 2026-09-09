@@ -27,6 +27,7 @@ export async function GET(request: Request) {
   let generated = 0;
   let overdueNotified = 0;
   let skipped = 0;
+  let blocked = 0;
   let errors = 0;
 
   for (const org of orgs) {
@@ -45,12 +46,20 @@ export async function GET(request: Request) {
 
         // Generation itself (audit event + assignee notification) is fully
         // handled inside the shared service — do not duplicate either here.
+        // A plan with an open PM Work Order is never blocked with a
+        // confirmDuplicate override here: there is no user present to
+        // confirm an intentional duplicate, so the cron always just skips.
         const result = await generatePreventiveMaintenanceOccurrence(org.id, plan, {
           requireDue: true,
         });
 
         if (result.status === "generated") {
           generated += 1;
+        } else if (result.status === "blocked") {
+          blocked += 1;
+          console.info(
+            `preventive-maintenance cron: plan ${plan.id} already has an open PM work order (${result.openWorkOrder.number}); skipping generation`,
+          );
         } else {
           skipped += 1;
         }
@@ -64,5 +73,5 @@ export async function GET(request: Request) {
     }
   }
 
-  return NextResponse.json({ ok: true, generated, overdueNotified, skipped, errors });
+  return NextResponse.json({ ok: true, generated, overdueNotified, skipped, blocked, errors });
 }

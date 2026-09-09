@@ -38,5 +38,14 @@ export const updatePreventiveMaintenancePlanSchema = z.object({
   isActive: z.boolean().optional(),
 });
 
+// `confirmDuplicate` is only ever set by the "Generate Another Work Order"
+// action after its own explicit confirmation step — never a default.
+export const generatePreventiveMaintenanceOccurrenceSchema = z.object({
+  confirmDuplicate: z.boolean().optional(),
+});
+
 export type CreatePreventiveMaintenancePlanInput = z.infer<typeof createPreventiveMaintenancePlanSchema>;
 export type UpdatePreventiveMaintenancePlanInput = z.infer<typeof updatePreventiveMaintenancePlanSchema>;
+export type GeneratePreventiveMaintenanceOccurrenceInput = z.infer<
+  typeof generatePreventiveMaintenanceOccurrenceSchema
+>;
