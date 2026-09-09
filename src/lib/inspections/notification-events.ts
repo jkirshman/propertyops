@@ -6,6 +6,26 @@ export interface InspectionNotificationSubject {
   overallResult: string | null;
 }
 
+export function buildInspectionScheduledNotification(inspection: { id: string; templateName: string }) {
+  return {
+    type: NOTIFICATION_TYPES.INSPECTION_SCHEDULED,
+    title: `Scheduled: ${inspection.templateName}`,
+    deepLinkUrl: `/inspections/${inspection.id}`,
+    relatedEntityType: "inspection",
+    relatedEntityId: inspection.id,
+  };
+}
+
+export function buildInspectionRescheduledNotification(inspection: { id: string; templateName: string }) {
+  return {
+    type: NOTIFICATION_TYPES.INSPECTION_RESCHEDULED,
+    title: `Rescheduled: ${inspection.templateName}`,
+    deepLinkUrl: `/inspections/${inspection.id}`,
+    relatedEntityType: "inspection",
+    relatedEntityId: inspection.id,
+  };
+}
+
 export function buildInspectionCompletedWithFindingsNotification(inspection: InspectionNotificationSubject) {
   return {
     type: NOTIFICATION_TYPES.INSPECTION_COMPLETED_WITH_FINDINGS,

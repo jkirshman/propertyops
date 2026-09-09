@@ -72,6 +72,7 @@ const WORK_ORDER_CAPABILITIES = [
   { key: "work_order.manage_attachments", description: "Manage work order attachments" },
   { key: "work_order_category.view", description: "View work order categories" },
   { key: "work_order_category.manage", description: "Manage work order categories" },
+  { key: "work_order.schedule", description: "Schedule or reschedule a work order visit" },
 ];
 
 const DEFAULT_WORK_ORDER_CATEGORIES = [
@@ -229,6 +230,7 @@ const INSPECTION_CAPABILITIES_SEED = [
   { key: "inspection.complete", description: "Complete inspections" },
   { key: "inspection_template.view", description: "View inspection templates" },
   { key: "inspection_template.manage", description: "Manage inspection templates and categories" },
+  { key: "inspection.schedule", description: "Schedule or reschedule an inspection" },
 ];
 
 const DEFAULT_INSPECTION_CATEGORIES = [
@@ -270,6 +272,14 @@ const LEASE_CAPABILITIES_SEED = [
   { key: "lease.edit", description: "Edit leases" },
   { key: "lease.manage_documents", description: "Manage lease documents" },
   { key: "lease.manage_status", description: "Change lease status" },
+];
+
+// Operations Calendar capabilities (PROP-10). All are granted to the administrator
+// role below; future roles can be granted a subset without any schema change.
+const CALENDAR_CAPABILITIES_SEED = [
+  { key: "calendar.view", description: "View the Operations Calendar" },
+  { key: "calendar.create_manual_event", description: "Create manual operational events" },
+  { key: "calendar.edit_manual_event", description: "Edit or cancel manual operational events" },
 ];
 
 const DEFAULT_ASSET_CATEGORIES = [
@@ -352,6 +362,7 @@ async function main() {
     ...COMPLIANCE_CAPABILITIES_SEED,
     ...TENANT_CAPABILITIES_SEED,
     ...LEASE_CAPABILITIES_SEED,
+    ...CALENDAR_CAPABILITIES_SEED,
   ]) {
     let [cap] = await db.select().from(capabilities).where(eq(capabilities.key, key)).limit(1);
 

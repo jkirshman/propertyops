@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
+import { utcToZonedInputValue, zonedTimeToUtc } from "@/lib/calendar/timezone";
 import {
   INSPECTION_RESULT_LABELS,
   INSPECTION_STATUS_LABELS,
@@ -20,6 +21,8 @@ export interface InspectionRecord {
   overallResult: string | null;
   summary: string | null;
   scheduledDate: string | null;
+  scheduledStartAt: string | null;
+  scheduledEndAt: string | null;
 }
 
 interface ResponseRecord {
@@ -52,16 +55,20 @@ export function InspectionDetailPanel({
   initialInspection,
   categories,
   users,
+  timezone,
   canEdit,
   canComplete,
   canCreateWorkOrder,
+  canSchedule,
 }: {
   initialInspection: InspectionRecord;
   categories: OptionRecord[];
   users: UserOption[];
+  timezone: string;
   canEdit: boolean;
   canComplete: boolean;
   canCreateWorkOrder: boolean;
+  canSchedule: boolean;
 }) {
   const [inspection, setInspection] = useState(initialInspection);
   const [responses, setResponses] = useState<ResponseRecord[]>([]);
@@ -71,6 +78,13 @@ export function InspectionDetailPanel({
   const [summaryDraft, setSummaryDraft] = useState(initialInspection.summary ?? "");
   const [busy, setBusy] = useState(false);
   const [findingFormForResponseId, setFindingFormForResponseId] = useState<string | null>(null);
+  const [scheduleStartDraft, setScheduleStartDraft] = useState(() =>
+    initialInspection.scheduledStartAt ? utcToZonedInputValue(initialInspection.scheduledStartAt, timezone) : "",
+  );
+  const [scheduleEndDraft, setScheduleEndDraft] = useState(() =>
+    initialInspection.scheduledEndAt ? utcToZonedInputValue(initialInspection.scheduledEndAt, timezone) : "",
+  );
+  const [savingSchedule, setSavingSchedule] = useState(false);
 
   const readOnly = inspection.status === "completed" || inspection.status === "cancelled";
 
@@ -160,6 +174,28 @@ export function InspectionDetailPanel({
     }
   }
 
+  async function handleSaveSchedule() {
+    setBusy(true);
+    setSavingSchedule(true);
+    try {
+      const response = await fetch(`/api/inspections/${inspection.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          scheduledStartAt: scheduleStartDraft ? zonedTimeToUtc(scheduleStartDraft, timezone).toISOString() : null,
+          scheduledEndAt: scheduleEndDraft ? zonedTimeToUtc(scheduleEndDraft, timezone).toISOString() : null,
+        }),
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setInspection(data.inspection);
+      }
+    } finally {
+      setBusy(false);
+      setSavingSchedule(false);
+    }
+  }
+
   if (loading) {
     return <p className="muted">Loading…</p>;
   }
@@ -196,6 +232,43 @@ export function InspectionDetailPanel({
           </div>
         ) : null}
       </div>
+
+      {canSchedule && !readOnly ? (
+        <div className="card" style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+          <div style={{ fontWeight: 600, fontSize: "0.9rem" }}>Scheduled visit</div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "0.75rem" }}>
+            <div>
+              <label className="label" htmlFor="insp-scheduled-start">Start</label>
+              <input
+                id="insp-scheduled-start"
+                type="datetime-local"
+                className="input"
+                value={scheduleStartDraft}
+                onChange={(event) => setScheduleStartDraft(event.target.value)}
+              />
+            </div>
+            <div>
+              <label className="label" htmlFor="insp-scheduled-end">End (optional)</label>
+              <input
+                id="insp-scheduled-end"
+                type="datetime-local"
+                className="input"
+                value={scheduleEndDraft}
+                onChange={(event) => setScheduleEndDraft(event.target.value)}
+              />
+            </div>
+          </div>
+          <button
+            type="button"
+            className="button button-primary"
+            style={{ alignSelf: "flex-start" }}
+            onClick={handleSaveSchedule}
+            disabled={savingSchedule}
+          >
+            {savingSchedule ? "Saving…" : "Save schedule"}
+          </button>
+        </div>
+      ) : null}
 
       <div className="card" style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
         <h2 style={{ fontSize: "1rem" }}>Checklist</h2>

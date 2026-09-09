@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { WorkOrderActivityPanel } from "@/components/work-orders/WorkOrderActivityPanel";
 import { WorkOrderAttachmentsPanel } from "@/components/work-orders/WorkOrderAttachmentsPanel";
 import { WorkOrderNotesPanel } from "@/components/work-orders/WorkOrderNotesPanel";
+import { utcToZonedInputValue, zonedTimeToUtc } from "@/lib/calendar/timezone";
 import {
   WORK_ORDER_PRIORITIES,
   WORK_ORDER_PRIORITY_LABELS,
@@ -56,6 +57,8 @@ export interface WorkOrderRecord {
   resolutionSummary: string | null;
   resolvedAt: string | null;
   closedAt: string | null;
+  scheduledStartAt: string | null;
+  scheduledEndAt: string | null;
 }
 
 const TABS = ["description", "notes", "attachments", "activity", "resolution"] as const;
@@ -75,12 +78,14 @@ export function WorkOrderDetailPanel({
   users,
   assets,
   vendors,
+  timezone,
   canEdit,
   canAssign,
   canAssignVendor,
   canManageStatus,
   canManageNotes,
   canManageAttachments,
+  canSchedule,
 }: {
   initialWorkOrder: WorkOrderRecord;
   propertyId: string;
@@ -88,12 +93,14 @@ export function WorkOrderDetailPanel({
   users: UserOption[];
   assets: AssetOption[];
   vendors: VendorOption[];
+  timezone: string;
   canEdit: boolean;
   canAssign: boolean;
   canAssignVendor: boolean;
   canManageStatus: boolean;
   canManageNotes: boolean;
   canManageAttachments: boolean;
+  canSchedule: boolean;
 }) {
   const [workOrder, setWorkOrder] = useState(initialWorkOrder);
   const [tab, setTab] = useState<Tab>("description");
@@ -104,6 +111,13 @@ export function WorkOrderDetailPanel({
   const [resolutionDraft, setResolutionDraft] = useState(workOrder.resolutionSummary ?? "");
   const [saving, setSaving] = useState(false);
   const [equipmentOptions, setEquipmentOptions] = useState<EquipmentOption[]>([]);
+  const [scheduleStartDraft, setScheduleStartDraft] = useState(() =>
+    workOrder.scheduledStartAt ? utcToZonedInputValue(workOrder.scheduledStartAt, timezone) : "",
+  );
+  const [scheduleEndDraft, setScheduleEndDraft] = useState(() =>
+    workOrder.scheduledEndAt ? utcToZonedInputValue(workOrder.scheduledEndAt, timezone) : "",
+  );
+  const [savingSchedule, setSavingSchedule] = useState(false);
 
   useEffect(() => {
     fetch(`/api/properties/${propertyId}/equipment?activeOnly=true`)
@@ -144,6 +158,25 @@ export function WorkOrderDetailPanel({
     setSaving(true);
     await patch({ resolutionSummary: resolutionDraft });
     setSaving(false);
+  }
+
+  async function handleSaveSchedule() {
+    setSavingSchedule(true);
+    await patch({
+      scheduledStartAt: scheduleStartDraft ? zonedTimeToUtc(scheduleStartDraft, timezone).toISOString() : null,
+      scheduledEndAt: scheduleEndDraft ? zonedTimeToUtc(scheduleEndDraft, timezone).toISOString() : null,
+    });
+    setSavingSchedule(false);
+  }
+
+  async function handleClearSchedule() {
+    setSavingSchedule(true);
+    const result = await patch({ scheduledStartAt: null, scheduledEndAt: null });
+    setSavingSchedule(false);
+    if (result) {
+      setScheduleStartDraft("");
+      setScheduleEndDraft("");
+    }
   }
 
   return (
@@ -276,6 +309,44 @@ export function WorkOrderDetailPanel({
           ) : null}
         </div>
       </div>
+
+      {canSchedule ? (
+        <div className="card" style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+          <div style={{ fontWeight: 600, fontSize: "0.9rem" }}>Scheduled visit</div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "0.75rem" }}>
+            <div>
+              <label className="label" htmlFor="wo-scheduled-start">Start</label>
+              <input
+                id="wo-scheduled-start"
+                type="datetime-local"
+                className="input"
+                value={scheduleStartDraft}
+                onChange={(event) => setScheduleStartDraft(event.target.value)}
+              />
+            </div>
+            <div>
+              <label className="label" htmlFor="wo-scheduled-end">End (optional)</label>
+              <input
+                id="wo-scheduled-end"
+                type="datetime-local"
+                className="input"
+                value={scheduleEndDraft}
+                onChange={(event) => setScheduleEndDraft(event.target.value)}
+              />
+            </div>
+          </div>
+          <div style={{ display: "flex", gap: "0.5rem" }}>
+            <button type="button" className="button button-primary" onClick={handleSaveSchedule} disabled={savingSchedule || !scheduleStartDraft}>
+              {savingSchedule ? "Saving…" : "Save schedule"}
+            </button>
+            {workOrder.scheduledStartAt ? (
+              <button type="button" className="button" onClick={handleClearSchedule} disabled={savingSchedule}>
+                Clear schedule
+              </button>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
 
       <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", borderBottom: "1px solid var(--border)" }}>
         {TABS.map((value) => (

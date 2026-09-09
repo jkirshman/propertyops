@@ -5,7 +5,10 @@ import { getAsset } from "@/lib/assets/assets";
 import { getCurrentUserWithCapabilities } from "@/lib/auth/current-user";
 import { getPropertyEquipment } from "@/lib/equipment/property-equipment";
 import { createNotification } from "@/lib/notifications/notifications";
-import { buildWorkOrderAssignedNotification } from "@/lib/work-orders/notification-events";
+import {
+  buildWorkOrderAssignedNotification,
+  buildWorkOrderScheduledNotification,
+} from "@/lib/work-orders/notification-events";
 import { WORK_ORDER_CAPABILITIES } from "@/lib/work-orders/constants";
 import { createWorkOrder, listWorkOrders } from "@/lib/work-orders/work-orders";
 import { createWorkOrderSchema } from "@/lib/validation/work-orders";
@@ -83,6 +86,13 @@ export async function POST(request: Request) {
     }
   }
 
+  if (
+    (parsed.data.scheduledStartAt || parsed.data.scheduledEndAt) &&
+    !context.capabilityKeys.includes(WORK_ORDER_CAPABILITIES.SCHEDULE)
+  ) {
+    return NextResponse.json({ error: "forbidden" }, { status: 403 });
+  }
+
   const workOrder = await createWorkOrder(user.organizationId, user.id, parsed.data);
 
   await recordAuditEvent({
@@ -102,6 +112,15 @@ export async function POST(request: Request) {
       actorUserId: user.id,
       ...notification,
     });
+
+    if (workOrder.scheduledStartAt) {
+      await createNotification({
+        organizationId: user.organizationId,
+        recipientUserId: workOrder.assignedUserId,
+        actorUserId: user.id,
+        ...buildWorkOrderScheduledNotification(workOrder),
+      });
+    }
   }
 
   return NextResponse.json({ workOrder }, { status: 201 });

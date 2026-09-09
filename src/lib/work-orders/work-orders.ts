@@ -107,6 +107,8 @@ export async function createWorkOrder(
       assignedUserId: input.assignedUserId ?? null,
       createdByUserId,
       number: formatWorkOrderNumber(sequenceNumber),
+      scheduledStartAt: input.scheduledStartAt ? new Date(input.scheduledStartAt) : null,
+      scheduledEndAt: input.scheduledEndAt ? new Date(input.scheduledEndAt) : null,
       ...(overrides.source ? { source: overrides.source } : {}),
     })
     .returning();
@@ -119,9 +121,20 @@ export async function updateWorkOrder(
   input: UpdateWorkOrderInput,
   extra: { resolvedAt?: Date; closedAt?: Date } = {},
 ) {
+  const { scheduledStartAt, scheduledEndAt, ...rest } = input;
   const [row] = await db
     .update(workOrders)
-    .set({ ...stripUndefined(input), ...extra, updatedAt: new Date() })
+    .set({
+      ...stripUndefined(rest),
+      ...(scheduledStartAt !== undefined
+        ? { scheduledStartAt: scheduledStartAt ? new Date(scheduledStartAt) : null }
+        : {}),
+      ...(scheduledEndAt !== undefined
+        ? { scheduledEndAt: scheduledEndAt ? new Date(scheduledEndAt) : null }
+        : {}),
+      ...extra,
+      updatedAt: new Date(),
+    })
     .where(and(eq(workOrders.id, id), eq(workOrders.organizationId, organizationId)))
     .returning();
   return row ?? null;

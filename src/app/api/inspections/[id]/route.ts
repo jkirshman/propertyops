@@ -6,7 +6,16 @@ import { diffFields } from "@/lib/db/diff-fields";
 import { getPropertyEquipment } from "@/lib/equipment/property-equipment";
 import { INSPECTION_CAPABILITIES } from "@/lib/inspections/constants";
 import { cancelInspection, getInspection, updateInspection } from "@/lib/inspections/inspections";
+import {
+  buildInspectionRescheduledNotification,
+  buildInspectionScheduledNotification,
+} from "@/lib/inspections/notification-events";
+import { createNotification } from "@/lib/notifications/notifications";
 import { updateInspectionSchema } from "@/lib/validation/inspections";
+
+function pick<T extends Record<string, unknown>>(obj: T, keys: string[]): Partial<T> {
+  return Object.fromEntries(Object.entries(obj).filter(([key]) => keys.includes(key))) as Partial<T>;
+}
 
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const context = await getCurrentUserWithCapabilities();
@@ -67,6 +76,13 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     }
   }
 
+  if (
+    (fields.scheduledStartAt !== undefined || fields.scheduledEndAt !== undefined) &&
+    !context.capabilityKeys.includes(INSPECTION_CAPABILITIES.SCHEDULE)
+  ) {
+    return NextResponse.json({ error: "forbidden" }, { status: 403 });
+  }
+
   const { status: statusChange, ...updateFields } = fields;
 
   if (statusChange === "cancelled") {
@@ -94,17 +110,62 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     return NextResponse.json({ error: "not_found" }, { status: 404 });
   }
 
-  const diff = diffFields(existing, updateFields);
+  const diff = diffFields(existing, {
+    ...updateFields,
+    scheduledStartAt:
+      updateFields.scheduledStartAt !== undefined
+        ? updateFields.scheduledStartAt
+          ? new Date(updateFields.scheduledStartAt)
+          : null
+        : undefined,
+    scheduledEndAt:
+      updateFields.scheduledEndAt !== undefined
+        ? updateFields.scheduledEndAt
+          ? new Date(updateFields.scheduledEndAt)
+          : null
+        : undefined,
+  });
   if (diff) {
-    await recordAuditEvent({
-      organizationId: user.organizationId,
-      actorUserId: user.id,
-      action: "inspection.update",
-      entityType: "inspection",
-      entityId: id,
-      before: diff.before,
-      after: diff.after,
-    });
+    const changedKeys = Object.keys(diff.after);
+
+    if (changedKeys.includes("scheduledStartAt") || changedKeys.includes("scheduledEndAt")) {
+      const wasScheduled = Boolean(existing.scheduledStartAt);
+      await recordAuditEvent({
+        organizationId: user.organizationId,
+        actorUserId: user.id,
+        action: wasScheduled ? "inspection.rescheduled" : "inspection.scheduled",
+        entityType: "inspection",
+        entityId: id,
+        before: pick(diff.before, ["scheduledStartAt", "scheduledEndAt"]),
+        after: pick(diff.after, ["scheduledStartAt", "scheduledEndAt"]),
+      });
+
+      if (updated.inspectorUserId && updated.scheduledStartAt) {
+        await createNotification({
+          organizationId: user.organizationId,
+          recipientUserId: updated.inspectorUserId,
+          actorUserId: user.id,
+          ...(wasScheduled
+            ? buildInspectionRescheduledNotification(updated)
+            : buildInspectionScheduledNotification(updated)),
+        });
+      }
+    }
+
+    const remainingKeys = changedKeys.filter(
+      (key) => !["scheduledStartAt", "scheduledEndAt"].includes(key),
+    );
+    if (remainingKeys.length > 0) {
+      await recordAuditEvent({
+        organizationId: user.organizationId,
+        actorUserId: user.id,
+        action: "inspection.update",
+        entityType: "inspection",
+        entityId: id,
+        before: pick(diff.before, remainingKeys),
+        after: pick(diff.after, remainingKeys),
+      });
+    }
   }
 
   return NextResponse.json({ inspection: updated });

@@ -5,6 +5,8 @@ import { getCurrentUserWithCapabilities } from "@/lib/auth/current-user";
 import { getPropertyEquipment } from "@/lib/equipment/property-equipment";
 import { INSPECTION_CAPABILITIES } from "@/lib/inspections/constants";
 import { createInspection, listInspections } from "@/lib/inspections/inspections";
+import { buildInspectionScheduledNotification } from "@/lib/inspections/notification-events";
+import { createNotification } from "@/lib/notifications/notifications";
 import { createInspectionSchema } from "@/lib/validation/inspections";
 
 export async function GET(request: Request) {
@@ -57,6 +59,13 @@ export async function POST(request: Request) {
     }
   }
 
+  if (
+    (parsed.data.scheduledStartAt || parsed.data.scheduledEndAt) &&
+    !context.capabilityKeys.includes(INSPECTION_CAPABILITIES.SCHEDULE)
+  ) {
+    return NextResponse.json({ error: "forbidden" }, { status: 403 });
+  }
+
   const created = await createInspection(user.organizationId, user.id, parsed.data);
   if (!created) {
     return NextResponse.json({ error: "invalid_template" }, { status: 400 });
@@ -70,6 +79,15 @@ export async function POST(request: Request) {
     entityId: created.inspection.id,
     after: created.inspection,
   });
+
+  if (created.inspection.scheduledStartAt && created.inspection.inspectorUserId) {
+    await createNotification({
+      organizationId: user.organizationId,
+      recipientUserId: created.inspection.inspectorUserId,
+      actorUserId: user.id,
+      ...buildInspectionScheduledNotification(created.inspection),
+    });
+  }
 
   return NextResponse.json({ inspection: created.inspection, responses: created.responses }, { status: 201 });
 }

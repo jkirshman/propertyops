@@ -33,7 +33,7 @@ interface PropertyOverview {
   primaryEmail: string | null;
 }
 
-const TABS = [
+export const TABS = [
   "overview",
   "equipment",
   "assets",
@@ -48,7 +48,7 @@ const TABS = [
   "documents",
   "activity",
 ] as const;
-type Tab = (typeof TABS)[number];
+export type Tab = (typeof TABS)[number];
 
 const TAB_LABELS: Record<Tab, string> = {
   overview: "Overview",
@@ -118,6 +118,7 @@ function OverviewTab({ property }: { property: PropertyOverview }) {
 export function PropertyProfileTabs({
   propertyId,
   overview,
+  initialTab,
   canManageContacts,
   canManageNotes,
   canManageDocuments,
@@ -134,6 +135,7 @@ export function PropertyProfileTabs({
 }: {
   propertyId: string;
   overview: PropertyOverview;
+  initialTab?: Tab;
   canManageContacts: boolean;
   canManageNotes: boolean;
   canManageDocuments: boolean;
@@ -148,7 +150,7 @@ export function PropertyProfileTabs({
   canManageCompliance: boolean;
   canCreateLeases: boolean;
 }) {
-  const [tab, setTab] = useState<Tab>("overview");
+  const [tab, setTab] = useState<Tab>(initialTab ?? "overview");
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>

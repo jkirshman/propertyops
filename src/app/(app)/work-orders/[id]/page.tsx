@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { WorkOrderDetailPanel } from "@/components/work-orders/WorkOrderDetailPanel";
 import { listAssets } from "@/lib/assets/assets";
 import { requireCapability } from "@/lib/auth/require-capability";
+import { getOrganizationTimezone } from "@/lib/organizations/organizations";
 import { getProperty } from "@/lib/properties/properties";
 import { listOrganizationUsers } from "@/lib/users/users";
 import { VENDOR_CAPABILITIES } from "@/lib/vendors/constants";
@@ -33,12 +34,13 @@ export default async function WorkOrderDetailPage({
 
   const { capabilityKeys } = context;
 
-  const [property, categories, users, assets, vendors] = await Promise.all([
+  const [property, categories, users, assets, vendors, timezone] = await Promise.all([
     getProperty(context.user.organizationId, workOrder.propertyId),
     listWorkOrderCategories(context.user.organizationId, { activeOnly: true }),
     listOrganizationUsers(context.user.organizationId),
     listAssets(context.user.organizationId, { isActive: true }),
     listVendors(context.user.organizationId, { isActive: true }),
+    getOrganizationTimezone(context.user.organizationId),
   ]);
 
   return (
@@ -77,18 +79,22 @@ export default async function WorkOrderDetailPage({
           resolvedAt: workOrder.resolvedAt ? workOrder.resolvedAt.toISOString() : null,
           closedAt: workOrder.closedAt ? workOrder.closedAt.toISOString() : null,
           vendorId: workOrder.vendorId,
+          scheduledStartAt: workOrder.scheduledStartAt ? workOrder.scheduledStartAt.toISOString() : null,
+          scheduledEndAt: workOrder.scheduledEndAt ? workOrder.scheduledEndAt.toISOString() : null,
         }}
         propertyId={workOrder.propertyId}
         categories={categories}
         users={users}
         assets={assets}
         vendors={vendors}
+        timezone={timezone}
         canEdit={capabilityKeys.includes(WORK_ORDER_CAPABILITIES.EDIT)}
         canAssign={capabilityKeys.includes(WORK_ORDER_CAPABILITIES.ASSIGN)}
         canAssignVendor={capabilityKeys.includes(VENDOR_CAPABILITIES.ASSIGN_WORK_ORDERS)}
         canManageStatus={capabilityKeys.includes(WORK_ORDER_CAPABILITIES.MANAGE_STATUS)}
         canManageNotes={capabilityKeys.includes(WORK_ORDER_CAPABILITIES.MANAGE_NOTES)}
         canManageAttachments={capabilityKeys.includes(WORK_ORDER_CAPABILITIES.MANAGE_ATTACHMENTS)}
+        canSchedule={capabilityKeys.includes(WORK_ORDER_CAPABILITIES.SCHEDULE)}
       />
     </div>
   );

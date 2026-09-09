@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
-import { PropertyProfileTabs } from "@/components/properties/PropertyProfileTabs";
+import { PropertyProfileTabs, TABS, type Tab } from "@/components/properties/PropertyProfileTabs";
 import { ASSET_CAPABILITIES } from "@/lib/assets/constants";
 import { requireCapability } from "@/lib/auth/require-capability";
 import { COMPLIANCE_CAPABILITIES } from "@/lib/compliance/constants";
@@ -17,10 +17,14 @@ import { WORK_ORDER_CAPABILITIES } from "@/lib/work-orders/constants";
 
 export default async function PropertyDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ tab?: string }>;
 }) {
   const { id } = await params;
+  const { tab } = await searchParams;
+  const initialTab = (TABS as readonly string[]).includes(tab ?? "") ? (tab as Tab) : undefined;
   const context = await requireCapability(PROPERTY_CAPABILITIES.VIEW, "/properties");
 
   const property = await getProperty(context.user.organizationId, id);
@@ -55,6 +59,7 @@ export default async function PropertyDetailPage({
       <PropertyProfileTabs
         propertyId={property.id}
         overview={property}
+        initialTab={initialTab}
         canManageContacts={context.capabilityKeys.includes(PROPERTY_CAPABILITIES.MANAGE_CONTACTS)}
         canManageNotes={context.capabilityKeys.includes(PROPERTY_CAPABILITIES.MANAGE_NOTES)}
         canManageDocuments={context.capabilityKeys.includes(PROPERTY_CAPABILITIES.MANAGE_DOCUMENTS)}

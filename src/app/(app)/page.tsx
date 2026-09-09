@@ -1,13 +1,27 @@
-export default function DashboardHomePage() {
+import { UpcomingOperationsPanel } from "@/components/home/UpcomingOperationsPanel";
+import { getCurrentUserWithCapabilities } from "@/lib/auth/current-user";
+import { CALENDAR_CAPABILITIES } from "@/lib/calendar/constants";
+import { getOrganizationTimezone } from "@/lib/organizations/organizations";
+
+export default async function DashboardHomePage() {
+  const context = await getCurrentUserWithCapabilities();
+  const canViewCalendar = Boolean(context?.capabilityKeys.includes(CALENDAR_CAPABILITIES.VIEW));
+
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
       <div>
         <h1>Welcome to PropertyOps Hub</h1>
         <p className="muted">
-          The platform foundation is in place. Property, work order, equipment, and asset
-          management arrive in later phases.
+          Property, work order, equipment, and asset management are in place, with operations
+          scheduling now layered on top.
         </p>
       </div>
+      {canViewCalendar && context ? (
+        <UpcomingOperationsPanel
+          organizationId={context.user.organizationId}
+          timezone={await getOrganizationTimezone(context.user.organizationId)}
+        />
+      ) : null}
     </div>
   );
 }

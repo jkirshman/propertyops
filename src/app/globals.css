@@ -25,6 +25,27 @@
   --danger-bg: #fdecea;
   --success: #1e7d4b;
   --focus-ring: #d71920;
+
+  /* Operations Calendar — one restrained color per source module, reused
+     for every event in that module rather than per-event/per-category. */
+  --cal-work-order-bg: #e8edfb;
+  --cal-work-order-fg: #28407a;
+  --cal-work-order-border: #a9bced;
+  --cal-pm-bg: #e3f5ee;
+  --cal-pm-fg: #146b4e;
+  --cal-pm-border: #a4dbc5;
+  --cal-inspection-bg: #f2e9fb;
+  --cal-inspection-fg: #5a2e86;
+  --cal-inspection-border: #cdaee9;
+  --cal-compliance-bg: #fdecea;
+  --cal-compliance-fg: #8a2119;
+  --cal-compliance-border: #f0b6b0;
+  --cal-lease-bg: #eef7e4;
+  --cal-lease-fg: #3c6b1f;
+  --cal-lease-border: #c3e1a6;
+  --cal-manual-bg: #f1f1f3;
+  --cal-manual-fg: #3a3d45;
+  --cal-manual-border: #d3d5da;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -51,6 +72,25 @@
     --danger-bg: #3a1f1e;
     --success: #6fcf97;
     --focus-ring: #e6474c;
+
+    --cal-work-order-bg: #202a45;
+    --cal-work-order-fg: #b7c6f2;
+    --cal-work-order-border: #33447a;
+    --cal-pm-bg: #163229;
+    --cal-pm-fg: #9fe0c6;
+    --cal-pm-border: #205540;
+    --cal-inspection-bg: #2c2038;
+    --cal-inspection-fg: #dcc0f5;
+    --cal-inspection-border: #47355c;
+    --cal-compliance-bg: #3a1f1e;
+    --cal-compliance-fg: #f2b6b0;
+    --cal-compliance-border: #5c2d29;
+    --cal-lease-bg: #223018;
+    --cal-lease-fg: #c3e6a6;
+    --cal-lease-border: #3a4d28;
+    --cal-manual-bg: #2a2c33;
+    --cal-manual-fg: #cfd2d9;
+    --cal-manual-border: #40434c;
   }
 }
 

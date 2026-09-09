@@ -44,6 +44,18 @@ describe("createInspectionSchema", () => {
       expect(result.error.flatten().fieldErrors.scheduledDate?.[0]).toBe("Enter a valid date.");
     }
   });
+
+  it("rejects a scheduled end before the scheduled start", () => {
+    const result = createInspectionSchema.safeParse({
+      ...VALID,
+      scheduledStartAt: "2026-09-10T15:00:00.000Z",
+      scheduledEndAt: "2026-09-10T14:00:00.000Z",
+    });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.flatten().fieldErrors.scheduledEndAt).toBeTruthy();
+    }
+  });
 });
 
 describe("updateInspectionSchema", () => {
@@ -58,6 +70,12 @@ describe("updateInspectionSchema", () => {
 
   it("accepts a cancellation status", () => {
     expect(updateInspectionSchema.safeParse({ status: "cancelled" }).success).toBe(true);
+  });
+
+  it("accepts an explicit null to clear scheduling", () => {
+    const result = updateInspectionSchema.parse({ scheduledStartAt: null, scheduledEndAt: null });
+    expect(result.scheduledStartAt).toBeNull();
+    expect(result.scheduledEndAt).toBeNull();
   });
 });
 

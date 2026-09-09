@@ -6,6 +6,7 @@ export const WORK_ORDER_CAPABILITIES = {
   MANAGE_STATUS: "work_order.manage_status",
   MANAGE_NOTES: "work_order.manage_notes",
   MANAGE_ATTACHMENTS: "work_order.manage_attachments",
+  SCHEDULE: "work_order.schedule",
 } as const;
 
 export const WORK_ORDER_CATEGORY_CAPABILITIES = {

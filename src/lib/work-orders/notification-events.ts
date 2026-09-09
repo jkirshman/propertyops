@@ -39,3 +39,19 @@ export function buildWorkOrderClosedNotification(workOrder: WorkOrderNotificatio
     ...baseFields(workOrder),
   };
 }
+
+export function buildWorkOrderScheduledNotification(workOrder: WorkOrderNotificationSubject) {
+  return {
+    type: NOTIFICATION_TYPES.WORK_ORDER_SCHEDULED,
+    title: `Scheduled: ${workOrder.number}`,
+    ...baseFields(workOrder),
+  };
+}
+
+export function buildWorkOrderRescheduledNotification(workOrder: WorkOrderNotificationSubject) {
+  return {
+    type: NOTIFICATION_TYPES.WORK_ORDER_RESCHEDULED,
+    title: `Rescheduled: ${workOrder.number}`,
+    ...baseFields(workOrder),
+  };
+}

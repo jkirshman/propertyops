@@ -14,7 +14,9 @@ import { WORK_ORDER_CAPABILITIES, type WorkOrderStatus } from "@/lib/work-orders
 import {
   buildWorkOrderAssignedNotification,
   buildWorkOrderClosedNotification,
+  buildWorkOrderRescheduledNotification,
   buildWorkOrderResolvedNotification,
+  buildWorkOrderScheduledNotification,
 } from "@/lib/work-orders/notification-events";
 import { computeStatusTimestampUpdates } from "@/lib/work-orders/status-transitions";
 import { getWorkOrder, updateWorkOrder } from "@/lib/work-orders/work-orders";
@@ -76,6 +78,12 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   if (fields.vendorId !== undefined && !capabilityKeys.includes(VENDOR_CAPABILITIES.ASSIGN_WORK_ORDERS)) {
     return NextResponse.json({ error: "forbidden" }, { status: 403 });
   }
+  if (
+    (fields.scheduledStartAt !== undefined || fields.scheduledEndAt !== undefined) &&
+    !capabilityKeys.includes(WORK_ORDER_CAPABILITIES.SCHEDULE)
+  ) {
+    return NextResponse.json({ error: "forbidden" }, { status: 403 });
+  }
   const otherFieldsTouched =
     fields.subject !== undefined ||
     fields.description !== undefined ||
@@ -118,7 +126,21 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     return NextResponse.json({ error: "not_found" }, { status: 404 });
   }
 
-  const diff = diffFields(existing, fields);
+  const diff = diffFields(existing, {
+    ...fields,
+    scheduledStartAt:
+      fields.scheduledStartAt !== undefined
+        ? fields.scheduledStartAt
+          ? new Date(fields.scheduledStartAt)
+          : null
+        : undefined,
+    scheduledEndAt:
+      fields.scheduledEndAt !== undefined
+        ? fields.scheduledEndAt
+          ? new Date(fields.scheduledEndAt)
+          : null
+        : undefined,
+  });
   if (diff) {
     const changedKeys = Object.keys(diff.after);
 
@@ -216,6 +238,30 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       });
     }
 
+    if (changedKeys.includes("scheduledStartAt") || changedKeys.includes("scheduledEndAt")) {
+      const wasScheduled = Boolean(existing.scheduledStartAt);
+      await recordAuditEvent({
+        organizationId: user.organizationId,
+        actorUserId: user.id,
+        action: wasScheduled ? "work_order.rescheduled" : "work_order.scheduled",
+        entityType: "work_order",
+        entityId: id,
+        before: pick(diff.before, ["scheduledStartAt", "scheduledEndAt"]),
+        after: pick(diff.after, ["scheduledStartAt", "scheduledEndAt"]),
+      });
+
+      if (updated.assignedUserId && updated.scheduledStartAt) {
+        await createNotification({
+          organizationId: user.organizationId,
+          recipientUserId: updated.assignedUserId,
+          actorUserId: user.id,
+          ...(wasScheduled
+            ? buildWorkOrderRescheduledNotification(updated)
+            : buildWorkOrderScheduledNotification(updated)),
+        });
+      }
+    }
+
     if (changedKeys.includes("propertyEquipmentId")) {
       await recordAuditEvent({
         organizationId: user.organizationId,
@@ -252,6 +298,8 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
           "vendorId",
           "propertyEquipmentId",
           "assetId",
+          "scheduledStartAt",
+          "scheduledEndAt",
         ].includes(key),
     );
     if (remainingKeys.length > 0) {

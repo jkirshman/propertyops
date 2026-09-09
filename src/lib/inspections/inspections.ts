@@ -73,6 +73,8 @@ export async function createInspection(
       templateId: input.templateId,
       templateName: template.name,
       scheduledDate: input.scheduledDate ?? null,
+      scheduledStartAt: input.scheduledStartAt ? new Date(input.scheduledStartAt) : null,
+      scheduledEndAt: input.scheduledEndAt ? new Date(input.scheduledEndAt) : null,
       inspectorUserId: input.inspectorUserId ?? null,
       summary: input.summary ?? null,
       createdByUserId,
@@ -108,9 +110,19 @@ export async function updateInspection(
   id: string,
   input: UpdateInspectionInput,
 ): Promise<InspectionRow | null> {
+  const { scheduledStartAt, scheduledEndAt, ...rest } = input;
   const [row] = await db
     .update(inspections)
-    .set({ ...stripUndefined(input), updatedAt: new Date() })
+    .set({
+      ...stripUndefined(rest),
+      ...(scheduledStartAt !== undefined
+        ? { scheduledStartAt: scheduledStartAt ? new Date(scheduledStartAt) : null }
+        : {}),
+      ...(scheduledEndAt !== undefined
+        ? { scheduledEndAt: scheduledEndAt ? new Date(scheduledEndAt) : null }
+        : {}),
+      updatedAt: new Date(),
+    })
     .where(and(eq(inspections.id, id), eq(inspections.organizationId, organizationId)))
     .returning();
   return row ?? null;

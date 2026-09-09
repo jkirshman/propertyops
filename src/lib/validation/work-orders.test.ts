@@ -117,4 +117,30 @@ describe("updateWorkOrderSchema", () => {
     const result = updateWorkOrderSchema.parse({ vendorId: null });
     expect(result.vendorId).toBeNull();
   });
+
+  it("accepts a valid scheduled start/end pair", () => {
+    expect(
+      updateWorkOrderSchema.safeParse({
+        scheduledStartAt: "2026-09-10T14:00:00.000Z",
+        scheduledEndAt: "2026-09-10T15:00:00.000Z",
+      }).success,
+    ).toBe(true);
+  });
+
+  it("rejects a scheduled end before the scheduled start", () => {
+    const result = updateWorkOrderSchema.safeParse({
+      scheduledStartAt: "2026-09-10T15:00:00.000Z",
+      scheduledEndAt: "2026-09-10T14:00:00.000Z",
+    });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.flatten().fieldErrors.scheduledEndAt).toBeTruthy();
+    }
+  });
+
+  it("accepts an explicit null to clear scheduling", () => {
+    const result = updateWorkOrderSchema.parse({ scheduledStartAt: null, scheduledEndAt: null });
+    expect(result.scheduledStartAt).toBeNull();
+    expect(result.scheduledEndAt).toBeNull();
+  });
 });

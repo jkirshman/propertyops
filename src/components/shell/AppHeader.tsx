@@ -21,6 +21,7 @@ export function AppHeader({
   displayName,
   email,
   showAdminLink,
+  showCalendarLink,
   showPropertiesLink,
   showWorkOrdersLink,
   showPreventiveMaintenanceLink,
@@ -33,6 +34,7 @@ export function AppHeader({
   displayName: string;
   email: string;
   showAdminLink: boolean;
+  showCalendarLink: boolean;
   showPropertiesLink: boolean;
   showWorkOrdersLink: boolean;
   showPreventiveMaintenanceLink: boolean;
@@ -63,6 +65,7 @@ export function AppHeader({
           </Link>
           <nav style={{ display: "flex", gap: "1.1rem" }}>
             <NavLink href="/">Home</NavLink>
+            {showCalendarLink ? <NavLink href="/calendar">Calendar</NavLink> : null}
             {showPropertiesLink ? <NavLink href="/properties">Properties</NavLink> : null}
             {showWorkOrdersLink ? <NavLink href="/work-orders">Work Orders</NavLink> : null}
             {showPreventiveMaintenanceLink ? (

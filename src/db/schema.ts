@@ -19,6 +19,10 @@ export const organizations = pgTable(
     id: uuid("id").primaryKey().defaultRandom(),
     name: text("name").notNull(),
     slug: text("slug").notNull(),
+    // IANA timezone identifier used to display/edit timed values (see PROP-10).
+    // Date-only fields (compliance/lease dates, PM due dates) are never
+    // converted through this — they stay plain calendar dates.
+    timezone: text("timezone").notNull().default("America/Detroit"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
@@ -584,6 +588,10 @@ export const workOrders = pgTable(
     resolvedAt: timestamp("resolved_at", { withTimezone: true }),
     closedAt: timestamp("closed_at", { withTimezone: true }),
     resolutionSummary: text("resolution_summary"),
+    // Optional scheduling (PROP-10) — never required. When set, this Work
+    // Order projects onto the Operations Calendar as a timed event.
+    scheduledStartAt: timestamp("scheduled_start_at", { withTimezone: true }),
+    scheduledEndAt: timestamp("scheduled_end_at", { withTimezone: true }),
   },
   (table) => [uniqueIndex("work_orders_org_number_unique").on(table.organizationId, table.number)],
 );
@@ -868,6 +876,11 @@ export const inspections = pgTable("inspections", {
   templateName: text("template_name").notNull(),
   status: text("status").notNull().default("draft"),
   scheduledDate: date("scheduled_date"),
+  // Optional time-of-day scheduling (PROP-10), additive alongside the
+  // date-only scheduledDate above. When set, the inspection projects onto
+  // the Operations Calendar as a timed event instead of an all-day one.
+  scheduledStartAt: timestamp("scheduled_start_at", { withTimezone: true }),
+  scheduledEndAt: timestamp("scheduled_end_at", { withTimezone: true }),
   startedAt: timestamp("started_at", { withTimezone: true }),
   completedAt: timestamp("completed_at", { withTimezone: true }),
   inspectorUserId: uuid("inspector_user_id").references(() => users.id, { onDelete: "set null" }),
@@ -1021,6 +1034,27 @@ export const leases = pgTable("leases", {
   squareFootageLeased: integer("square_footage_leased"),
   unitLabel: text("unit_label"),
   notes: text("notes"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+// Manual Operations Calendar entries (PROP-10) — the only calendar-owned
+// source of record. Everything else on the calendar is projected read-only
+// from its own module's tables (work orders, PM, inspections, compliance,
+// leases); this table exists solely for events with no other home.
+export const operationalEvents = pgTable("operational_events", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  organizationId: uuid("organization_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  propertyId: uuid("property_id").references(() => properties.id, { onDelete: "set null" }),
+  title: text("title").notNull(),
+  description: text("description"),
+  startAt: timestamp("start_at", { withTimezone: true }).notNull(),
+  endAt: timestamp("end_at", { withTimezone: true }),
+  allDay: boolean("all_day").notNull().default(false),
+  status: text("status").notNull().default("active"),
+  createdByUserId: uuid("created_by_user_id").references(() => users.id, { onDelete: "set null" }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });

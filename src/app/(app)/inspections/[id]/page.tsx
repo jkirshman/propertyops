@@ -6,6 +6,7 @@ import { requireCapability } from "@/lib/auth/require-capability";
 import { getPropertyEquipment } from "@/lib/equipment/property-equipment";
 import { INSPECTION_CAPABILITIES, INSPECTION_STATUS_LABELS, type InspectionStatus } from "@/lib/inspections/constants";
 import { getInspection } from "@/lib/inspections/inspections";
+import { getOrganizationTimezone } from "@/lib/organizations/organizations";
 import { getProperty } from "@/lib/properties/properties";
 import { listOrganizationUsers } from "@/lib/users/users";
 import { WORK_ORDER_CAPABILITIES } from "@/lib/work-orders/constants";
@@ -24,13 +25,14 @@ export default async function InspectionDetailPage({
     notFound();
   }
 
-  const [property, equipment, categories, users] = await Promise.all([
+  const [property, equipment, categories, users, timezone] = await Promise.all([
     getProperty(context.user.organizationId, inspection.propertyId),
     inspection.propertyEquipmentId
       ? getPropertyEquipment(context.user.organizationId, inspection.propertyEquipmentId)
       : Promise.resolve(null),
     listWorkOrderCategories(context.user.organizationId, { activeOnly: true }),
     listOrganizationUsers(context.user.organizationId),
+    getOrganizationTimezone(context.user.organizationId),
   ]);
 
   const inspector = inspection.inspectorUserId
@@ -69,12 +71,16 @@ export default async function InspectionDetailPage({
           overallResult: inspection.overallResult,
           summary: inspection.summary,
           scheduledDate: inspection.scheduledDate,
+          scheduledStartAt: inspection.scheduledStartAt ? inspection.scheduledStartAt.toISOString() : null,
+          scheduledEndAt: inspection.scheduledEndAt ? inspection.scheduledEndAt.toISOString() : null,
         }}
         categories={categories}
         users={users}
+        timezone={timezone}
         canEdit={capabilityKeys.includes(INSPECTION_CAPABILITIES.EDIT)}
         canComplete={capabilityKeys.includes(INSPECTION_CAPABILITIES.COMPLETE)}
         canCreateWorkOrder={capabilityKeys.includes(WORK_ORDER_CAPABILITIES.CREATE)}
+        canSchedule={capabilityKeys.includes(INSPECTION_CAPABILITIES.SCHEDULE)}
       />
     </div>
   );

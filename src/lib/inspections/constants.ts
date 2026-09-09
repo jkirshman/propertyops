@@ -3,6 +3,7 @@ export const INSPECTION_CAPABILITIES = {
   CREATE: "inspection.create",
   EDIT: "inspection.edit",
   COMPLETE: "inspection.complete",
+  SCHEDULE: "inspection.schedule",
 } as const;
 
 export const INSPECTION_TEMPLATE_CAPABILITIES = {
