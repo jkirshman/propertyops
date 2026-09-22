@@ -7,6 +7,7 @@ import { capabilities, roleCapabilities, roles, users } from "@/db/schema";
 import { ADMIN_CAPABILITIES } from "@/lib/admin/admin-hub-config";
 import { getRoleCapabilityKeys } from "@/lib/auth/capabilities";
 import { hashPassword } from "@/lib/auth/password";
+import { invalidateOutstandingResetTokensQuery } from "@/lib/auth/password-reset-store";
 import { generateSessionToken, hashSessionToken } from "@/lib/auth/session";
 import { stripUndefined } from "@/lib/db/strip-undefined";
 import type { CreateUserInput, UpdateUserInput } from "@/lib/validation/users";
@@ -218,16 +219,35 @@ export async function resendActivation(
   return { user: { ...existing, isPending: true }, activationToken: token, activationExpiresAt: expiresAt };
 }
 
+/**
+ * AUTH-1A: deactivation revokes outstanding password-reset tokens at the
+ * moment it happens. Reset completion also re-checks isActive, but that alone
+ * would let a pre-deactivation token work again after reactivation.
+ */
+export function shouldInvalidateResetTokensOnUpdate(input: UpdateUserInput): boolean {
+  return input.isActive === false;
+}
+
 export async function updateUser(
   organizationId: string,
   id: string,
   input: UpdateUserInput,
 ): Promise<SafeUser | null> {
-  const [row] = await db
+  const now = new Date();
+  const updateQuery = db
     .update(users)
-    .set({ ...stripUndefined(input), updatedAt: new Date() })
+    .set({ ...stripUndefined(input), updatedAt: now })
     .where(and(eq(users.id, id), eq(users.organizationId, organizationId)))
     .returning();
+
+  if (shouldInvalidateResetTokensOnUpdate(input)) {
+    // One batch (a single transaction on neon-http): the account is never
+    // deactivated with a reset token still outstanding.
+    const [[row]] = await db.batch([updateQuery, invalidateOutstandingResetTokensQuery(id, organizationId, now)]);
+    return row ? toSafeUser(row) : null;
+  }
+
+  const [row] = await updateQuery;
   return row ? toSafeUser(row) : null;
 }
 

@@ -1,14 +1,21 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { getCurrentUser } from "@/lib/auth/current-user";
 
 import { LoginForm } from "./LoginForm";
 
-export default async function LoginPage() {
+export default async function LoginPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ reset?: string }>;
+}) {
   const user = await getCurrentUser();
   if (user) {
     redirect("/");
   }
+
+  const { reset } = await searchParams;
 
   return (
     <div className="login-page">
@@ -21,7 +28,17 @@ export default async function LoginPage() {
             Sign in to continue.
           </p>
         </div>
+        {reset === "1" ? (
+          <p className="success-text" role="status">
+            Your password has been reset. Sign in with your new password.
+          </p>
+        ) : null}
         <LoginForm />
+        <p style={{ textAlign: "center", margin: 0 }}>
+          <Link href="/forgot-password" className="auth-secondary-link">
+            Forgot password?
+          </Link>
+        </p>
       </div>
     </div>
   );

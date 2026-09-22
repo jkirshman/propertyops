@@ -4,6 +4,7 @@ import { recordAuditEvent } from "@/db/audit";
 import { ADMIN_CAPABILITIES } from "@/lib/admin/admin-hub-config";
 import { getCurrentUserWithCapabilities } from "@/lib/auth/current-user";
 import { isEmailSendingEnabled } from "@/lib/email/config";
+import { buildInvitationEmail } from "@/lib/email/account-emails";
 import { sendTrackedEmail } from "@/lib/email/email";
 import { buildActivationUrl, resendActivation } from "@/lib/users/users";
 
@@ -27,12 +28,14 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
   const activationUrl = buildActivationUrl(result.activationToken);
 
   if (isEmailSendingEnabled()) {
+    const email = buildInvitationEmail({ activationUrl, resend: true });
     await sendTrackedEmail({
       organizationId: actor.organizationId,
       to: result.user.email,
-      subject: "Set up your PropertyOps account",
-      html: `<p>Here is a new link to set up your PropertyOps account.</p><p><a href="${activationUrl}">Set up your account</a></p><p>This link expires in 7 days.</p>`,
-      kind: "user_invitation",
+      subject: email.subject,
+      html: email.html,
+      text: email.text,
+      kind: email.kind,
     });
   }
 

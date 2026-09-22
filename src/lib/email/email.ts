@@ -2,7 +2,7 @@ import { Resend } from "resend";
 
 import { db } from "@/db/client";
 import { emailSendAttempts } from "@/db/schema";
-import { getEmailConfigStatus } from "@/lib/email/config";
+import { formatFromAddress, getEmailConfigStatus, resolveEmailSendGate } from "@/lib/email/config";
 import { maskEmail } from "@/lib/email/mask-email";
 
 export { getEmailConfigStatus } from "@/lib/email/config";
@@ -17,12 +17,17 @@ export async function sendTrackedEmail(params: {
   to: string;
   subject: string;
   html: string;
+  // Plain-text alternative. Optional for backward compatibility, but every
+  // account email (invite/reset) passes one — never HTML-only.
+  text?: string;
   kind: string;
 }) {
-  const status = getEmailConfigStatus();
+  // Only the masked recipient, subject, and kind are ever persisted — never
+  // the body, so action URLs/tokens inside html/text never reach this table.
+  const gate = resolveEmailSendGate(getEmailConfigStatus());
   const toEmailMasked = maskEmail(params.to);
 
-  if (!status.enabled) {
+  if (gate === "skipped_disabled") {
     const [attempt] = await db
       .insert(emailSendAttempts)
       .values({
@@ -36,7 +41,7 @@ export async function sendTrackedEmail(params: {
     return { sent: false as const, reason: "disabled" as const, attemptId: attempt.id };
   }
 
-  if (!status.hasApiKey || !status.hasFromAddress) {
+  if (gate === "not_configured") {
     const [attempt] = await db
       .insert(emailSendAttempts)
       .values({
@@ -54,10 +59,11 @@ export async function sendTrackedEmail(params: {
   try {
     const resend = new Resend(process.env.RESEND_API_KEY);
     const result = await resend.emails.send({
-      from: process.env.EMAIL_FROM_ADDRESS as string,
+      from: formatFromAddress() as string,
       to: params.to,
       subject: params.subject,
       html: params.html,
+      ...(params.text ? { text: params.text } : {}),
     });
 
     if (result.error) {

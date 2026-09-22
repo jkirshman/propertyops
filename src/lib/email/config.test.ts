@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { getEmailConfigStatus, isEmailSendingEnabled } from "./config";
+import { formatFromAddress, getEmailConfigStatus, isEmailSendingEnabled, resolveEmailSendGate } from "./config";
 
 describe("isEmailSendingEnabled", () => {
   it("defaults to disabled when unset", () => {
@@ -40,5 +40,47 @@ describe("getEmailConfigStatus", () => {
 
   it("reports hasAppBaseUrl independently of the other flags", () => {
     expect(getEmailConfigStatus({ APP_BASE_URL: "https://example.com" }).hasAppBaseUrl).toBe(true);
+  });
+});
+
+describe("formatFromAddress", () => {
+  it("wraps a bare address with the PropertyOps display name", () => {
+    expect(formatFromAddress({ EMAIL_FROM_ADDRESS: "properties@lawassetgroup.com" })).toBe(
+      "PropertyOps <properties@lawassetgroup.com>",
+    );
+  });
+
+  it("keeps an already display-named value verbatim", () => {
+    expect(formatFromAddress({ EMAIL_FROM_ADDRESS: " PropertyOps <properties@lawassetgroup.com> " })).toBe(
+      "PropertyOps <properties@lawassetgroup.com>",
+    );
+  });
+
+  it("returns null when unset", () => {
+    expect(formatFromAddress({})).toBeNull();
+  });
+});
+
+describe("resolveEmailSendGate", () => {
+  it("EMAIL_ENABLED=false is authoritative: skipped even when fully configured", () => {
+    expect(
+      resolveEmailSendGate(
+        getEmailConfigStatus({ EMAIL_ENABLED: "false", RESEND_API_KEY: "k", EMAIL_FROM_ADDRESS: "a@b.com" }),
+      ),
+    ).toBe("skipped_disabled");
+  });
+
+  it("enabled but missing key or from address is not_configured", () => {
+    expect(resolveEmailSendGate(getEmailConfigStatus({ EMAIL_ENABLED: "true", RESEND_API_KEY: "k" }))).toBe(
+      "not_configured",
+    );
+  });
+
+  it("enabled and configured sends", () => {
+    expect(
+      resolveEmailSendGate(
+        getEmailConfigStatus({ EMAIL_ENABLED: "true", RESEND_API_KEY: "k", EMAIL_FROM_ADDRESS: "a@b.com" }),
+      ),
+    ).toBe("send");
   });
 });

@@ -106,6 +106,13 @@
       "when": 1790080732633,
       "tag": "0014_access_1_property_scoping",
       "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1790100244104,
+      "tag": "0015_auth_1_password_reset",
+      "breakpoints": true
     }
   ]
 }

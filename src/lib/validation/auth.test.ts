@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { loginSchema } from "./auth";
+import { forgotPasswordSchema, loginSchema, resetPasswordSchema } from "./auth";
 
 describe("loginSchema", () => {
   it("accepts a valid login and normalizes the email", () => {
@@ -27,5 +27,37 @@ describe("loginSchema", () => {
 
   it("rejects missing fields", () => {
     expect(loginSchema.safeParse({}).success).toBe(false);
+  });
+});
+
+describe("forgotPasswordSchema", () => {
+  it("normalizes the email", () => {
+    expect(forgotPasswordSchema.parse({ email: " User@Example.com " }).email).toBe("user@example.com");
+  });
+  it("rejects an invalid email", () => {
+    expect(forgotPasswordSchema.safeParse({ email: "nope" }).success).toBe(false);
+  });
+});
+
+describe("resetPasswordSchema", () => {
+  const token = "a".repeat(64);
+
+  it("accepts a matching password of at least 8 characters", () => {
+    expect(resetPasswordSchema.safeParse({ token, password: "longenough", confirmPassword: "longenough" }).success).toBe(
+      true,
+    );
+  });
+
+  it("rejects a confirmation mismatch on the confirmPassword field", () => {
+    const result = resetPasswordSchema.safeParse({ token, password: "longenough", confirmPassword: "different1" });
+    expect(result.success).toBe(false);
+    expect(result.error?.flatten().fieldErrors.confirmPassword).toBeDefined();
+  });
+
+  it("rejects a short password and a missing token", () => {
+    expect(resetPasswordSchema.safeParse({ token, password: "short", confirmPassword: "short" }).success).toBe(false);
+    expect(
+      resetPasswordSchema.safeParse({ token: "", password: "longenough", confirmPassword: "longenough" }).success,
+    ).toBe(false);
   });
 });

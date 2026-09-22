@@ -510,3 +510,25 @@ a.muted:hover {
   height: auto;
   margin: 0 auto;
 }
+
+/* Secondary auth links (Forgot password?, Back to sign in) — quiet, but
+   still clearly a link on hover/focus. */
+.auth-secondary-link {
+  font-size: 0.85rem;
+  color: var(--muted);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.auth-secondary-link:hover,
+.auth-secondary-link:focus-visible {
+  color: var(--foreground);
+}
+
+.success-text {
+  color: var(--success);
+  background: color-mix(in srgb, var(--success) 10%, transparent);
+  border-radius: 8px;
+  padding: 0.6rem 0.75rem;
+  font-size: 0.85rem;
+}

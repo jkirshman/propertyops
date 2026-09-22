@@ -2,6 +2,7 @@ import { sql } from "drizzle-orm";
 import {
   boolean,
   date,
+  index,
   integer,
   jsonb,
   numeric,
@@ -109,6 +110,52 @@ export const sessions = pgTable(
     expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
   },
   (table) => [uniqueIndex("sessions_token_hash_unique").on(table.tokenHash)],
+);
+
+// AUTH-1: single-use, short-lived password reset tokens. Deliberately a
+// separate table from users.activation_token_* — activation (onboarding) and
+// reset (recovery) never share a token, and one row per request keeps
+// used/invalidated history explicit. Only the SHA-256 hash is stored.
+export const passwordResetTokens = pgTable(
+  "password_reset_tokens",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    tokenHash: text("token_hash").notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    // Set when the token successfully resets the password.
+    usedAt: timestamp("used_at", { withTimezone: true }),
+    // Set when a newer request or a completed reset supersedes this token.
+    invalidatedAt: timestamp("invalidated_at", { withTimezone: true }),
+    // SHA-256 of the requesting client IP — never the raw address.
+    requestedIpHash: text("requested_ip_hash"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("password_reset_tokens_token_hash_unique").on(table.tokenHash),
+    index("password_reset_tokens_user_id_idx").on(table.userId),
+  ],
+);
+
+// AUTH-1: minimal DB-backed rate-limit ledger for unauthenticated auth
+// endpoints. Pre-authentication there is no organization yet, so — like
+// sessions — this is security infrastructure rather than an org-scoped
+// business record. keyHash is a SHA-256 of the bucket key (normalized email
+// or client IP), never the raw value. Rows are pruned opportunistically.
+export const authRateLimitEvents = pgTable(
+  "auth_rate_limit_events",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    action: text("action").notNull(),
+    keyHash: text("key_hash").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index("auth_rate_limit_events_lookup_idx").on(table.action, table.keyHash, table.createdAt)],
 );
 
 export const notifications = pgTable(

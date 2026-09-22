@@ -4,6 +4,7 @@ import { recordAuditEvent } from "@/db/audit";
 import { ADMIN_CAPABILITIES } from "@/lib/admin/admin-hub-config";
 import { getCurrentUserWithCapabilities } from "@/lib/auth/current-user";
 import { isEmailSendingEnabled } from "@/lib/email/config";
+import { buildInvitationEmail } from "@/lib/email/account-emails";
 import { sendTrackedEmail } from "@/lib/email/email";
 import {
   buildActivationUrl,
@@ -68,12 +69,14 @@ export async function POST(request: Request) {
   const activationUrl = buildActivationUrl(activationToken);
 
   if (isEmailSendingEnabled()) {
+    const email = buildInvitationEmail({ activationUrl });
     await sendTrackedEmail({
       organizationId: actor.organizationId,
       to: user.email,
-      subject: "Set up your PropertyOps account",
-      html: `<p>${escapeHtml(actor.displayName)} invited you to PropertyOps Hub.</p><p><a href="${activationUrl}">Set up your account</a></p><p>This link expires in 7 days.</p>`,
-      kind: "user_invitation",
+      subject: email.subject,
+      html: email.html,
+      text: email.text,
+      kind: email.kind,
     });
   }
 
@@ -87,12 +90,4 @@ export async function POST(request: Request) {
   });
 
   return NextResponse.json({ user, activationUrl, activationExpiresAt }, { status: 201 });
-}
-
-function escapeHtml(value: string): string {
-  return value
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
 }
