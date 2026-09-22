@@ -41,7 +41,7 @@ export function NotificationBell() {
   }
 
   return (
-    <div style={{ position: "relative" }}>
+    <div className="notification-bell">
       <button
         type="button"
         className="button"
@@ -49,9 +49,28 @@ export function NotificationBell() {
           setOpen((prev) => !prev);
           load();
         }}
-        aria-label="Notifications"
+        aria-label={unreadCount > 0 ? `Notifications, ${unreadCount} unread` : "Notifications"}
+        aria-expanded={open}
       >
-        Notifications
+        {/* MOBILE-1: the text label collapses to an icon on narrow screens so
+            the bell can stay in the header bar next to the menu button. */}
+        <svg
+          className="notification-bell-icon"
+          width="18"
+          height="18"
+          viewBox="0 0 20 20"
+          aria-hidden="true"
+          focusable="false"
+        >
+          <path
+            d="M10 2.5a5 5 0 0 0-5 5v3.2L3.5 13.5h13L15 10.7V7.5a5 5 0 0 0-5-5zM8 15.5a2 2 0 0 0 4 0"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.6"
+            strokeLinejoin="round"
+          />
+        </svg>
+        <span className="notification-bell-label">Notifications</span>
         {unreadCount > 0 ? <span className="badge">{unreadCount}</span> : null}
       </button>
       {open ? (
@@ -61,7 +80,7 @@ export function NotificationBell() {
             position: "absolute",
             right: 0,
             top: "2.75rem",
-            width: 320,
+            width: "min(320px, calc(100vw - 2rem))",
             zIndex: 20,
             maxHeight: 360,
             overflowY: "auto",

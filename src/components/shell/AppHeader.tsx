@@ -5,103 +5,55 @@ import { usePathname } from "next/navigation";
 
 import { NotificationBell } from "@/components/notifications/NotificationBell";
 import { LogoutButton } from "@/components/shell/LogoutButton";
-
-function NavLink({ href, children }: { href: string; children: React.ReactNode }) {
-  const pathname = usePathname();
-  const isActive = href === "/" ? pathname === "/" : pathname.startsWith(href);
-
-  return (
-    <Link href={href} className="app-nav-link" aria-current={isActive ? "page" : undefined}>
-      {children}
-    </Link>
-  );
-}
+import { MobileNavMenu } from "@/components/shell/MobileNavMenu";
+import { buildNavItems, isNavItemActive, type NavItemsInput } from "@/lib/navigation/nav-items";
 
 export function AppHeader({
   displayName,
   email,
-  navVariant,
-  myPropertyHref,
-  showAdminLink,
-  showCalendarLink,
-  showPropertiesLink,
-  showWorkOrdersLink,
-  showPreventiveMaintenanceLink,
-  showInspectionsLink,
-  showVendorsLink,
-  showTenantsLink,
-  showAssetsLink,
+  ...navInput
 }: {
   displayName: string;
   email: string;
-  // ACCESS-1: "user" renders the simplified Home/My Property/Work Orders nav
-  // instead of the full capability-gated link set below — a User keeps every
-  // other module reachable as tabs inside their Property detail page, just
-  // not as top-level nav.
-  navVariant: "admin" | "manager" | "user";
-  myPropertyHref: string;
-  showAdminLink: boolean;
-  showCalendarLink: boolean;
-  showPropertiesLink: boolean;
-  showWorkOrdersLink: boolean;
-  showPreventiveMaintenanceLink: boolean;
-  showInspectionsLink: boolean;
-  showVendorsLink: boolean;
-  showTenantsLink: boolean;
-  showAssetsLink: boolean;
-}) {
+} & NavItemsInput) {
+  const pathname = usePathname();
+  // One resolved list for both the desktop row and the mobile menu, so the
+  // two can never disagree about what this user is allowed to see.
+  const navItems = buildNavItems(navInput);
+
   return (
     <header style={{ borderBottom: "1px solid var(--border)", background: "var(--surface)" }}>
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          flexWrap: "wrap",
-          gap: "0.75rem",
-          maxWidth: 1080,
-          margin: "0 auto",
-          padding: "0.75rem 1.25rem",
-        }}
-      >
-        <div style={{ display: "flex", alignItems: "center", gap: "1.5rem", flexWrap: "wrap" }}>
+      <div className="app-header-bar">
+        <div style={{ display: "flex", alignItems: "center", gap: "1.5rem", flexWrap: "wrap", minWidth: 0 }}>
           <Link href="/" style={{ display: "flex", alignItems: "center" }}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src="/propertyops-logo.png" alt="PropertyOps Hub" className="brand-logo" />
           </Link>
-          <nav style={{ display: "flex", gap: "1.1rem" }}>
-            <NavLink href="/">Home</NavLink>
-            {navVariant === "user" ? (
-              <>
-                <NavLink href={myPropertyHref}>My Property</NavLink>
-                {showWorkOrdersLink ? <NavLink href="/work-orders">Work Orders</NavLink> : null}
-              </>
-            ) : (
-              <>
-                {showCalendarLink ? <NavLink href="/calendar">Calendar</NavLink> : null}
-                {showPropertiesLink ? <NavLink href="/properties">Properties</NavLink> : null}
-                {showWorkOrdersLink ? <NavLink href="/work-orders">Work Orders</NavLink> : null}
-                {showPreventiveMaintenanceLink ? (
-                  <NavLink href="/preventive-maintenance">Preventive Maintenance</NavLink>
-                ) : null}
-                {showInspectionsLink ? <NavLink href="/inspections">Inspections</NavLink> : null}
-                {showVendorsLink ? <NavLink href="/vendors">Vendors</NavLink> : null}
-                {showTenantsLink ? <NavLink href="/tenants">Tenants</NavLink> : null}
-                {showAssetsLink ? <NavLink href="/assets">Assets</NavLink> : null}
-                {showAdminLink ? <NavLink href="/admin">Admin Hub</NavLink> : null}
-              </>
-            )}
+          <nav className="app-desktop-nav" aria-label="Main">
+            {navItems.map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                className="app-nav-link"
+                aria-current={isNavItemActive(pathname, item.href) ? "page" : undefined}
+              >
+                {item.label}
+              </Link>
+            ))}
           </nav>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", flexWrap: "wrap" }}>
+        <div className="app-header-actions">
           <NotificationBell />
-          <Link href="/profile" style={{ textAlign: "right", color: "inherit", textDecoration: "none" }}>
-            <div style={{ fontSize: "0.85rem", fontWeight: 600 }}>{displayName}</div>
-            <div className="muted" style={{ fontSize: "0.75rem" }}>
-              {email}
-            </div>
-          </Link>
-          <LogoutButton />
+          <div className="app-desktop-only" style={{ alignItems: "center", gap: "0.75rem" }}>
+            <Link href="/profile" style={{ textAlign: "right", color: "inherit", textDecoration: "none" }}>
+              <div style={{ fontSize: "0.85rem", fontWeight: 600 }}>{displayName}</div>
+              <div className="muted" style={{ fontSize: "0.75rem" }}>
+                {email}
+              </div>
+            </Link>
+            <LogoutButton />
+          </div>
+          <MobileNavMenu navItems={navItems} pathname={pathname} displayName={displayName} email={email} />
         </div>
       </div>
     </header>

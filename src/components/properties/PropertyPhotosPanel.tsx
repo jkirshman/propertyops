@@ -1,7 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 
+import { preparePhotoForUpload } from "@/lib/files/client-image-compression";
+import { checkPreparedPhotoSize, describePhotoUploadFailure } from "@/lib/files/image-preparation";
 import {
   COMPONENT_PHOTO_CATEGORY,
   PHOTO_CATEGORIES,
@@ -53,7 +55,14 @@ export function PropertyPhotosPanel({
   const [unitId, setUnitId] = useState("");
   const [componentId, setComponentId] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [uploading, setUploading] = useState(false);
+  // "preparing" = client-side resize/compress, "uploading" = network.
+  const [uploadStage, setUploadStage] = useState<"idle" | "preparing" | "uploading">("idle");
+  // Bumped after a successful upload to reset the (uncontrolled) file input.
+  const [fileInputKey, setFileInputKey] = useState(0);
+  const uploading = uploadStage !== "idle";
+  // Synchronous guard: a fast double-tap can land before the disabled
+  // button re-renders.
+  const submittingRef = useRef(false);
 
   const canUpload = canManage || canUploadComponentPhoto;
 
@@ -104,8 +113,25 @@ export function PropertyPhotosPanel({
       return;
     }
 
-    setUploading(true);
+    if (submittingRef.current) return;
+    submittingRef.current = true;
+    setUploadStage("preparing");
     try {
+      // MOBILE-1: shrink large phone photos before they hit the 4.5MB
+      // platform request limit. Both upload paths below send uploadFile.
+      const prepared = await preparePhotoForUpload(file);
+      if (!prepared.ok) {
+        setError(prepared.message);
+        return;
+      }
+      const uploadFile = prepared.file;
+      const sizeCheck = checkPreparedPhotoSize({ size: uploadFile.size, wasCompressed: prepared.wasCompressed });
+      if (!sizeCheck.ok) {
+        setError(sizeCheck.message);
+        return;
+      }
+
+      setUploadStage("uploading");
       if (!canManage) {
         // A component-photo-only uploader (PROPERTY_COMPONENT_CAPABILITIES.
         // UPLOAD_PHOTO, no property MANAGE_DOCUMENTS) can't use POST
@@ -113,7 +139,7 @@ export function PropertyPhotosPanel({
         // full manage-documents capability. This narrower endpoint uploads
         // the Blob and creates the property_photos row itself, in one call.
         const componentFormData = new FormData();
-        componentFormData.append("file", file);
+        componentFormData.append("file", uploadFile);
         if (caption) componentFormData.append("caption", caption);
 
         const componentPhotoResponse = await fetch(`/api/property-components/${componentId}/photos`, {
@@ -122,11 +148,12 @@ export function PropertyPhotosPanel({
         });
         const componentPhotoData = await componentPhotoResponse.json().catch(() => null);
         if (!componentPhotoResponse.ok) {
-          setError(componentPhotoData?.error ?? "Could not upload the photo.");
+          setError(describePhotoUploadFailure(componentPhotoResponse.status, componentPhotoData?.error));
           return;
         }
 
         setFile(null);
+        setFileInputKey((key) => key + 1);
         setCaption("");
         setComponentId("");
         await load();
@@ -134,14 +161,14 @@ export function PropertyPhotosPanel({
       }
 
       const formData = new FormData();
-      formData.append("file", file);
+      formData.append("file", uploadFile);
       formData.append("relatedEntityType", "property");
       formData.append("relatedEntityId", propertyId);
 
       const uploadResponse = await fetch("/api/files", { method: "POST", body: formData });
       const uploadData = await uploadResponse.json().catch(() => null);
       if (!uploadResponse.ok) {
-        setError(uploadData?.error ?? "Could not upload the file.");
+        setError(describePhotoUploadFailure(uploadResponse.status, uploadData?.error));
         return;
       }
 
@@ -162,11 +189,16 @@ export function PropertyPhotosPanel({
       }
 
       setFile(null);
+      setFileInputKey((key) => key + 1);
       setCaption("");
       setUnitId("");
       await load();
+    } catch {
+      // Network failure (offline, connection dropped mid-upload).
+      setError(describePhotoUploadFailure(0));
     } finally {
-      setUploading(false);
+      submittingRef.current = false;
+      setUploadStage("idle");
     }
   }
 
@@ -191,6 +223,7 @@ export function PropertyPhotosPanel({
             <div>
               <label className="label" htmlFor="photo-file">Photo</label>
               <input
+                key={fileInputKey}
                 id="photo-file"
                 type="file"
                 accept="image/*"
@@ -252,7 +285,7 @@ export function PropertyPhotosPanel({
             </div>
           </div>
           <button type="submit" className="button button-primary" disabled={uploading} style={{ alignSelf: "flex-start" }}>
-            {uploading ? "Uploading…" : "Upload photo"}
+            {uploadStage === "preparing" ? "Preparing photo…" : uploadStage === "uploading" ? "Uploading…" : "Upload photo"}
           </button>
         </form>
       ) : null}

@@ -485,6 +485,157 @@ a.muted:hover {
   border-radius: 999px;
 }
 
+/* --- App header layout / MOBILE-1 --------------------------------------- */
+
+.app-header-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 0.75rem 1.25rem;
+}
+
+.app-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  position: relative;
+}
+
+.app-desktop-nav {
+  display: flex;
+  flex-wrap: wrap;
+  column-gap: 1.1rem;
+  row-gap: 0.6rem;
+}
+
+.app-desktop-only {
+  display: flex;
+}
+
+.notification-bell {
+  position: relative;
+}
+
+.app-mobile-only,
+.notification-bell-icon {
+  display: none;
+}
+
+.mobile-menu-button {
+  padding: 0.5rem;
+  min-width: 44px;
+  min-height: 44px;
+}
+
+.mobile-nav-panel {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 0.5rem);
+  z-index: 30;
+  width: min(320px, calc(100vw - 2rem));
+  max-height: calc(100dvh - 5rem);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.5rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 8px 28px rgba(20, 22, 26, 0.16);
+}
+
+.mobile-nav-panel[hidden] {
+  display: none;
+}
+
+.mobile-nav-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+}
+
+.mobile-nav-link {
+  display: block;
+  min-height: 44px;
+  padding: 0.7rem 0.85rem;
+  border-radius: 8px;
+  border-left: 3px solid transparent;
+  color: var(--foreground);
+  font-size: 0.95rem;
+  text-decoration: none;
+}
+
+.mobile-nav-link:hover {
+  background: var(--background);
+}
+
+.mobile-nav-link:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: -2px;
+}
+
+.mobile-nav-link[aria-current="page"] {
+  font-weight: 600;
+  background: var(--brand-soft);
+  border-left-color: var(--brand);
+}
+
+.mobile-nav-account {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--border);
+}
+
+.mobile-nav-account .button {
+  min-height: 44px;
+}
+
+@media (max-width: 900px) {
+  .app-header-bar {
+    flex-wrap: nowrap;
+    padding: 0.6rem 1rem;
+  }
+
+  .app-desktop-nav,
+  .app-desktop-only,
+  .notification-bell-label {
+    display: none;
+  }
+
+  .app-mobile-only {
+    display: block;
+  }
+
+  .notification-bell-icon {
+    display: block;
+  }
+
+  .app-header-actions {
+    flex-wrap: nowrap;
+    gap: 0.5rem;
+  }
+
+  /* Anchor the notification dropdown to the right-aligned actions group
+     rather than the bell itself, so it can't spill off the left edge. */
+  .notification-bell {
+    position: static;
+  }
+
+  .notification-bell > .button {
+    min-width: 44px;
+    min-height: 44px;
+    padding: 0.5rem;
+  }
+}
+
 /* --- Login screen --------------------------------------------------------- */
 
 .login-page {
