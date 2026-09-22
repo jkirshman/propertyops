@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import { InspectionDetailPanel } from "@/components/inspections/InspectionDetailPanel";
 import { requireCapability } from "@/lib/auth/require-capability";
 import { canAccessProperty, resolveUserPropertyScope } from "@/lib/auth/property-access";
-import { getPropertyEquipment } from "@/lib/equipment/property-equipment";
+import { getAccessiblePropertyEquipment } from "@/lib/equipment/property-equipment";
 import { INSPECTION_CAPABILITIES, INSPECTION_STATUS_LABELS, type InspectionStatus } from "@/lib/inspections/constants";
 import { getInspection } from "@/lib/inspections/inspections";
 import { getOrganizationTimezone } from "@/lib/organizations/organizations";
@@ -37,8 +37,9 @@ export default async function InspectionDetailPage({
 
   const [property, equipment, categories, users, timezone] = await Promise.all([
     getProperty(context.user.organizationId, inspection.propertyId),
+    // UNIT-EQUIP-1: another Unit's Equipment resolves to null — no name/link.
     inspection.propertyEquipmentId
-      ? getPropertyEquipment(context.user.organizationId, inspection.propertyEquipmentId)
+      ? getAccessiblePropertyEquipment(context.user.organizationId, scope, inspection.propertyEquipmentId)
       : Promise.resolve(null),
     listWorkOrderCategories(context.user.organizationId, { activeOnly: true }),
     listOrganizationUsers(context.user.organizationId),
@@ -76,7 +77,7 @@ export default async function InspectionDetailPage({
         initialInspection={{
           id: inspection.id,
           propertyId: inspection.propertyId,
-          propertyEquipmentId: inspection.propertyEquipmentId,
+          propertyEquipmentId: inspection.propertyEquipmentId && equipment ? inspection.propertyEquipmentId : null,
           status: inspection.status,
           overallResult: inspection.overallResult,
           summary: inspection.summary,

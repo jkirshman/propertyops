@@ -4,7 +4,12 @@ import { recordAuditEvent } from "@/db/audit";
 import { getCurrentUserWithCapabilities } from "@/lib/auth/current-user";
 import { canAccessProperty, resolveUserPropertyScope } from "@/lib/auth/property-access";
 import { diffFields } from "@/lib/db/diff-fields";
-import { getPropertyEquipment } from "@/lib/equipment/property-equipment";
+import {
+  isEquipmentLinkHidden,
+  redactHiddenEquipmentLink,
+  resolveHiddenEquipmentIds,
+} from "@/lib/equipment/equipment-access";
+import { getAccessiblePropertyEquipment } from "@/lib/equipment/property-equipment";
 import { INSPECTION_CAPABILITIES } from "@/lib/inspections/constants";
 import { cancelInspection, getInspection, updateInspection } from "@/lib/inspections/inspections";
 import {
@@ -42,7 +47,8 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: "not_found" }, { status: 404 });
   }
 
-  return NextResponse.json({ inspection });
+  const hiddenEquipmentIds = await resolveHiddenEquipmentIds(context.user.organizationId, scope);
+  return NextResponse.json({ inspection: redactHiddenEquipmentLink(inspection, hiddenEquipmentIds) });
 }
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -84,8 +90,17 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     return NextResponse.json({ error: "invalid_status_transition" }, { status: 400 });
   }
 
+  // UNIT-EQUIP-1: same rule as Work Orders — a hidden Equipment link can't be
+  // changed by someone who can't see it, and only visible Equipment can be linked.
+  if (fields.propertyEquipmentId !== undefined) {
+    const hiddenEquipmentIds = await resolveHiddenEquipmentIds(user.organizationId, scope);
+    if (isEquipmentLinkHidden(hiddenEquipmentIds, existing.propertyEquipmentId)) {
+      return NextResponse.json({ error: "forbidden" }, { status: 403 });
+    }
+  }
+
   if (fields.propertyEquipmentId) {
-    const equipment = await getPropertyEquipment(user.organizationId, fields.propertyEquipmentId);
+    const equipment = await getAccessiblePropertyEquipment(user.organizationId, scope, fields.propertyEquipmentId);
     if (!equipment || equipment.propertyId !== existing.propertyId) {
       return NextResponse.json({ error: "invalid_equipment" }, { status: 400 });
     }
@@ -117,7 +132,12 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   }
 
   if (Object.keys(updateFields).length === 0) {
-    return NextResponse.json({ inspection: await getInspection(user.organizationId, id) });
+    const current = await getInspection(user.organizationId, id);
+    return NextResponse.json({
+      inspection: current
+        ? redactHiddenEquipmentLink(current, await resolveHiddenEquipmentIds(user.organizationId, scope))
+        : null,
+    });
   }
 
   const updated = await updateInspection(user.organizationId, id, updateFields);
@@ -183,5 +203,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     }
   }
 
-  return NextResponse.json({ inspection: updated });
+  return NextResponse.json({
+    inspection: redactHiddenEquipmentLink(updated, await resolveHiddenEquipmentIds(user.organizationId, scope)),
+  });
 }

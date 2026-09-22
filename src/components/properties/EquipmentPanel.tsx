@@ -14,6 +14,15 @@ import {
   type EquipmentStatus,
   type PropertyEquipmentTemplateMode,
 } from "@/lib/equipment/constants";
+import {
+  EQUIPMENT_UNIT_FILTER_ALL,
+  PROPERTY_WIDE_EQUIPMENT_LABEL,
+  buildEquipmentUnitFilterOptions,
+  formatEquipmentUnitLabel,
+  formatUnitOptionLabel,
+  matchesEquipmentUnitFilter,
+  type EquipmentUnitOption,
+} from "@/lib/equipment/unit-display";
 
 interface CatalogItemRecord {
   id: string;
@@ -29,6 +38,16 @@ interface EquipmentRecord {
   status: string;
   condition: string;
   isActive: boolean;
+  propertyUnitId: string | null;
+  unitLabel: string | null;
+  unitIsActive: boolean | null;
+}
+
+// Only returned to Equipment editors (see /api/properties/[id]/equipment).
+interface UnitOptions {
+  supportsUnits: boolean;
+  units: EquipmentUnitOption[];
+  allowPropertyWide: boolean;
 }
 
 interface ExpectedVsActualRow {
@@ -72,6 +91,7 @@ const EMPTY_NEW_EQUIPMENT = {
   status: "active" as EquipmentStatus,
   condition: "unknown" as EquipmentCondition,
   notes: "",
+  propertyUnitId: "",
 };
 
 export function EquipmentPanel({
@@ -79,19 +99,25 @@ export function EquipmentPanel({
   canCreate,
   canEdit,
   canManageTemplate,
+  supportsUnits,
 }: {
   propertyId: string;
   canCreate: boolean;
   canEdit: boolean;
   canManageTemplate: boolean;
+  supportsUnits: boolean;
 }) {
   const [property, setProperty] = useState<PropertyRecord | null>(null);
   const [templates, setTemplates] = useState<TemplateOption[]>([]);
   const [catalogItems, setCatalogItems] = useState<CatalogItemRecord[]>([]);
   const [equipment, setEquipment] = useState<EquipmentRecord[]>([]);
-  const [expected, setExpected] = useState<{ templateId: string | null; rows: ExpectedVsActualRow[] } | null>(
-    null,
-  );
+  const [expected, setExpected] = useState<{
+    templateId: string | null;
+    rows: ExpectedVsActualRow[];
+    restricted?: boolean;
+  } | null>(null);
+  const [unitOptions, setUnitOptions] = useState<UnitOptions | null>(null);
+  const [unitFilter, setUnitFilter] = useState(EQUIPMENT_UNIT_FILTER_ALL);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -124,6 +150,7 @@ export function EquipmentPanel({
       if (equipmentRes.ok) {
         const data = await equipmentRes.json();
         setEquipment(data.equipment ?? []);
+        setUnitOptions(data.unitOptions ?? null);
       }
       if (expectedRes.ok) {
         const data = await expectedRes.json();
@@ -145,6 +172,14 @@ export function EquipmentPanel({
     }
     return map;
   }, [catalogItems]);
+
+  // UNIT-EQUIP-1: the Unit column/filter appear for a Unit-capable property
+  // (or if any row is already Unit-owned). The filter's choices come only
+  // from the rows this viewer received.
+  const showUnits = supportsUnits || equipment.some((item) => item.propertyUnitId !== null);
+  const unitFilterOptions = useMemo(() => buildEquipmentUnitFilterOptions(equipment), [equipment]);
+  const visibleEquipment = equipment.filter((item) => matchesEquipmentUnitFilter(item, unitFilter));
+  const canPickUnit = Boolean(unitOptions?.supportsUnits);
 
   async function handleTemplateModeChange(mode: PropertyEquipmentTemplateMode) {
     if (mode === "override" && templates.length === 0) {
@@ -211,6 +246,7 @@ export function EquipmentPanel({
           status: newEquipment.status,
           condition: newEquipment.condition,
           notes: newEquipment.notes || undefined,
+          propertyUnitId: canPickUnit ? newEquipment.propertyUnitId || null : undefined,
         }),
       });
       const data = await response.json().catch(() => null);
@@ -220,6 +256,7 @@ export function EquipmentPanel({
       }
       setShowAddForm(false);
       setNewEquipment(EMPTY_NEW_EQUIPMENT);
+      setUnitFilter(EQUIPMENT_UNIT_FILTER_ALL);
       await load();
     } finally {
       setSubmitting(false);
@@ -282,7 +319,7 @@ export function EquipmentPanel({
             </select>
           ) : null}
         </div>
-        {!expected?.templateId ? (
+        {!expected?.templateId && !expected?.restricted ? (
           <p className="muted" style={{ fontSize: "0.85rem" }}>
             No template is active for this property, so there is no expected equipment list.
           </p>
@@ -451,6 +488,31 @@ export function EquipmentPanel({
                   ))}
                 </select>
               </div>
+              {canPickUnit && unitOptions ? (
+                <div>
+                  <label className="label" htmlFor="new-equipment-unit">
+                    Unit / Suite
+                  </label>
+                  <select
+                    id="new-equipment-unit"
+                    className="input"
+                    value={newEquipment.propertyUnitId}
+                    onChange={(event) => setNewEquipment((prev) => ({ ...prev, propertyUnitId: event.target.value }))}
+                    required={!unitOptions.allowPropertyWide}
+                  >
+                    {unitOptions.allowPropertyWide ? (
+                      <option value="">{PROPERTY_WIDE_EQUIPMENT_LABEL}</option>
+                    ) : (
+                      <option value="">Select a Unit/Suite…</option>
+                    )}
+                    {unitOptions.units.map((unit) => (
+                      <option key={unit.id} value={unit.id}>
+                        {formatUnitOptionLabel(unit)}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              ) : null}
             </div>
             <button type="submit" className="button button-primary" disabled={submitting} style={{ alignSelf: "flex-start" }}>
               {submitting ? "Saving…" : "Add equipment"}
@@ -458,17 +520,42 @@ export function EquipmentPanel({
           </form>
         ) : null}
 
+        {showUnits && unitFilterOptions.length > 2 ? (
+          <div style={{ maxWidth: 280 }}>
+            <label className="label" htmlFor="equipment-unit-filter">
+              Unit / Suite
+            </label>
+            <select
+              id="equipment-unit-filter"
+              className="input"
+              value={unitFilter}
+              onChange={(event) => setUnitFilter(event.target.value)}
+            >
+              {unitFilterOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </div>
+        ) : null}
+
         {equipment.length === 0 ? (
           <p className="muted">No equipment installed yet.</p>
+        ) : visibleEquipment.length === 0 ? (
+          <p className="muted">No equipment matches this Unit/Suite.</p>
         ) : (
           <ul style={{ listStyle: "none", display: "flex", flexDirection: "column", gap: "0.6rem" }}>
-            {equipment.map((item) => (
+            {visibleEquipment.map((item) => (
               <li key={item.id} className="card" style={{ opacity: item.isActive ? 1 : 0.55 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", gap: "1rem", flexWrap: "wrap" }}>
-                  <div>
+                  <div style={{ minWidth: 0 }}>
                     <Link href={`/equipment/${item.id}`} className="entity-link">
                       {item.displayName}
                     </Link>
+                    {showUnits ? (
+                      <div style={{ fontSize: "0.85rem", overflowWrap: "anywhere" }}>{formatEquipmentUnitLabel(item)}</div>
+                    ) : null}
                     <div className="muted" style={{ fontSize: "0.85rem" }}>
                       {catalogNameById.get(item.equipmentCatalogItemId) ?? "Unknown type"}
                       {[item.manufacturer, item.model].some(Boolean)

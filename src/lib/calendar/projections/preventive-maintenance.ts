@@ -3,6 +3,7 @@ import { and, eq, inArray } from "drizzle-orm";
 import { db } from "@/db/client";
 import { preventiveMaintenanceOccurrences, preventiveMaintenancePlans, workOrders } from "@/db/schema";
 import type { CalendarEvent } from "@/lib/calendar/types";
+import { excludePlansForHiddenEquipment } from "@/lib/preventive-maintenance/plan-access";
 
 const TERMINAL_WORK_ORDER_STATUSES = new Set(["resolved", "closed", "cancelled"]);
 
@@ -100,6 +101,9 @@ export async function fetchPreventiveMaintenanceEvents(
   // ACCESS-1: null = unrestricted (no filter); an array scopes to those
   // properties; an empty array short-circuits to no events.
   propertyIds?: string[] | null,
+  // UNIT-EQUIP-1: plans (and their generated occurrences) targeting these
+  // Equipment ids — another Unit's Equipment — are left out entirely.
+  hiddenEquipmentIds: ReadonlySet<string> = new Set(),
 ): Promise<CalendarEvent[]> {
   if (propertyIds !== undefined && propertyIds !== null && propertyIds.length === 0) {
     return [];
@@ -125,6 +129,7 @@ export async function fetchPreventiveMaintenanceEvents(
       propertyId: preventiveMaintenancePlans.propertyId,
       name: preventiveMaintenancePlans.name,
       nextDueAt: preventiveMaintenancePlans.nextDueAt,
+      propertyEquipmentId: preventiveMaintenancePlans.propertyEquipmentId,
     })
     .from(preventiveMaintenancePlans)
     .where(and(...planConditions));
@@ -137,6 +142,7 @@ export async function fetchPreventiveMaintenanceEvents(
       dueDate: preventiveMaintenanceOccurrences.dueDate,
       planId: preventiveMaintenancePlans.id,
       planName: preventiveMaintenancePlans.name,
+      propertyEquipmentId: preventiveMaintenancePlans.propertyEquipmentId,
       workOrderId: workOrders.id,
       workOrderNumber: workOrders.number,
       workOrderSubject: workOrders.subject,
@@ -155,7 +161,9 @@ export async function fetchPreventiveMaintenanceEvents(
     .where(and(...occurrenceConditions));
 
   return [
-    ...plans.map((plan) => projectPmPlanDue(plan, today)),
-    ...occurrences.map((occurrence) => projectPmWorkOrderEvent(occurrence, now, today)),
+    ...excludePlansForHiddenEquipment(plans, hiddenEquipmentIds).map((plan) => projectPmPlanDue(plan, today)),
+    ...excludePlansForHiddenEquipment(occurrences, hiddenEquipmentIds).map((occurrence) =>
+      projectPmWorkOrderEvent(occurrence, now, today),
+    ),
   ];
 }

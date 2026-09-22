@@ -120,6 +120,13 @@
       "when": 1790104070081,
       "tag": "0016_photo_1_equipment_photos",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1790105316767,
+      "tag": "0017_unit_equip_1_equipment_unit_ownership",
+      "breakpoints": true
     }
   ]
 }

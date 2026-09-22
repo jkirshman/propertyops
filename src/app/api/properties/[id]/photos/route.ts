@@ -15,7 +15,12 @@ import {
   validatePhotoOwnerBelongsToProperty,
   validatePhotoOwnerExclusivity,
 } from "@/lib/property-photos/photo-rules";
-import { canViewPropertyPhoto, createPropertyPhoto, listPropertyPhotos } from "@/lib/property-photos/property-photos";
+import {
+  canViewPhotoEquipmentOwner,
+  canViewPropertyPhoto,
+  createPropertyPhoto,
+  listPropertyPhotos,
+} from "@/lib/property-photos/property-photos";
 import { getPropertyComponent } from "@/lib/property-components/property-components";
 import { PROPERTY_COMPONENT_CAPABILITIES } from "@/lib/property-components/constants";
 import { getPropertyUnit } from "@/lib/property-units/property-units";
@@ -45,10 +50,12 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   // (propertyUnitId null) photo stays visible to anyone who can access the
   // property at all. An entity photo is additionally dropped when the viewer
   // lacks that entity's view capability — /api/files/[id] would refuse to
-  // serve its image anyway.
+  // serve its image anyway. UNIT-EQUIP-1: and an Equipment photo is dropped
+  // when its Equipment belongs to a Unit the viewer can't access.
   const visiblePhotos = photos.filter(
     (photo) =>
       canViewPropertyPhoto(scope, id, photo.propertyUnitId) &&
+      canViewPhotoEquipmentOwner(scope, photo) &&
       canViewPhotoSource(capabilityKeys, resolvePhotoSource(photo)),
   );
   return NextResponse.json({

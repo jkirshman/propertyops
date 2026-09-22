@@ -1,0 +1,3 @@
+ALTER TABLE "property_equipment" ADD COLUMN "property_unit_id" uuid;--> statement-breakpoint
+ALTER TABLE "property_equipment" ADD CONSTRAINT "property_equipment_property_unit_id_property_units_id_fk" FOREIGN KEY ("property_unit_id") REFERENCES "public"."property_units"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+CREATE INDEX "property_equipment_property_unit_idx" ON "property_equipment" USING btree ("property_id","property_unit_id");

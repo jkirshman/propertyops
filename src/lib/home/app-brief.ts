@@ -3,6 +3,7 @@ import { COMPLIANCE_CAPABILITIES } from "@/lib/compliance/constants";
 import { listComplianceRecords } from "@/lib/compliance/compliance";
 import { classifyComplianceRecordStatus } from "@/lib/compliance/status";
 import { EQUIPMENT_CAPABILITIES } from "@/lib/equipment/constants";
+import { filterAccessibleEquipment, resolveHiddenEquipmentIds } from "@/lib/equipment/equipment-access";
 import { listPropertyEquipmentNeedingAttention } from "@/lib/equipment/property-equipment";
 import { INSPECTION_CAPABILITIES } from "@/lib/inspections/constants";
 import { listInspections } from "@/lib/inspections/inspections";
@@ -18,6 +19,7 @@ import { getEffectiveLeaseStatus } from "@/lib/leases/status";
 import { type NotificationCategory } from "@/lib/notifications/categories";
 import { getNotificationPreferencesForUser } from "@/lib/notifications/preferences";
 import { PREVENTIVE_MAINTENANCE_CAPABILITIES } from "@/lib/preventive-maintenance/constants";
+import { excludePlansForHiddenEquipment } from "@/lib/preventive-maintenance/plan-access";
 import { listPreventiveMaintenancePlans } from "@/lib/preventive-maintenance/plans";
 import { listProperties } from "@/lib/properties/properties";
 import { WORK_ORDER_CAPABILITIES, WORK_ORDER_STALE_THRESHOLD_DAYS } from "@/lib/work-orders/constants";
@@ -288,7 +290,14 @@ export async function getAppBrief(
 
   const [workOrderRows, pmRows, complianceRows, leaseRows, inspectionRows, equipmentRows] = await Promise.all([
     workOrdersVisible ? listOpenWorkOrdersForBrief(organizationId, propertyIds) : null,
-    pmVisible ? listPreventiveMaintenancePlans(organizationId, { isActive: true, propertyIds }) : null,
+    // UNIT-EQUIP-1: PM plans for another Unit's Equipment are dropped (see
+    // lib/preventive-maintenance/plan-access.ts).
+    pmVisible
+      ? Promise.all([
+          listPreventiveMaintenancePlans(organizationId, { isActive: true, propertyIds }),
+          resolveHiddenEquipmentIds(organizationId, scope),
+        ]).then(([plans, hiddenEquipmentIds]) => excludePlansForHiddenEquipment(plans, hiddenEquipmentIds))
+      : null,
     complianceVisible ? listComplianceRecords(organizationId, { isActive: true, propertyIds }) : null,
     // Leases are Unit-scoped — listLeases takes the full scope object (see
     // lib/leases/leases.ts's buildLeaseScopeCondition) rather than a plain
@@ -296,7 +305,12 @@ export async function getAppBrief(
     // lease milestones in their brief.
     leasesVisible ? listLeases(organizationId, { scope }) : null,
     inspectionsVisible ? listInspections(organizationId, { propertyIds }) : null,
-    equipmentVisible ? listPropertyEquipmentNeedingAttention(organizationId, propertyIds) : null,
+    // UNIT-EQUIP-1: Property-scoped by the query, Unit-scoped here.
+    equipmentVisible
+      ? listPropertyEquipmentNeedingAttention(organizationId, propertyIds).then((rows) =>
+          filterAccessibleEquipment(scope, rows),
+        )
+      : null,
   ]);
 
   const hasCapabilityForAnySection = [

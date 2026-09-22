@@ -545,7 +545,9 @@ export const equipmentTemplateItems = pgTable(
   ],
 );
 
-export const propertyEquipment = pgTable("property_equipment", {
+export const propertyEquipment = pgTable(
+  "property_equipment",
+  {
   id: uuid("id").primaryKey().defaultRandom(),
   organizationId: uuid("organization_id")
     .notNull()
@@ -553,6 +555,12 @@ export const propertyEquipment = pgTable("property_equipment", {
   propertyId: uuid("property_id")
     .notNull()
     .references(() => properties.id, { onDelete: "cascade" }),
+  // UNIT-EQUIP-1: null = Property-wide / Shared equipment (visible to anyone
+  // who can access the Property, Unit-restricted users included); set = owned
+  // by that Unit/Suite of the same Property. "no action" (not cascade/set
+  // null): a Unit with Equipment can't be deleted out from under it, yet a
+  // Property delete still cascades both rows away in the same statement.
+  propertyUnitId: uuid("property_unit_id").references(() => propertyUnits.id, { onDelete: "no action" }),
   equipmentCatalogItemId: uuid("equipment_catalog_item_id")
     .notNull()
     .references(() => equipmentCatalogItems.id, { onDelete: "restrict" }),
@@ -572,7 +580,9 @@ export const propertyEquipment = pgTable("property_equipment", {
   notes: text("notes"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
-});
+  },
+  (table) => [index("property_equipment_property_unit_idx").on(table.propertyId, table.propertyUnitId)],
+);
 
 export const equipmentServiceRecords = pgTable("equipment_service_records", {
   id: uuid("id").primaryKey().defaultRandom(),

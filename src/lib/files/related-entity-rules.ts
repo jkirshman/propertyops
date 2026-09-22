@@ -84,12 +84,14 @@ export function getRelatedEntityFileRules(
 
 export interface RelatedEntityPropertyContext {
   propertyId: string;
-  // null unless the related entity is itself Unit-scoped (currently only
-  // Lease). Every Property-wide entity type resolves to `null` here even
+  // null unless the related entity is itself Unit-scoped (Lease, or
+  // Unit-owned Equipment — UNIT-EQUIP-1). Every Property-wide entity type
+  // resolves to `null` here even
   // though it clearly belongs to a Property — Documents/Files are
   // Property-wide everywhere in this app, so there is no Unit to check.
   propertyUnitId: string | null;
-  // True only for Lease. Drives which access rule applies below — NOT simply
+  // True for Lease, and for Equipment only when it is Unit-owned
+  // (UNIT-EQUIP-1). Drives which access rule applies below — NOT simply
   // `propertyUnitId !== null`, because a Lease that hasn't been tied to a
   // specific Unit yet (propertyUnitId: null) must still go through the
   // stricter Unit-aware check: `leases.ts` (Tenant/Lease cluster) already
@@ -137,13 +139,20 @@ export async function resolveRelatedEntityPropertyContext(
     }
     case PROPERTY_EQUIPMENT_FILES_ENTITY_TYPE: {
       const [row] = await db
-        .select({ propertyId: propertyEquipment.propertyId })
+        .select({ propertyId: propertyEquipment.propertyId, propertyUnitId: propertyEquipment.propertyUnitId })
         .from(propertyEquipment)
         .where(
           and(eq(propertyEquipment.id, relatedEntityId), eq(propertyEquipment.organizationId, organizationId)),
         )
         .limit(1);
-      return row ? { propertyId: row.propertyId, propertyUnitId: null, isUnitScopedEntity: false } : null;
+      // UNIT-EQUIP-1: Equipment documents and photo images inherit Equipment
+      // visibility. Unit-owned Equipment takes the Unit-aware check;
+      // Property-wide (Shared) Equipment deliberately stays on the plain
+      // Property check — unlike a Unit-less Lease, Shared Equipment is meant
+      // to be visible to Unit-restricted users (see equipment-access.ts).
+      return row
+        ? { propertyId: row.propertyId, propertyUnitId: row.propertyUnitId, isUnitScopedEntity: row.propertyUnitId !== null }
+        : null;
     }
     case PROPERTY_COMPONENT_FILES_ENTITY_TYPE: {
       const [row] = await db

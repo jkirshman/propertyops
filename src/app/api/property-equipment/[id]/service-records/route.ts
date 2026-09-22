@@ -2,8 +2,9 @@ import { NextResponse } from "next/server";
 
 import { recordAuditEvent } from "@/db/audit";
 import { getCurrentUserWithCapabilities } from "@/lib/auth/current-user";
-import { canAccessProperty, resolveUserPropertyScope } from "@/lib/auth/property-access";
+import { resolveUserPropertyScope } from "@/lib/auth/property-access";
 import { EQUIPMENT_CAPABILITIES } from "@/lib/equipment/constants";
+import { canAccessPropertyEquipment } from "@/lib/equipment/equipment-access";
 import { getPropertyEquipment } from "@/lib/equipment/property-equipment";
 import {
   createEquipmentServiceRecord,
@@ -31,7 +32,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   }
 
   const scope = await resolveUserPropertyScope(user.id, user.organizationId, capabilityKeys);
-  if (!canAccessProperty(scope, equipment.propertyId)) {
+  if (!canAccessPropertyEquipment(scope, equipment)) {
     return NextResponse.json({ error: "not_found" }, { status: 404 });
   }
 
@@ -58,7 +59,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   }
 
   const scope = await resolveUserPropertyScope(user.id, user.organizationId, capabilityKeys);
-  if (!canAccessProperty(scope, equipment.propertyId)) {
+  if (!canAccessPropertyEquipment(scope, equipment)) {
     return NextResponse.json({ error: "not_found" }, { status: 404 });
   }
 

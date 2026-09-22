@@ -4,7 +4,13 @@ import { recordAuditEvent } from "@/db/audit";
 import { getCurrentUserWithCapabilities } from "@/lib/auth/current-user";
 import { canAccessProperty, resolveUserPropertyScope } from "@/lib/auth/property-access";
 import { EQUIPMENT_CAPABILITIES } from "@/lib/equipment/constants";
-import { createPropertyEquipment, listPropertyEquipment } from "@/lib/equipment/property-equipment";
+import { equipmentUnitAssignmentError, filterAccessibleEquipment } from "@/lib/equipment/equipment-access";
+import {
+  checkEquipmentUnitAssignment,
+  createPropertyEquipment,
+  getEquipmentUnitOptions,
+  listPropertyEquipment,
+} from "@/lib/equipment/property-equipment";
 import { getProperty } from "@/lib/properties/properties";
 import { createPropertyEquipmentSchema } from "@/lib/validation/property-equipment";
 
@@ -28,8 +34,19 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   const { searchParams } = new URL(request.url);
   const activeOnly = searchParams.get("activeOnly") === "true";
 
-  const equipment = await listPropertyEquipment(context.user.organizationId, id, { activeOnly });
-  return NextResponse.json({ equipment });
+  // UNIT-EQUIP-1: every selector (Work Order, PM, Inspection) reads this
+  // same list, so filtering here keeps other Units' Equipment out of all of
+  // them. Unit options are only resolved for editors — a view-only User
+  // never needs (or sees) the Property's Unit list through this route.
+  const rows = await listPropertyEquipment(context.user.organizationId, id, { activeOnly });
+  const equipment = filterAccessibleEquipment(scope, rows);
+
+  const canAssignUnits =
+    capabilityKeys.includes(EQUIPMENT_CAPABILITIES.CREATE) || capabilityKeys.includes(EQUIPMENT_CAPABILITIES.EDIT);
+  const property = canAssignUnits ? await getProperty(user.organizationId, id) : null;
+  const unitOptions = property ? await getEquipmentUnitOptions(user.organizationId, property, scope) : null;
+
+  return NextResponse.json({ equipment, unitOptions });
 }
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -62,6 +79,19 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       { error: "invalid_input", details: parsed.error.flatten() },
       { status: 400 },
     );
+  }
+
+  const unitDecision = await checkEquipmentUnitAssignment({
+    organizationId: user.organizationId,
+    scope,
+    property,
+    mode: "create",
+    requestedUnitId: parsed.data.propertyUnitId,
+    currentUnitId: null,
+  });
+  if (unitDecision !== "allowed" && unitDecision !== "unchanged") {
+    const { status, body: errorBody } = equipmentUnitAssignmentError(unitDecision);
+    return NextResponse.json(errorBody, { status });
   }
 
   const equipment = await createPropertyEquipment(user.organizationId, id, parsed.data);

@@ -17,6 +17,12 @@ import {
   type EquipmentCondition,
   type EquipmentStatus,
 } from "@/lib/equipment/constants";
+import {
+  PROPERTY_WIDE_EQUIPMENT_LABEL,
+  formatEquipmentUnitLabel,
+  formatUnitOptionLabel,
+  type EquipmentUnitOption,
+} from "@/lib/equipment/unit-display";
 
 export interface EquipmentRecord {
   id: string;
@@ -31,6 +37,16 @@ export interface EquipmentRecord {
   condition: string;
   isActive: boolean;
   notes: string | null;
+  propertyUnitId: string | null;
+  unitLabel: string | null;
+  unitIsActive: boolean | null;
+}
+
+// UNIT-EQUIP-1: only passed to Equipment editors; null hides the selector.
+export interface EquipmentUnitOptions {
+  supportsUnits: boolean;
+  units: EquipmentUnitOption[];
+  allowPropertyWide: boolean;
 }
 
 const TABS = ["overview", "photos", "service", "workorders", "maintenance", "inspections", "documents", "activity"] as const;
@@ -48,6 +64,8 @@ const TAB_LABELS: Record<Tab, string> = {
 
 export function EquipmentDetailPanel({
   initialEquipment,
+  propertyName,
+  unitOptions,
   canEdit,
   canManageService,
   canManageDocuments,
@@ -57,6 +75,8 @@ export function EquipmentDetailPanel({
   canCreateInspections,
 }: {
   initialEquipment: EquipmentRecord;
+  propertyName: string | null;
+  unitOptions: EquipmentUnitOptions | null;
   canEdit: boolean;
   canManageService: boolean;
   canManageDocuments: boolean;
@@ -77,8 +97,24 @@ export function EquipmentDetailPanel({
     locationInProperty: equipment.locationInProperty ?? "",
     installedDate: equipment.installedDate ?? "",
     notes: equipment.notes ?? "",
+    propertyUnitId: equipment.propertyUnitId ?? "",
   });
   const [saving, setSaving] = useState(false);
+
+  // The current Unit stays selectable even when it's since been deactivated
+  // (it isn't in the active-only option list) so saving other fields never
+  // silently moves the Equipment. Moving into/out of Property-wide is only
+  // offered to whole-Property editors — the server enforces the same rule.
+  const unitChoices: EquipmentUnitOption[] = unitOptions?.supportsUnits
+    ? [
+        ...(equipment.propertyUnitId && !unitOptions.units.some((unit) => unit.id === equipment.propertyUnitId)
+          ? [{ id: equipment.propertyUnitId, unitLabel: formatEquipmentUnitLabel(equipment), name: null }]
+          : []),
+        ...unitOptions.units,
+      ]
+    : [];
+  const canChangeUnit =
+    canEdit && Boolean(unitOptions?.supportsUnits) && (unitOptions!.allowPropertyWide || equipment.propertyUnitId !== null);
 
   async function patch(fields: Record<string, unknown>) {
     setError(null);
@@ -92,7 +128,16 @@ export function EquipmentDetailPanel({
       setError(data?.message ?? "Could not save the change.");
       return null;
     }
-    setEquipment(data.equipment);
+    // The PATCH response is the bare row — carry the Unit label across from
+    // the option list rather than re-fetching.
+    setEquipment((prev) => {
+      const next = data.equipment as EquipmentRecord;
+      if (next.propertyUnitId === prev.propertyUnitId) {
+        return { ...next, unitLabel: prev.unitLabel, unitIsActive: prev.unitIsActive };
+      }
+      const unit = unitChoices.find((choice) => choice.id === next.propertyUnitId);
+      return { ...next, unitLabel: unit?.unitLabel ?? null, unitIsActive: unit ? true : null };
+    });
     return data.equipment;
   }
 
@@ -110,6 +155,7 @@ export function EquipmentDetailPanel({
       locationInProperty: draft.locationInProperty || undefined,
       installedDate: draft.installedDate || undefined,
       notes: draft.notes || undefined,
+      ...(canChangeUnit ? { propertyUnitId: draft.propertyUnitId || null } : {}),
     });
     setSaving(false);
     if (result) setEditingDetails(false);
@@ -237,6 +283,24 @@ export function EquipmentDetailPanel({
                     onChange={(event) => setDraft((prev) => ({ ...prev, installedDate: event.target.value }))}
                   />
                 </div>
+                {canChangeUnit && unitOptions ? (
+                  <div>
+                    <label className="label" htmlFor="equipment-unit">Unit / Suite</label>
+                    <select
+                      id="equipment-unit"
+                      className="input"
+                      value={draft.propertyUnitId}
+                      onChange={(event) => setDraft((prev) => ({ ...prev, propertyUnitId: event.target.value }))}
+                    >
+                      {unitOptions.allowPropertyWide ? <option value="">{PROPERTY_WIDE_EQUIPMENT_LABEL}</option> : null}
+                      {unitChoices.map((unit) => (
+                        <option key={unit.id} value={unit.id}>
+                          {formatUnitOptionLabel(unit)}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                ) : null}
               </div>
               <div>
                 <label className="label" htmlFor="equipment-notes">Notes</label>
@@ -260,6 +324,14 @@ export function EquipmentDetailPanel({
           ) : (
             <>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "0.9rem" }}>
+                <div>
+                  <div className="muted" style={{ fontSize: "0.8rem" }}>Property</div>
+                  <div style={{ overflowWrap: "anywhere" }}>{propertyName ?? "Unknown property"}</div>
+                </div>
+                <div>
+                  <div className="muted" style={{ fontSize: "0.8rem" }}>Unit / Suite</div>
+                  <div style={{ overflowWrap: "anywhere" }}>{formatEquipmentUnitLabel(equipment)}</div>
+                </div>
                 <div>
                   <div className="muted" style={{ fontSize: "0.8rem" }}>Equipment tag</div>
                   <div>{equipment.equipmentTag ?? "Not set"}</div>
@@ -301,6 +373,7 @@ export function EquipmentDetailPanel({
                       locationInProperty: equipment.locationInProperty ?? "",
                       installedDate: equipment.installedDate ?? "",
                       notes: equipment.notes ?? "",
+                      propertyUnitId: equipment.propertyUnitId ?? "",
                     });
                     setEditingDetails(true);
                   }}

@@ -11,6 +11,7 @@ import {
 } from "@/db/schema";
 import { canAccessProperty, canAccessPropertyUnit, type PropertyScope } from "@/lib/auth/property-access";
 import { stripUndefined } from "@/lib/db/strip-undefined";
+import { canAccessPropertyEquipment } from "@/lib/equipment/equipment-access";
 import type { CreatePropertyPhotoInput, UpdatePropertyPhotoInput } from "@/lib/validation/property-photos";
 
 /**
@@ -31,6 +32,26 @@ export function canViewPropertyPhoto(
     return canAccessProperty(scope, propertyId);
   }
   return canAccessPropertyUnit(scope, propertyId, photoPropertyUnitId);
+}
+
+/**
+ * UNIT-EQUIP-1: an Equipment photo inherits its Equipment's visibility — a
+ * user who can't see Unit B's HVAC can't see its photos (or their captions,
+ * uploader, or Equipment name) anywhere, including the aggregate gallery.
+ * `equipmentPropertyUnitId` is the owning Equipment's Unit (null = Shared).
+ * Non-Equipment photos pass through untouched.
+ */
+export function canViewPhotoEquipmentOwner(
+  scope: PropertyScope,
+  photo: { propertyId: string; propertyEquipmentId: string | null; equipmentPropertyUnitId: string | null },
+): boolean {
+  if (photo.propertyEquipmentId === null) {
+    return true;
+  }
+  return canAccessPropertyEquipment(scope, {
+    propertyId: photo.propertyId,
+    propertyUnitId: photo.equipmentPropertyUnitId,
+  });
 }
 
 /**
@@ -60,6 +81,7 @@ async function selectPhotos(where: SQL | undefined) {
       componentName: propertyComponents.name,
       componentOtherTypeLabel: propertyComponents.otherTypeLabel,
       equipmentDisplayName: propertyEquipment.displayName,
+      equipmentPropertyUnitId: propertyEquipment.propertyUnitId,
     })
     .from(propertyPhotos)
     .innerJoin(files, eq(files.id, propertyPhotos.fileId))

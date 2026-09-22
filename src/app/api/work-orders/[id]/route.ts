@@ -5,7 +5,12 @@ import { getCurrentUserWithCapabilities } from "@/lib/auth/current-user";
 import { canAccessProperty, resolveUserPropertyScope } from "@/lib/auth/property-access";
 import { diffFields } from "@/lib/db/diff-fields";
 import { getAsset } from "@/lib/assets/assets";
-import { getPropertyEquipment } from "@/lib/equipment/property-equipment";
+import {
+  isEquipmentLinkHidden,
+  redactHiddenEquipmentLink,
+  resolveHiddenEquipmentIds,
+} from "@/lib/equipment/equipment-access";
+import { getAccessiblePropertyEquipment } from "@/lib/equipment/property-equipment";
 import { createNotification } from "@/lib/notifications/notifications";
 import { syncPreventiveMaintenanceOccurrenceStatus } from "@/lib/preventive-maintenance/occurrences";
 import { getPropertyComponent } from "@/lib/property-components/property-components";
@@ -52,7 +57,8 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: "not_found" }, { status: 404 });
   }
 
-  return NextResponse.json({ workOrder });
+  const hiddenEquipmentIds = await resolveHiddenEquipmentIds(context.user.organizationId, scope);
+  return NextResponse.json({ workOrder: redactHiddenEquipmentLink(workOrder, hiddenEquipmentIds) });
 }
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -113,8 +119,18 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     return NextResponse.json({ error: "forbidden" }, { status: 403 });
   }
 
+  const hiddenEquipmentIds = await resolveHiddenEquipmentIds(user.organizationId, scope);
+  // UNIT-EQUIP-1: a caller who can't see the currently-linked Equipment can't
+  // relink or unlink it either (the UI shows it as restricted, read-only).
+  if (
+    fields.propertyEquipmentId !== undefined &&
+    isEquipmentLinkHidden(hiddenEquipmentIds, existing.propertyEquipmentId)
+  ) {
+    return NextResponse.json({ error: "forbidden" }, { status: 403 });
+  }
+
   if (fields.propertyEquipmentId) {
-    const equipment = await getPropertyEquipment(user.organizationId, fields.propertyEquipmentId);
+    const equipment = await getAccessiblePropertyEquipment(user.organizationId, scope, fields.propertyEquipmentId);
     if (!equipment || equipment.propertyId !== existing.propertyId) {
       return NextResponse.json({ error: "invalid_equipment" }, { status: 400 });
     }
@@ -354,5 +370,5 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     }
   }
 
-  return NextResponse.json({ workOrder: updated });
+  return NextResponse.json({ workOrder: redactHiddenEquipmentLink(updated, hiddenEquipmentIds) });
 }

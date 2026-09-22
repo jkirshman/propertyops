@@ -4,7 +4,9 @@ import { recordAuditEvent } from "@/db/audit";
 import { getCurrentUserWithCapabilities } from "@/lib/auth/current-user";
 import { canAccessProperty, forbiddenResponseBody, listAccessiblePropertyIds, resolveUserPropertyScope } from "@/lib/auth/property-access";
 import { getWorkOrderCategory } from "@/lib/work-orders/categories";
-import { getPropertyEquipment } from "@/lib/equipment/property-equipment";
+import { resolveHiddenEquipmentIds } from "@/lib/equipment/equipment-access";
+import { getAccessiblePropertyEquipment } from "@/lib/equipment/property-equipment";
+import { excludePlansForHiddenEquipment } from "@/lib/preventive-maintenance/plan-access";
 import { PREVENTIVE_MAINTENANCE_CAPABILITIES, type PmDueState } from "@/lib/preventive-maintenance/constants";
 import {
   createPreventiveMaintenancePlan,
@@ -34,15 +36,28 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const activeParam = searchParams.get("active");
 
-  const plans = await listPreventiveMaintenancePlans(context.user.organizationId, {
+  // UNIT-EQUIP-1: filtering by hidden Equipment answers "none" (fail closed).
+  const propertyEquipmentId = searchParams.get("propertyEquipmentId") ?? undefined;
+  if (
+    propertyEquipmentId &&
+    !(await getAccessiblePropertyEquipment(context.user.organizationId, scope, propertyEquipmentId))
+  ) {
+    return NextResponse.json({ plans: [] });
+  }
+
+  const rows = await listPreventiveMaintenancePlans(context.user.organizationId, {
     search: searchParams.get("search") ?? undefined,
     propertyId: searchParams.get("propertyId") ?? undefined,
-    propertyEquipmentId: searchParams.get("propertyEquipmentId") ?? undefined,
+    propertyEquipmentId,
     isActive: activeParam === "true" ? true : activeParam === "false" ? false : undefined,
     defaultAssigneeUserId: searchParams.get("assignedUserId") ?? undefined,
     dueState: (searchParams.get("dueState") as PmDueState | null) ?? undefined,
     propertyIds: listAccessiblePropertyIds(scope),
   });
+  const plans = excludePlansForHiddenEquipment(
+    rows,
+    await resolveHiddenEquipmentIds(context.user.organizationId, scope),
+  );
 
   return NextResponse.json({ plans });
 }
@@ -79,7 +94,7 @@ export async function POST(request: Request) {
   }
 
   if (parsed.data.propertyEquipmentId) {
-    const equipment = await getPropertyEquipment(user.organizationId, parsed.data.propertyEquipmentId);
+    const equipment = await getAccessiblePropertyEquipment(user.organizationId, scope, parsed.data.propertyEquipmentId);
     if (!equipment || equipment.propertyId !== parsed.data.propertyId) {
       return NextResponse.json({ error: "invalid_equipment" }, { status: 400 });
     }

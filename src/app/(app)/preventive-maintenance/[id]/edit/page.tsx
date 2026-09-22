@@ -5,8 +5,9 @@ import {
   type PreventiveMaintenanceFormValues,
 } from "@/components/preventive-maintenance/PreventiveMaintenanceForm";
 import { requireCapability } from "@/lib/auth/require-capability";
-import { canAccessProperty, resolveUserPropertyScope } from "@/lib/auth/property-access";
+import { resolveUserPropertyScope } from "@/lib/auth/property-access";
 import { PREVENTIVE_MAINTENANCE_CAPABILITIES } from "@/lib/preventive-maintenance/constants";
+import { canAccessPreventiveMaintenancePlan } from "@/lib/preventive-maintenance/plan-access";
 import { getPreventiveMaintenancePlan } from "@/lib/preventive-maintenance/plans";
 import { getProperty } from "@/lib/properties/properties";
 import { listOrganizationUsers } from "@/lib/users/users";
@@ -34,7 +35,7 @@ export default async function EditPreventiveMaintenancePlanPage({
     context.user.organizationId,
     context.capabilityKeys,
   );
-  if (!canAccessProperty(scope, plan.propertyId)) {
+  if (!(await canAccessPreventiveMaintenancePlan(context.user.organizationId, scope, plan))) {
     notFound();
   }
 

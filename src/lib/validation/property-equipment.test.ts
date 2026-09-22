@@ -66,3 +66,26 @@ describe("updatePropertyEquipmentSchema", () => {
     );
   });
 });
+
+describe("propertyUnitId (UNIT-EQUIP-1)", () => {
+  const UNIT_ID = "3f2b8a1e-6c1d-4e8a-9b7c-1a2b3c4d5e6f";
+
+  it("is optional on create — omitted means Property-wide", () => {
+    const parsed = createPropertyEquipmentSchema.safeParse(VALID);
+    expect(parsed.success && parsed.data.propertyUnitId).toBeUndefined();
+  });
+
+  it("accepts a Unit id or an explicit null", () => {
+    expect(createPropertyEquipmentSchema.safeParse({ ...VALID, propertyUnitId: UNIT_ID }).success).toBe(true);
+    expect(updatePropertyEquipmentSchema.safeParse({ propertyUnitId: null }).success).toBe(true);
+  });
+
+  it("treats the selector's empty value as Property-wide (null)", () => {
+    const parsed = updatePropertyEquipmentSchema.safeParse({ propertyUnitId: "" });
+    expect(parsed.success && parsed.data.propertyUnitId).toBeNull();
+  });
+
+  it("rejects a non-uuid Unit id", () => {
+    expect(updatePropertyEquipmentSchema.safeParse({ propertyUnitId: "unit-a" }).success).toBe(false);
+  });
+});

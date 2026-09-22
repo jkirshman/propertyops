@@ -52,6 +52,9 @@ export interface WorkOrderRecord {
   status: string;
   assignedUserId: string | null;
   propertyEquipmentId: string | null;
+  // UNIT-EQUIP-1: linked to Equipment in a Unit this viewer can't access —
+  // the server has already nulled propertyEquipmentId.
+  propertyEquipmentRestricted?: boolean;
   assetId: string | null;
   vendorId: string | null;
   resolutionSummary: string | null;
@@ -268,19 +271,23 @@ export function WorkOrderDetailPanel({
         </div>
         <div>
           <div className="muted" style={{ fontSize: "0.8rem" }}>Related equipment</div>
-          <select
-            className="input"
-            value={workOrder.propertyEquipmentId ?? ""}
-            disabled={!canEdit}
-            onChange={(event) => patch({ propertyEquipmentId: event.target.value || null })}
-          >
-            <option value="">None</option>
-            {equipmentOptions.map((option) => (
-              <option key={option.id} value={option.id}>
-                {option.displayName}
-              </option>
-            ))}
-          </select>
+          {workOrder.propertyEquipmentRestricted ? (
+            <div className="muted">Equipment in another Unit/Suite (restricted)</div>
+          ) : (
+            <select
+              className="input"
+              value={workOrder.propertyEquipmentId ?? ""}
+              disabled={!canEdit}
+              onChange={(event) => patch({ propertyEquipmentId: event.target.value || null })}
+            >
+              <option value="">None</option>
+              {equipmentOptions.map((option) => (
+                <option key={option.id} value={option.id}>
+                  {option.displayName}
+                </option>
+              ))}
+            </select>
+          )}
           {workOrder.propertyEquipmentId ? (
             <Link href={`/equipment/${workOrder.propertyEquipmentId}`} className="text-link" style={{ fontSize: "0.8rem" }}>
               Open equipment

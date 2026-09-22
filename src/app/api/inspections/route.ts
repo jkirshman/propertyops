@@ -3,7 +3,8 @@ import { NextResponse } from "next/server";
 import { recordAuditEvent } from "@/db/audit";
 import { getCurrentUserWithCapabilities } from "@/lib/auth/current-user";
 import { canAccessProperty, forbiddenResponseBody, listAccessiblePropertyIds, resolveUserPropertyScope } from "@/lib/auth/property-access";
-import { getPropertyEquipment } from "@/lib/equipment/property-equipment";
+import { redactHiddenEquipmentLink, resolveHiddenEquipmentIds } from "@/lib/equipment/equipment-access";
+import { getAccessiblePropertyEquipment } from "@/lib/equipment/property-equipment";
 import { INSPECTION_CAPABILITIES } from "@/lib/inspections/constants";
 import { createInspection, listInspections } from "@/lib/inspections/inspections";
 import { buildInspectionScheduledNotification } from "@/lib/inspections/notification-events";
@@ -27,14 +28,26 @@ export async function GET(request: Request) {
   );
 
   const { searchParams } = new URL(request.url);
-  const inspections = await listInspections(context.user.organizationId, {
+  // UNIT-EQUIP-1: filtering by hidden Equipment answers "none" (fail closed).
+  const propertyEquipmentId = searchParams.get("propertyEquipmentId") ?? undefined;
+  if (
+    propertyEquipmentId &&
+    !(await getAccessiblePropertyEquipment(context.user.organizationId, scope, propertyEquipmentId))
+  ) {
+    return NextResponse.json({ inspections: [] });
+  }
+
+  const rows = await listInspections(context.user.organizationId, {
     propertyId: searchParams.get("propertyId") ?? undefined,
-    propertyEquipmentId: searchParams.get("propertyEquipmentId") ?? undefined,
+    propertyEquipmentId,
     templateId: searchParams.get("templateId") ?? undefined,
     status: searchParams.get("status") ?? undefined,
     inspectorUserId: searchParams.get("inspectorUserId") ?? undefined,
     propertyIds: listAccessiblePropertyIds(scope),
   });
+  // Inspections stay Property-scoped; only a hidden Equipment link is stripped.
+  const hiddenEquipmentIds = await resolveHiddenEquipmentIds(context.user.organizationId, scope);
+  const inspections = rows.map((row) => redactHiddenEquipmentLink(row, hiddenEquipmentIds));
 
   return NextResponse.json({ inspections });
 }
@@ -66,7 +79,7 @@ export async function POST(request: Request) {
   }
 
   if (parsed.data.propertyEquipmentId) {
-    const equipment = await getPropertyEquipment(user.organizationId, parsed.data.propertyEquipmentId);
+    const equipment = await getAccessiblePropertyEquipment(user.organizationId, scope, parsed.data.propertyEquipmentId);
     if (!equipment || equipment.propertyId !== parsed.data.propertyId) {
       return NextResponse.json({ error: "invalid_equipment" }, { status: 400 });
     }

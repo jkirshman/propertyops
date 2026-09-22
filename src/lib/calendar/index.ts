@@ -7,6 +7,7 @@ import { fetchPreventiveMaintenanceEvents } from "@/lib/calendar/projections/pre
 import { fetchWorkOrderEvents } from "@/lib/calendar/projections/work-orders";
 import { fetchOperationalEvents } from "@/lib/calendar/operational-events";
 import { todayInTimezone } from "@/lib/calendar/timezone";
+import { resolveHiddenEquipmentIds } from "@/lib/equipment/equipment-access";
 import type { CalendarFilters, CalendarEvent } from "@/lib/calendar/types";
 import type { CalendarSourceType } from "@/lib/calendar/constants";
 
@@ -38,7 +39,9 @@ export async function listCalendarEvents(
     await Promise.all([
       wants("work_order") ? fetchWorkOrderEvents(organizationId, now, propertyIds) : Promise.resolve([]),
       wants("preventive_maintenance")
-        ? fetchPreventiveMaintenanceEvents(organizationId, now, today, propertyIds)
+        ? resolveHiddenEquipmentIds(organizationId, scope).then((hiddenEquipmentIds) =>
+            fetchPreventiveMaintenanceEvents(organizationId, now, today, propertyIds, hiddenEquipmentIds),
+          )
         : Promise.resolve([]),
       wants("inspection")
         ? fetchInspectionEvents(

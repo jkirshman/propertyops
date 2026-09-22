@@ -4,7 +4,8 @@ import { recordAuditEvent } from "@/db/audit";
 import { getAsset } from "@/lib/assets/assets";
 import { getCurrentUserWithCapabilities } from "@/lib/auth/current-user";
 import { canAccessProperty, forbiddenResponseBody, listAccessiblePropertyIds, resolveUserPropertyScope } from "@/lib/auth/property-access";
-import { getPropertyEquipment } from "@/lib/equipment/property-equipment";
+import { redactHiddenEquipmentLink, resolveHiddenEquipmentIds } from "@/lib/equipment/equipment-access";
+import { getAccessiblePropertyEquipment } from "@/lib/equipment/property-equipment";
 import { createNotification } from "@/lib/notifications/notifications";
 import { getPropertyComponent } from "@/lib/property-components/property-components";
 import {
@@ -34,20 +35,37 @@ export async function GET(request: Request) {
   );
 
   const { searchParams } = new URL(request.url);
-  const workOrders = await listWorkOrders(context.user.organizationId, {
-    search: searchParams.get("search") ?? undefined,
-    propertyId: searchParams.get("propertyId") ?? undefined,
-    propertyEquipmentId: searchParams.get("propertyEquipmentId") ?? undefined,
-    assetId: searchParams.get("assetId") ?? undefined,
-    propertyComponentId: searchParams.get("propertyComponentId") ?? undefined,
-    status: searchParams.get("status") ?? undefined,
-    priority: searchParams.get("priority") ?? undefined,
-    categoryId: searchParams.get("categoryId") ?? undefined,
-    assignedUserId: searchParams.get("assignedUserId") ?? undefined,
-    vendorId: searchParams.get("vendorId") ?? undefined,
-    propertyIds: listAccessiblePropertyIds(scope),
-  });
+  // UNIT-EQUIP-1: filtering by Equipment the caller can't see would reveal
+  // which Work Orders concern another Unit's Equipment — answer "none".
+  const propertyEquipmentId = searchParams.get("propertyEquipmentId") ?? undefined;
+  if (
+    propertyEquipmentId &&
+    !(await getAccessiblePropertyEquipment(context.user.organizationId, scope, propertyEquipmentId))
+  ) {
+    return NextResponse.json({ workOrders: [] });
+  }
 
+  const [rows, hiddenEquipmentIds] = await Promise.all([
+    listWorkOrders(context.user.organizationId, {
+      search: searchParams.get("search") ?? undefined,
+      propertyId: searchParams.get("propertyId") ?? undefined,
+      propertyEquipmentId,
+      assetId: searchParams.get("assetId") ?? undefined,
+      propertyComponentId: searchParams.get("propertyComponentId") ?? undefined,
+      status: searchParams.get("status") ?? undefined,
+      priority: searchParams.get("priority") ?? undefined,
+      categoryId: searchParams.get("categoryId") ?? undefined,
+      assignedUserId: searchParams.get("assignedUserId") ?? undefined,
+      vendorId: searchParams.get("vendorId") ?? undefined,
+      propertyIds: listAccessiblePropertyIds(scope),
+    }),
+    resolveHiddenEquipmentIds(context.user.organizationId, scope),
+  ]);
+
+  // Work Orders stay Property-scoped (a Unit-restricted User still sees every
+  // Work Order at their Property, as before); only the hidden Equipment link
+  // itself is stripped.
+  const workOrders = rows.map((row) => redactHiddenEquipmentLink(row, hiddenEquipmentIds));
   return NextResponse.json({ workOrders });
 }
 
@@ -78,7 +96,7 @@ export async function POST(request: Request) {
   }
 
   if (parsed.data.propertyEquipmentId) {
-    const equipment = await getPropertyEquipment(user.organizationId, parsed.data.propertyEquipmentId);
+    const equipment = await getAccessiblePropertyEquipment(user.organizationId, scope, parsed.data.propertyEquipmentId);
     if (!equipment || equipment.propertyId !== parsed.data.propertyId) {
       return NextResponse.json({ error: "invalid_equipment" }, { status: 400 });
     }

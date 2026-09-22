@@ -182,6 +182,7 @@ export function PropertyProfileTabs({
           canCreate={canCreateEquipment}
           canEdit={canEditEquipment}
           canManageTemplate={canManageEquipmentTemplate}
+          supportsUnits={supportsUnits}
         />
       ) : null}
       {tab === "assets" ? (

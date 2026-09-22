@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { recordAuditEvent } from "@/db/audit";
+import { ADMIN_CAPABILITIES } from "@/lib/admin/admin-hub-config";
 import { resolveUserPropertyScope } from "@/lib/auth/property-access";
 import { getCurrentUserWithCapabilities } from "@/lib/auth/current-user";
 import { isFileStorageConfigured, listFilesForOrganization, uploadPrivateFile } from "@/lib/files/files";
@@ -20,6 +21,13 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const relatedEntityType = searchParams.get("relatedEntityType") ?? undefined;
   const relatedEntityId = searchParams.get("relatedEntityId") ?? undefined;
+
+  // UNIT-EQUIP-1: an unfiltered (or type-only) listing spans every entity in
+  // the org — including other Units' Equipment photos — with no per-record
+  // scope check, so it's reserved for the Admin Files page's own capability.
+  if (!(relatedEntityType && relatedEntityId) && !capabilityKeys.includes(ADMIN_CAPABILITIES.FILES)) {
+    return NextResponse.json({ error: "forbidden" }, { status: 403 });
+  }
 
   const rules = getRelatedEntityFileRules(relatedEntityType);
   if (rules && !capabilityKeys.includes(rules.viewCapability)) {

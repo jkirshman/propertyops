@@ -2,7 +2,7 @@ import { WorkOrderForm } from "@/components/work-orders/WorkOrderForm";
 import { getAsset, listAssets } from "@/lib/assets/assets";
 import { requireCapability } from "@/lib/auth/require-capability";
 import { listAccessiblePropertyIds, resolveUserPropertyScope } from "@/lib/auth/property-access";
-import { getPropertyEquipment } from "@/lib/equipment/property-equipment";
+import { getAccessiblePropertyEquipment } from "@/lib/equipment/property-equipment";
 import { getPropertyComponent } from "@/lib/property-components/property-components";
 import { listProperties } from "@/lib/properties/properties";
 import { listOrganizationUsers } from "@/lib/users/users";
@@ -19,8 +19,16 @@ export default async function NewWorkOrderPage({
   const context = await requireCapability(WORK_ORDER_CAPABILITIES.CREATE, "/work-orders");
   const { propertyId, equipmentId, componentId, assetId } = await searchParams;
 
+  const scope = await resolveUserPropertyScope(
+    context.user.id,
+    context.user.organizationId,
+    context.capabilityKeys,
+  );
+
+  // UNIT-EQUIP-1: an "?equipmentId=" for Equipment the user can't see is
+  // ignored rather than prefilled.
   const equipment = equipmentId
-    ? await getPropertyEquipment(context.user.organizationId, equipmentId)
+    ? await getAccessiblePropertyEquipment(context.user.organizationId, scope, equipmentId)
     : null;
   const component = componentId
     ? await getPropertyComponent(context.user.organizationId, componentId)
@@ -28,12 +36,6 @@ export default async function NewWorkOrderPage({
   const asset = assetId ? await getAsset(context.user.organizationId, assetId) : null;
 
   const canAssignVendor = context.capabilityKeys.includes(VENDOR_CAPABILITIES.ASSIGN_WORK_ORDERS);
-
-  const scope = await resolveUserPropertyScope(
-    context.user.id,
-    context.user.organizationId,
-    context.capabilityKeys,
-  );
 
   const [properties, categories, users, assets, vendors] = await Promise.all([
     listProperties(context.user.organizationId, { isActive: true, propertyIds: listAccessiblePropertyIds(scope) }),

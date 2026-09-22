@@ -1,7 +1,7 @@
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, getTableColumns } from "drizzle-orm";
 
 import { db } from "@/db/client";
-import { equipmentServiceRecords } from "@/db/schema";
+import { equipmentServiceRecords, propertyEquipment } from "@/db/schema";
 import { stripUndefined } from "@/lib/db/strip-undefined";
 import type {
   CreateEquipmentServiceRecordInput,
@@ -21,10 +21,18 @@ export async function listEquipmentServiceRecords(organizationId: string, proper
     .orderBy(desc(equipmentServiceRecords.serviceDate), desc(equipmentServiceRecords.createdAt));
 }
 
+// Carries the serviced Equipment's Property/Unit so the caller can apply
+// canAccessPropertyEquipment (UNIT-EQUIP-1) — a Vendor spans Properties, so
+// these rows aren't pre-scoped the way per-Equipment lists are.
 export async function listEquipmentServiceRecordsByVendor(organizationId: string, vendorId: string) {
   return db
-    .select()
+    .select({
+      ...getTableColumns(equipmentServiceRecords),
+      propertyId: propertyEquipment.propertyId,
+      propertyUnitId: propertyEquipment.propertyUnitId,
+    })
     .from(equipmentServiceRecords)
+    .innerJoin(propertyEquipment, eq(propertyEquipment.id, equipmentServiceRecords.propertyEquipmentId))
     .where(
       and(
         eq(equipmentServiceRecords.organizationId, organizationId),

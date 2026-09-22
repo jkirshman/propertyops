@@ -26,6 +26,12 @@ export const createPropertyEquipmentSchema = z.object({
   condition: z.enum(EQUIPMENT_CONDITIONS).default("unknown"),
   expectedReplacementDate: dateString,
   notes: z.preprocess(emptyToUndefined, z.string().trim().max(4000).optional()),
+  // UNIT-EQUIP-1: null (or omitted on create) = Property-wide / Shared. Which
+  // Units are valid is decided server-side by resolveEquipmentUnitAssignment.
+  propertyUnitId: z.preprocess(
+    (value) => (typeof value === "string" && value.trim() === "" ? null : value),
+    z.string().uuid().nullable().optional(),
+  ),
 });
 
 export const updatePropertyEquipmentSchema = createPropertyEquipmentSchema.partial().extend({

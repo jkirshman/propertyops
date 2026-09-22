@@ -4,6 +4,7 @@ import { recordAuditEvent } from "@/db/audit";
 import { getCurrentUserWithCapabilities } from "@/lib/auth/current-user";
 import { canAccessPropertyUnit, resolveUserPropertyScope } from "@/lib/auth/property-access";
 import { PROPERTY_EQUIPMENT_FILES_ENTITY_TYPE } from "@/lib/equipment/constants";
+import { getPropertyEquipment } from "@/lib/equipment/property-equipment";
 import { PROPERTY_COMPONENT_FILES_ENTITY_TYPE } from "@/lib/property-components/constants";
 import { GENERAL_PHOTO_CATEGORIES } from "@/lib/property-photos/constants";
 import {
@@ -13,6 +14,7 @@ import {
   resolvePhotoSource,
 } from "@/lib/property-photos/photo-rules";
 import {
+  canViewPhotoEquipmentOwner,
   canViewPropertyPhoto,
   getPropertyPhoto,
   setCoverPhoto,
@@ -50,6 +52,16 @@ export async function PATCH(
   const scope = await resolveUserPropertyScope(user.id, user.organizationId, capabilityKeys);
   if (!canViewPropertyPhoto(scope, id, existing.propertyUnitId) || !canViewPhotoSource(capabilityKeys, source)) {
     return NextResponse.json({ error: "not_found" }, { status: 404 });
+  }
+  if (existing.propertyEquipmentId) {
+    // Fail closed: an Equipment photo whose Equipment can't be found is hidden too.
+    const equipment = await getPropertyEquipment(user.organizationId, existing.propertyEquipmentId);
+    if (
+      !equipment ||
+      !canViewPhotoEquipmentOwner(scope, { ...existing, equipmentPropertyUnitId: equipment.propertyUnitId })
+    ) {
+      return NextResponse.json({ error: "not_found" }, { status: 404 });
+    }
   }
 
   const permission = resolvePhotoEditPermission({

@@ -1,8 +1,17 @@
-import { and, asc, eq, inArray, or } from "drizzle-orm";
+import { and, asc, eq, getTableColumns, inArray, or } from "drizzle-orm";
 
 import { db } from "@/db/client";
-import { properties, propertyEquipment } from "@/db/schema";
+import { properties, propertyEquipment, propertyUnits } from "@/db/schema";
+import type { PropertyScope } from "@/lib/auth/property-access";
 import { stripUndefined } from "@/lib/db/strip-undefined";
+import {
+  canAccessPropertyEquipment,
+  listAssignableEquipmentUnits,
+  resolveEquipmentUnitAssignment,
+  type EquipmentUnitAssignmentDecision,
+} from "@/lib/equipment/equipment-access";
+import { getPropertyType } from "@/lib/properties/property-types";
+import { getPropertyUnit, listPropertyUnits } from "@/lib/property-units/property-units";
 import type {
   CreatePropertyEquipmentInput,
   UpdatePropertyEquipmentInput,
@@ -21,9 +30,17 @@ export async function listPropertyEquipment(
     conditions.push(eq(propertyEquipment.isActive, true));
   }
 
+  // UNIT-EQUIP-1: carries the owning Unit's label so lists can show
+  // "Unit A" / "Property-wide" without a second round trip. Unfiltered by
+  // Unit on purpose — callers apply filterAccessibleEquipment.
   return db
-    .select()
+    .select({
+      ...getTableColumns(propertyEquipment),
+      unitLabel: propertyUnits.unitLabel,
+      unitIsActive: propertyUnits.isActive,
+    })
     .from(propertyEquipment)
+    .leftJoin(propertyUnits, eq(propertyUnits.id, propertyEquipment.propertyUnitId))
     .where(and(...conditions))
     .orderBy(asc(propertyEquipment.displayName));
 }
@@ -56,6 +73,7 @@ export async function listPropertyEquipmentNeedingAttention(
       condition: propertyEquipment.condition,
       status: propertyEquipment.status,
       propertyId: propertyEquipment.propertyId,
+      propertyUnitId: propertyEquipment.propertyUnitId,
       propertyName: properties.name,
     })
     .from(propertyEquipment)
@@ -73,6 +91,17 @@ export async function getPropertyEquipment(organizationId: string, id: string) {
   return row ?? null;
 }
 
+/**
+ * UNIT-EQUIP-1: an Equipment record only if the scope may see it — null for
+ * missing, cross-org, and other-Unit Equipment alike, so callers (Work Order
+ * / PM / Inspection links, "?equipmentId=" prefill, list filters) fail closed
+ * without distinguishing "doesn't exist" from "not yours".
+ */
+export async function getAccessiblePropertyEquipment(organizationId: string, scope: PropertyScope, id: string) {
+  const row = await getPropertyEquipment(organizationId, id);
+  return row && canAccessPropertyEquipment(scope, row) ? row : null;
+}
+
 export async function createPropertyEquipment(
   organizationId: string,
   propertyId: string,
@@ -83,6 +112,7 @@ export async function createPropertyEquipment(
     .values({
       organizationId,
       propertyId,
+      propertyUnitId: input.propertyUnitId ?? null,
       equipmentCatalogItemId: input.equipmentCatalogItemId,
       displayName: input.displayName,
       equipmentTag: input.equipmentTag ?? null,
@@ -113,4 +143,61 @@ export async function updatePropertyEquipment(
     .where(and(eq(propertyEquipment.id, id), eq(propertyEquipment.organizationId, organizationId)))
     .returning();
   return row ?? null;
+}
+
+/**
+ * UNIT-EQUIP-1: the Unit/Suite selector's options for one Property.
+ * `supportsUnits` false means no selector at all (Equipment stays
+ * Property-wide).
+ */
+export async function getEquipmentUnitOptions(
+  organizationId: string,
+  property: { id: string; propertyTypeId: string },
+  scope: PropertyScope,
+) {
+  const propertyType = await getPropertyType(organizationId, property.propertyTypeId);
+  const supportsUnits = Boolean(propertyType?.supportsUnits);
+  if (!supportsUnits) {
+    return { supportsUnits, units: [], allowPropertyWide: true };
+  }
+  const { units, allowPropertyWide } = listAssignableEquipmentUnits(
+    scope,
+    property.id,
+    await listPropertyUnits(organizationId, property.id, { activeOnly: true }),
+  );
+  return {
+    supportsUnits,
+    units: units.map((unit) => ({ id: unit.id, unitLabel: unit.unitLabel, name: unit.name })),
+    allowPropertyWide,
+  };
+}
+
+/** Does the DB lookups for resolveEquipmentUnitAssignment (create + update share it). */
+export async function checkEquipmentUnitAssignment(params: {
+  organizationId: string;
+  scope: PropertyScope;
+  property: { id: string; propertyTypeId: string };
+  mode: "create" | "update";
+  requestedUnitId: string | null | undefined;
+  currentUnitId: string | null;
+}): Promise<EquipmentUnitAssignmentDecision> {
+  const { organizationId, property, requestedUnitId } = params;
+  const needsLookup = typeof requestedUnitId === "string" && requestedUnitId !== params.currentUnitId;
+  const [propertyType, unitCandidate] = needsLookup
+    ? await Promise.all([
+        getPropertyType(organizationId, property.propertyTypeId),
+        getPropertyUnit(organizationId, property.id, requestedUnitId),
+      ])
+    : [null, null];
+
+  return resolveEquipmentUnitAssignment({
+    scope: params.scope,
+    organizationId,
+    propertyId: property.id,
+    supportsUnits: Boolean(propertyType?.supportsUnits),
+    mode: params.mode,
+    requestedUnitId,
+    currentUnitId: params.currentUnitId,
+    unitCandidate,
+  });
 }

@@ -5,6 +5,7 @@ import { WorkOrderDetailPanel } from "@/components/work-orders/WorkOrderDetailPa
 import { listAssets } from "@/lib/assets/assets";
 import { requireCapability } from "@/lib/auth/require-capability";
 import { canAccessProperty, resolveUserPropertyScope } from "@/lib/auth/property-access";
+import { redactHiddenEquipmentLink, resolveHiddenEquipmentIds } from "@/lib/equipment/equipment-access";
 import { getOrganizationTimezone } from "@/lib/organizations/organizations";
 import { getProperty } from "@/lib/properties/properties";
 import { listOrganizationUsers } from "@/lib/users/users";
@@ -43,6 +44,10 @@ export default async function WorkOrderDetailPage({
   }
 
   const { capabilityKeys } = context;
+  const { propertyEquipmentId, propertyEquipmentRestricted } = redactHiddenEquipmentLink(
+    workOrder,
+    await resolveHiddenEquipmentIds(context.user.organizationId, scope),
+  );
 
   const [property, categories, users, assets, vendors, timezone] = await Promise.all([
     getProperty(context.user.organizationId, workOrder.propertyId),
@@ -83,7 +88,8 @@ export default async function WorkOrderDetailPage({
           priority: workOrder.priority,
           status: workOrder.status,
           assignedUserId: workOrder.assignedUserId,
-          propertyEquipmentId: workOrder.propertyEquipmentId,
+          propertyEquipmentId,
+          propertyEquipmentRestricted,
           assetId: workOrder.assetId,
           resolutionSummary: workOrder.resolutionSummary,
           resolvedAt: workOrder.resolvedAt ? workOrder.resolvedAt.toISOString() : null,
