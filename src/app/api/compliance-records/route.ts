@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { recordAuditEvent } from "@/db/audit";
 import { getCurrentUserWithCapabilities } from "@/lib/auth/current-user";
+import { canAccessProperty, forbiddenResponseBody, listAccessiblePropertyIds, resolveUserPropertyScope } from "@/lib/auth/property-access";
 import { COMPLIANCE_CAPABILITIES } from "@/lib/compliance/constants";
 import { createComplianceRecord, listComplianceRecords } from "@/lib/compliance/compliance";
 import { createComplianceRecordSchema } from "@/lib/validation/compliance";
@@ -15,6 +16,12 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "forbidden" }, { status: 403 });
   }
 
+  const scope = await resolveUserPropertyScope(
+    context.user.id,
+    context.user.organizationId,
+    context.capabilityKeys,
+  );
+
   const { searchParams } = new URL(request.url);
   const activeParam = searchParams.get("active");
 
@@ -22,6 +29,7 @@ export async function GET(request: Request) {
     propertyId: searchParams.get("propertyId") ?? undefined,
     category: searchParams.get("category") ?? undefined,
     isActive: activeParam === "true" ? true : activeParam === "false" ? false : undefined,
+    propertyIds: listAccessiblePropertyIds(scope),
   });
 
   return NextResponse.json({ records });
@@ -46,6 +54,12 @@ export async function POST(request: Request) {
   }
 
   const { user } = context;
+
+  const scope = await resolveUserPropertyScope(user.id, user.organizationId, context.capabilityKeys);
+  if (!canAccessProperty(scope, parsed.data.propertyId)) {
+    return NextResponse.json(forbiddenResponseBody(), { status: 403 });
+  }
+
   const record = await createComplianceRecord(user.organizationId, parsed.data);
 
   await recordAuditEvent({

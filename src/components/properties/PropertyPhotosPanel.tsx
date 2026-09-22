@@ -2,7 +2,12 @@
 
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 
-import { PHOTO_CATEGORIES, PHOTO_CATEGORY_LABELS, type PhotoCategory } from "@/lib/property-photos/constants";
+import {
+  COMPONENT_PHOTO_CATEGORY,
+  PHOTO_CATEGORIES,
+  PHOTO_CATEGORY_LABELS,
+  type PhotoCategory,
+} from "@/lib/property-photos/constants";
 
 interface PhotoRecord {
   id: string;
@@ -20,25 +25,37 @@ interface UnitOption {
   unitLabel: string;
 }
 
+interface ComponentOption {
+  id: string;
+  componentType: string;
+  name: string | null;
+}
+
 export function PropertyPhotosPanel({
   propertyId,
   supportsUnits,
   canManage,
+  canUploadComponentPhoto = false,
 }: {
   propertyId: string;
   supportsUnits: boolean;
   canManage: boolean;
+  canUploadComponentPhoto?: boolean;
 }) {
   const [photos, setPhotos] = useState<PhotoRecord[]>([]);
   const [units, setUnits] = useState<UnitOption[]>([]);
+  const [components, setComponents] = useState<ComponentOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [categoryFilter, setCategoryFilter] = useState<PhotoCategory | "">("");
   const [file, setFile] = useState<File | null>(null);
-  const [category, setCategory] = useState<PhotoCategory>("exterior");
+  const [category, setCategory] = useState<PhotoCategory>(canManage ? "exterior" : COMPONENT_PHOTO_CATEGORY);
   const [caption, setCaption] = useState("");
   const [unitId, setUnitId] = useState("");
+  const [componentId, setComponentId] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
+
+  const canUpload = canManage || canUploadComponentPhoto;
 
   const load = useCallback(async () => {
     try {
@@ -64,6 +81,15 @@ export function PropertyPhotosPanel({
     });
   }, [propertyId, supportsUnits]);
 
+  useEffect(() => {
+    if (!canUploadComponentPhoto) return;
+    fetch(`/api/properties/${propertyId}/components?activeOnly=true`)
+      .then((response) => (response.ok ? response.json() : null))
+      .then((data) => {
+        if (data) setComponents(data.components ?? []);
+      });
+  }, [propertyId, canUploadComponentPhoto]);
+
   async function handleUpload(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
@@ -73,8 +99,40 @@ export function PropertyPhotosPanel({
       return;
     }
 
+    if (!canManage && !componentId) {
+      setError("Choose which component this photo is for.");
+      return;
+    }
+
     setUploading(true);
     try {
+      if (!canManage) {
+        // A component-photo-only uploader (PROPERTY_COMPONENT_CAPABILITIES.
+        // UPLOAD_PHOTO, no property MANAGE_DOCUMENTS) can't use POST
+        // /api/files at all — its per-related-entity-type gate requires the
+        // full manage-documents capability. This narrower endpoint uploads
+        // the Blob and creates the property_photos row itself, in one call.
+        const componentFormData = new FormData();
+        componentFormData.append("file", file);
+        if (caption) componentFormData.append("caption", caption);
+
+        const componentPhotoResponse = await fetch(`/api/property-components/${componentId}/photos`, {
+          method: "POST",
+          body: componentFormData,
+        });
+        const componentPhotoData = await componentPhotoResponse.json().catch(() => null);
+        if (!componentPhotoResponse.ok) {
+          setError(componentPhotoData?.error ?? "Could not upload the photo.");
+          return;
+        }
+
+        setFile(null);
+        setCaption("");
+        setComponentId("");
+        await load();
+        return;
+      }
+
       const formData = new FormData();
       formData.append("file", file);
       formData.append("relatedEntityType", "property");
@@ -125,9 +183,10 @@ export function PropertyPhotosPanel({
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
-      {canManage ? (
+      {canUpload ? (
         <form onSubmit={handleUpload} className="card" style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
           {error ? <p className="error-text">{error}</p> : null}
+          {!canManage ? <p className="muted" style={{ fontSize: "0.85rem" }}>Upload a photo of a Property Component.</p> : null}
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "0.75rem" }}>
             <div>
               <label className="label" htmlFor="photo-file">Photo</label>
@@ -139,22 +198,42 @@ export function PropertyPhotosPanel({
                 onChange={(event) => setFile(event.target.files?.[0] ?? null)}
               />
             </div>
-            <div>
-              <label className="label" htmlFor="photo-category">Category</label>
-              <select
-                id="photo-category"
-                className="input"
-                value={category}
-                onChange={(event) => setCategory(event.target.value as PhotoCategory)}
-              >
-                {PHOTO_CATEGORIES.map((value) => (
-                  <option key={value} value={value}>
-                    {PHOTO_CATEGORY_LABELS[value]}
-                  </option>
-                ))}
-              </select>
-            </div>
-            {supportsUnits && units.length > 0 ? (
+            {canManage ? (
+              <div>
+                <label className="label" htmlFor="photo-category">Category</label>
+                <select
+                  id="photo-category"
+                  className="input"
+                  value={category}
+                  onChange={(event) => setCategory(event.target.value as PhotoCategory)}
+                >
+                  {PHOTO_CATEGORIES.map((value) => (
+                    <option key={value} value={value}>
+                      {PHOTO_CATEGORY_LABELS[value]}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ) : (
+              <div>
+                <label className="label" htmlFor="photo-component">Component</label>
+                <select
+                  id="photo-component"
+                  className="input"
+                  value={componentId}
+                  onChange={(event) => setComponentId(event.target.value)}
+                  required
+                >
+                  <option value="">Select a component…</option>
+                  {components.map((component) => (
+                    <option key={component.id} value={component.id}>
+                      {component.name ?? component.componentType}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+            {canManage && supportsUnits && units.length > 0 ? (
               <div>
                 <label className="label" htmlFor="photo-unit">Unit (optional)</label>
                 <select id="photo-unit" className="input" value={unitId} onChange={(event) => setUnitId(event.target.value)}>

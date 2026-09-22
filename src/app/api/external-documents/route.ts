@@ -1,13 +1,18 @@
 import { NextResponse } from "next/server";
 
 import { recordAuditEvent } from "@/db/audit";
+import { resolveUserPropertyScope } from "@/lib/auth/property-access";
 import { getCurrentUserWithCapabilities } from "@/lib/auth/current-user";
 import {
   createExternalDocumentLink,
   listExternalDocumentLinks,
 } from "@/lib/external-documents/external-documents";
 import { sanitizeUrlForAudit } from "@/lib/external-documents/url-validation";
-import { getRelatedEntityFileRules } from "@/lib/files/related-entity-rules";
+import {
+  canAccessRelatedEntityPropertyContext,
+  getRelatedEntityFileRules,
+  resolveRelatedEntityPropertyContext,
+} from "@/lib/files/related-entity-rules";
 import { createExternalDocumentLinkSchema } from "@/lib/validation/external-documents";
 
 export async function GET(request: Request) {
@@ -27,6 +32,18 @@ export async function GET(request: Request) {
   const rules = getRelatedEntityFileRules(relatedEntityType);
   if (rules && !capabilityKeys.includes(rules.viewCapability)) {
     return NextResponse.json({ error: "forbidden" }, { status: 403 });
+  }
+
+  const propertyContext = await resolveRelatedEntityPropertyContext(
+    user.organizationId,
+    relatedEntityType,
+    relatedEntityId,
+  );
+  if (propertyContext) {
+    const scope = await resolveUserPropertyScope(user.id, user.organizationId, capabilityKeys);
+    if (!canAccessRelatedEntityPropertyContext(scope, propertyContext)) {
+      return NextResponse.json({ error: "not_found" }, { status: 404 });
+    }
   }
 
   const links = await listExternalDocumentLinks(user.organizationId, { relatedEntityType, relatedEntityId });
@@ -49,6 +66,18 @@ export async function POST(request: Request) {
   const rules = getRelatedEntityFileRules(parsed.data.relatedEntityType);
   if (rules && !capabilityKeys.includes(rules.manageCapability)) {
     return NextResponse.json({ error: "forbidden" }, { status: 403 });
+  }
+
+  const propertyContext = await resolveRelatedEntityPropertyContext(
+    user.organizationId,
+    parsed.data.relatedEntityType,
+    parsed.data.relatedEntityId,
+  );
+  if (propertyContext) {
+    const scope = await resolveUserPropertyScope(user.id, user.organizationId, capabilityKeys);
+    if (!canAccessRelatedEntityPropertyContext(scope, propertyContext)) {
+      return NextResponse.json({ error: "forbidden" }, { status: 403 });
+    }
   }
 
   const link = await createExternalDocumentLink(user.organizationId, user.id, parsed.data);

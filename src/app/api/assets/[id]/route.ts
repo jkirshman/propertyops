@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
 
 import { recordAuditEvent } from "@/db/audit";
-import { getAsset, updateAsset } from "@/lib/assets/assets";
+import { getAsset, isAssetVisibleForScope, updateAsset } from "@/lib/assets/assets";
 import { ASSET_CAPABILITIES } from "@/lib/assets/constants";
 import { getCurrentUserWithCapabilities } from "@/lib/auth/current-user";
+import { resolveUserPropertyScope } from "@/lib/auth/property-access";
 import { diffFields } from "@/lib/db/diff-fields";
 import { updateAssetSchema } from "@/lib/validation/assets";
 
@@ -20,6 +21,15 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   const { id } = await params;
   const asset = await getAsset(context.user.organizationId, id);
   if (!asset) {
+    return NextResponse.json({ error: "not_found" }, { status: 404 });
+  }
+
+  const scope = await resolveUserPropertyScope(
+    context.user.id,
+    context.user.organizationId,
+    context.capabilityKeys,
+  );
+  if (!isAssetVisibleForScope(asset, scope)) {
     return NextResponse.json({ error: "not_found" }, { status: 404 });
   }
 
@@ -41,6 +51,11 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
   const existing = await getAsset(user.organizationId, id);
   if (!existing) {
+    return NextResponse.json({ error: "not_found" }, { status: 404 });
+  }
+
+  const scope = await resolveUserPropertyScope(user.id, user.organizationId, context.capabilityKeys);
+  if (!isAssetVisibleForScope(existing, scope)) {
     return NextResponse.json({ error: "not_found" }, { status: 404 });
   }
 

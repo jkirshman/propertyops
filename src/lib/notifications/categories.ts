@@ -10,6 +10,8 @@ export const NOTIFICATION_CATEGORIES = [
   "compliance",
   "leases",
   "equipment_assets",
+  "property_notes",
+  "vendor_requests",
 ] as const;
 
 export type NotificationCategory = (typeof NOTIFICATION_CATEGORIES)[number];
@@ -21,6 +23,8 @@ export const NOTIFICATION_CATEGORY_LABELS: Record<NotificationCategory, string> 
   compliance: "Compliance",
   leases: "Leases",
   equipment_assets: "Equipment / Assets",
+  property_notes: "Property Notes",
+  vendor_requests: "Vendor Requests",
 };
 
 export function isNotificationCategory(value: string): value is NotificationCategory {
@@ -57,6 +61,10 @@ const NOTIFICATION_TYPE_TO_CATEGORY: Record<GatedNotificationType, NotificationC
   [NOTIFICATION_TYPES.EQUIPMENT_OUT_OF_SERVICE]: "equipment_assets",
   [NOTIFICATION_TYPES.EQUIPMENT_CONDITION_POOR]: "equipment_assets",
   [NOTIFICATION_TYPES.ASSET_ASSIGNED]: "equipment_assets",
+  [NOTIFICATION_TYPES.PROPERTY_NOTE_CREATED]: "property_notes",
+  [NOTIFICATION_TYPES.VENDOR_SUBMITTED]: "vendor_requests",
+  [NOTIFICATION_TYPES.VENDOR_APPROVED]: "vendor_requests",
+  [NOTIFICATION_TYPES.VENDOR_REJECTED]: "vendor_requests",
 };
 
 /** Null for a type with no preference category (e.g. `system.test`) — such a notification is never gated. */

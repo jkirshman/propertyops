@@ -2,9 +2,10 @@ import { notFound } from "next/navigation";
 
 import { TenantDetailPanel } from "@/components/tenants/TenantDetailPanel";
 import { requireCapability } from "@/lib/auth/require-capability";
+import { resolveUserPropertyScope } from "@/lib/auth/property-access";
 import { LEASE_CAPABILITIES } from "@/lib/leases/constants";
 import { TENANT_CAPABILITIES } from "@/lib/tenants/constants";
-import { getTenant } from "@/lib/tenants/tenants";
+import { getTenant, tenantHasAccessibleLease } from "@/lib/tenants/tenants";
 
 export default async function TenantDetailPage({
   params,
@@ -16,6 +17,15 @@ export default async function TenantDetailPage({
 
   const tenant = await getTenant(context.user.organizationId, id);
   if (!tenant) {
+    notFound();
+  }
+
+  const scope = await resolveUserPropertyScope(
+    context.user.id,
+    context.user.organizationId,
+    context.capabilityKeys,
+  );
+  if (scope.kind !== "all" && !(await tenantHasAccessibleLease(context.user.organizationId, id, scope))) {
     notFound();
   }
 

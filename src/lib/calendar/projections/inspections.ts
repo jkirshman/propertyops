@@ -1,4 +1,4 @@
-import { and, eq, or, isNotNull } from "drizzle-orm";
+import { and, eq, inArray, or, isNotNull } from "drizzle-orm";
 
 import { db } from "@/db/client";
 import { inspections } from "@/db/schema";
@@ -60,7 +60,22 @@ export async function fetchInspectionEvents(
   now: Date,
   today: string,
   includeCompleted: boolean,
+  // ACCESS-1: null = unrestricted (no filter); an array scopes to those
+  // properties; an empty array short-circuits to no events.
+  propertyIds?: string[] | null,
 ): Promise<CalendarEvent[]> {
+  if (propertyIds !== undefined && propertyIds !== null && propertyIds.length === 0) {
+    return [];
+  }
+
+  const conditions = [
+    eq(inspections.organizationId, organizationId),
+    or(isNotNull(inspections.scheduledDate), isNotNull(inspections.scheduledStartAt))!,
+  ];
+  if (propertyIds !== undefined && propertyIds !== null) {
+    conditions.push(inArray(inspections.propertyId, propertyIds));
+  }
+
   const rows = await db
     .select({
       id: inspections.id,
@@ -74,12 +89,7 @@ export async function fetchInspectionEvents(
       scheduledEndAt: inspections.scheduledEndAt,
     })
     .from(inspections)
-    .where(
-      and(
-        eq(inspections.organizationId, organizationId),
-        or(isNotNull(inspections.scheduledDate), isNotNull(inspections.scheduledStartAt)),
-      ),
-    );
+    .where(and(...conditions));
 
   return rows
     .filter((row) => includeCompleted || ACTIVE_STATUSES.has(row.status))

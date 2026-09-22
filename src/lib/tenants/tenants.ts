@@ -2,6 +2,8 @@ import { and, asc, eq, ilike, inArray, or } from "drizzle-orm";
 
 import { db } from "@/db/client";
 import { leases, tenants } from "@/db/schema";
+import type { PropertyScope } from "@/lib/auth/property-access";
+import { buildLeaseScopeCondition } from "@/lib/leases/leases";
 import { stripUndefined } from "@/lib/db/strip-undefined";
 import type { CreateTenantInput, UpdateTenantInput } from "@/lib/validation/tenants";
 
@@ -13,6 +15,13 @@ export interface ListTenantsOptions {
   tenantType?: string;
   /** Filters to tenants with an active or month-to-month lease at this property. */
   propertyId?: string;
+  /**
+   * ACCESS-1: a Tenant has no propertyId of its own — a Tenant is visible to
+   * a scoped (non-unrestricted) user only if it has at least one Lease
+   * within that user's (Unit-aware) Property scope. Unrestricted scope is a
+   * no-op here.
+   */
+  scope?: PropertyScope;
 }
 
 export async function listTenants(organizationId: string, options: ListTenantsOptions = {}) {
@@ -47,6 +56,22 @@ export async function listTenants(organizationId: string, options: ListTenantsOp
     conditions.push(inArray(tenants.id, tenantIds));
   }
 
+  if (options.scope && options.scope.kind !== "all") {
+    const scopeCondition = buildLeaseScopeCondition(options.scope);
+    if (scopeCondition === null) {
+      return [];
+    }
+    const scopedLeaseRows = await db
+      .select({ tenantId: leases.tenantId })
+      .from(leases)
+      .where(and(eq(leases.organizationId, organizationId), scopeCondition));
+    const scopedTenantIds = [...new Set(scopedLeaseRows.map((row) => row.tenantId))];
+    if (scopedTenantIds.length === 0) {
+      return [];
+    }
+    conditions.push(inArray(tenants.id, scopedTenantIds));
+  }
+
   return db
     .select()
     .from(tenants)
@@ -61,6 +86,29 @@ export async function getTenant(organizationId: string, id: string): Promise<Ten
     .where(and(eq(tenants.id, id), eq(tenants.organizationId, organizationId)))
     .limit(1);
   return row ?? null;
+}
+
+/**
+ * ACCESS-1: used by detail/update/delete routes to decide whether a scoped
+ * (non-unrestricted) user may access a specific Tenant — true iff the Tenant
+ * has at least one Lease within that user's Unit-aware Property scope.
+ * Callers should skip this check entirely for an unrestricted scope.
+ */
+export async function tenantHasAccessibleLease(
+  organizationId: string,
+  tenantId: string,
+  scope: Extract<PropertyScope, { kind: "scoped" }>,
+): Promise<boolean> {
+  const scopeCondition = buildLeaseScopeCondition(scope);
+  if (scopeCondition === null) {
+    return false;
+  }
+  const [row] = await db
+    .select({ id: leases.id })
+    .from(leases)
+    .where(and(eq(leases.organizationId, organizationId), eq(leases.tenantId, tenantId), scopeCondition))
+    .limit(1);
+  return Boolean(row);
 }
 
 export async function createTenant(organizationId: string, input: CreateTenantInput): Promise<TenantRow> {

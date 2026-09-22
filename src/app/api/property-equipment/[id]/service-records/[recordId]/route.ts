@@ -2,8 +2,10 @@ import { NextResponse } from "next/server";
 
 import { recordAuditEvent } from "@/db/audit";
 import { getCurrentUserWithCapabilities } from "@/lib/auth/current-user";
+import { canAccessProperty, resolveUserPropertyScope } from "@/lib/auth/property-access";
 import { diffFields } from "@/lib/db/diff-fields";
 import { EQUIPMENT_CAPABILITIES } from "@/lib/equipment/constants";
+import { getPropertyEquipment } from "@/lib/equipment/property-equipment";
 import {
   getEquipmentServiceRecord,
   updateEquipmentServiceRecord,
@@ -25,7 +27,17 @@ export async function PATCH(
   }
 
   const { id, recordId } = await params;
-  const { user } = context;
+  const { user, capabilityKeys } = context;
+
+  const equipment = await getPropertyEquipment(user.organizationId, id);
+  if (!equipment) {
+    return NextResponse.json({ error: "not_found" }, { status: 404 });
+  }
+
+  const scope = await resolveUserPropertyScope(user.id, user.organizationId, capabilityKeys);
+  if (!canAccessProperty(scope, equipment.propertyId)) {
+    return NextResponse.json({ error: "not_found" }, { status: 404 });
+  }
 
   const existing = await getEquipmentServiceRecord(user.organizationId, id, recordId);
   if (!existing) {

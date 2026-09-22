@@ -1,10 +1,15 @@
 import { NextResponse } from "next/server";
 
 import { recordAuditEvent } from "@/db/audit";
+import { resolveUserPropertyScope } from "@/lib/auth/property-access";
 import { getCurrentUserWithCapabilities } from "@/lib/auth/current-user";
 import { getExternalDocumentLink } from "@/lib/external-documents/external-documents";
 import { sanitizeUrlForAudit } from "@/lib/external-documents/url-validation";
-import { getRelatedEntityFileRules } from "@/lib/files/related-entity-rules";
+import {
+  canAccessRelatedEntityPropertyContext,
+  getRelatedEntityFileRules,
+  resolveRelatedEntityPropertyContext,
+} from "@/lib/files/related-entity-rules";
 
 /**
  * Audit-only ping fired when a user opens an external link — mirrors the
@@ -29,6 +34,18 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
   const rules = getRelatedEntityFileRules(link.relatedEntityType);
   if (rules && !capabilityKeys.includes(rules.viewCapability)) {
     return NextResponse.json({ error: "forbidden" }, { status: 403 });
+  }
+
+  const propertyContext = await resolveRelatedEntityPropertyContext(
+    user.organizationId,
+    link.relatedEntityType,
+    link.relatedEntityId,
+  );
+  if (propertyContext) {
+    const scope = await resolveUserPropertyScope(user.id, user.organizationId, capabilityKeys);
+    if (!canAccessRelatedEntityPropertyContext(scope, propertyContext)) {
+      return NextResponse.json({ error: "not_found" }, { status: 404 });
+    }
   }
 
   await recordAuditEvent({

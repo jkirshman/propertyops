@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 
 import { db } from "@/db/client";
 import { preventiveMaintenanceOccurrences, preventiveMaintenancePlans, workOrders } from "@/db/schema";
@@ -97,7 +97,27 @@ export async function fetchPreventiveMaintenanceEvents(
   organizationId: string,
   now: Date,
   today: string,
+  // ACCESS-1: null = unrestricted (no filter); an array scopes to those
+  // properties; an empty array short-circuits to no events.
+  propertyIds?: string[] | null,
 ): Promise<CalendarEvent[]> {
+  if (propertyIds !== undefined && propertyIds !== null && propertyIds.length === 0) {
+    return [];
+  }
+
+  const planConditions = [
+    eq(preventiveMaintenancePlans.organizationId, organizationId),
+    eq(preventiveMaintenancePlans.isActive, true),
+  ];
+  const occurrenceConditions = [
+    eq(preventiveMaintenanceOccurrences.organizationId, organizationId),
+    eq(preventiveMaintenanceOccurrences.status, "generated"),
+  ];
+  if (propertyIds !== undefined && propertyIds !== null) {
+    planConditions.push(inArray(preventiveMaintenancePlans.propertyId, propertyIds));
+    occurrenceConditions.push(inArray(preventiveMaintenanceOccurrences.propertyId, propertyIds));
+  }
+
   const plans = await db
     .select({
       id: preventiveMaintenancePlans.id,
@@ -107,12 +127,7 @@ export async function fetchPreventiveMaintenanceEvents(
       nextDueAt: preventiveMaintenancePlans.nextDueAt,
     })
     .from(preventiveMaintenancePlans)
-    .where(
-      and(
-        eq(preventiveMaintenancePlans.organizationId, organizationId),
-        eq(preventiveMaintenancePlans.isActive, true),
-      ),
-    );
+    .where(and(...planConditions));
 
   const occurrences = await db
     .select({
@@ -137,12 +152,7 @@ export async function fetchPreventiveMaintenanceEvents(
       eq(preventiveMaintenancePlans.id, preventiveMaintenanceOccurrences.planId),
     )
     .innerJoin(workOrders, eq(workOrders.id, preventiveMaintenanceOccurrences.workOrderId))
-    .where(
-      and(
-        eq(preventiveMaintenanceOccurrences.organizationId, organizationId),
-        eq(preventiveMaintenanceOccurrences.status, "generated"),
-      ),
-    );
+    .where(and(...occurrenceConditions));
 
   return [
     ...plans.map((plan) => projectPmPlanDue(plan, today)),

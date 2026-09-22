@@ -1,16 +1,40 @@
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, or, type SQL } from "drizzle-orm";
 
 import { db } from "@/db/client";
 import { leases } from "@/db/schema";
+import type { PropertyScope } from "@/lib/auth/property-access";
 import { stripUndefined } from "@/lib/db/strip-undefined";
 import type { CreateLeaseInput, UpdateLeaseInput } from "@/lib/validation/leases";
 
 export type LeaseRow = typeof leases.$inferSelect;
 
+/**
+ * ACCESS-1: Leases are the one Unit-scoped entity in the app. Builds an OR
+ * across the user's access rows — a whole-property row (propertyUnitId null)
+ * matches any unit at that property, a unit-restricted row matches only its
+ * own unit. Only meaningful for a "scoped" (non-unrestricted) scope — callers
+ * check `scope.kind !== "all"` before calling. Returns `null` when the scope
+ * grants access to nothing at all (an empty access list), which callers must
+ * treat as "match no rows" without running a query.
+ */
+export function buildLeaseScopeCondition(scope: Extract<PropertyScope, { kind: "scoped" }>): SQL | null {
+  if (scope.access.length === 0) {
+    return null;
+  }
+  const rowConditions = scope.access.map((row) =>
+    row.propertyUnitId === null
+      ? eq(leases.propertyId, row.propertyId)
+      : and(eq(leases.propertyId, row.propertyId), eq(leases.propertyUnitId, row.propertyUnitId)),
+  );
+  return or(...rowConditions) as SQL;
+}
+
 export interface ListLeasesOptions {
   propertyId?: string;
   tenantId?: string;
   status?: string;
+  /** ACCESS-1: when provided and not unrestricted, results are limited to Unit-aware accessible leases. */
+  scope?: PropertyScope;
 }
 
 export async function listLeases(organizationId: string, options: ListLeasesOptions = {}) {
@@ -18,6 +42,14 @@ export async function listLeases(organizationId: string, options: ListLeasesOpti
   if (options.propertyId) conditions.push(eq(leases.propertyId, options.propertyId));
   if (options.tenantId) conditions.push(eq(leases.tenantId, options.tenantId));
   if (options.status) conditions.push(eq(leases.status, options.status));
+
+  if (options.scope && options.scope.kind !== "all") {
+    const scopeCondition = buildLeaseScopeCondition(options.scope);
+    if (scopeCondition === null) {
+      return [];
+    }
+    conditions.push(scopeCondition);
+  }
 
   return db
     .select()

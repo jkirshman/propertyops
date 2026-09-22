@@ -1,10 +1,12 @@
 import { NextResponse } from "next/server";
 
 import { recordAuditEvent } from "@/db/audit";
+import { getAsset, isAssetVisibleForScope } from "@/lib/assets/assets";
 import { AssetMoveError, moveAsset } from "@/lib/assets/assignments";
 import { ASSET_CAPABILITIES } from "@/lib/assets/constants";
 import { buildAssetAssignedNotification } from "@/lib/assets/notification-events";
 import { getCurrentUserWithCapabilities } from "@/lib/auth/current-user";
+import { canAccessProperty, resolveUserPropertyScope } from "@/lib/auth/property-access";
 import { createNotification } from "@/lib/notifications/notifications";
 import { getPerson } from "@/lib/people/people";
 import { moveAssetSchema } from "@/lib/validation/asset-assignments";
@@ -28,6 +30,16 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const { id } = await params;
   const { user } = context;
 
+  const existing = await getAsset(user.organizationId, id);
+  if (!existing) {
+    return NextResponse.json({ error: "not_found" }, { status: 404 });
+  }
+
+  const scope = await resolveUserPropertyScope(user.id, user.organizationId, context.capabilityKeys);
+  if (!isAssetVisibleForScope(existing, scope)) {
+    return NextResponse.json({ error: "not_found" }, { status: 404 });
+  }
+
   const body = await request.json().catch(() => null);
   const parsed = moveAssetSchema.safeParse(body);
   if (!parsed.success) {
@@ -35,6 +47,17 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       { error: "invalid_input", details: parsed.error.flatten() },
       { status: 400 },
     );
+  }
+
+  // A scoped actor may only assign an asset onto a Property they themselves
+  // can access — otherwise they could move an asset out of their own scope
+  // permanently with no way to see or reverse it.
+  if (
+    parsed.data.targetType === "property" &&
+    scope.kind !== "all" &&
+    !canAccessProperty(scope, parsed.data.propertyId!)
+  ) {
+    return NextResponse.json({ error: "forbidden" }, { status: 403 });
   }
 
   let result;

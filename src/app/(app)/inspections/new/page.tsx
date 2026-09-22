@@ -1,5 +1,6 @@
 import { InspectionForm } from "@/components/inspections/InspectionForm";
 import { requireCapability } from "@/lib/auth/require-capability";
+import { listAccessiblePropertyIds, resolveUserPropertyScope } from "@/lib/auth/property-access";
 import { getPropertyEquipment } from "@/lib/equipment/property-equipment";
 import { INSPECTION_CAPABILITIES } from "@/lib/inspections/constants";
 import { listProperties } from "@/lib/properties/properties";
@@ -17,8 +18,14 @@ export default async function NewInspectionPage({
     ? await getPropertyEquipment(context.user.organizationId, equipmentId)
     : null;
 
+  const scope = await resolveUserPropertyScope(
+    context.user.id,
+    context.user.organizationId,
+    context.capabilityKeys,
+  );
+
   const [properties, users] = await Promise.all([
-    listProperties(context.user.organizationId, { isActive: true }),
+    listProperties(context.user.organizationId, { isActive: true, propertyIds: listAccessiblePropertyIds(scope) }),
     listOrganizationUsers(context.user.organizationId),
   ]);
 

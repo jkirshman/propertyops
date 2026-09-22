@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { ManualEventEditPanel } from "@/components/calendar/ManualEventEditPanel";
+import { canAccessProperty, listAccessiblePropertyIds, resolveUserPropertyScope } from "@/lib/auth/property-access";
 import { requireCapability } from "@/lib/auth/require-capability";
 import { CALENDAR_CAPABILITIES } from "@/lib/calendar/constants";
 import { getOperationalEvent } from "@/lib/calendar/operational-events";
@@ -21,8 +22,20 @@ export default async function ManualEventDetailPage({
     notFound();
   }
 
+  const scope = await resolveUserPropertyScope(
+    context.user.id,
+    context.user.organizationId,
+    context.capabilityKeys,
+  );
+  if (event.propertyId && !canAccessProperty(scope, event.propertyId)) {
+    notFound();
+  }
+
   const [properties, timezone] = await Promise.all([
-    listProperties(context.user.organizationId, { isActive: true }),
+    listProperties(context.user.organizationId, {
+      isActive: true,
+      propertyIds: listAccessiblePropertyIds(scope),
+    }),
     getOrganizationTimezone(context.user.organizationId),
   ]);
 

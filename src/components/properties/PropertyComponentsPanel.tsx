@@ -114,7 +114,7 @@ export function PropertyComponentsPanel({
       {canCreate ? (
         <div>
           <button type="button" className="button" onClick={() => setShowForm((prev) => !prev)}>
-            {showForm ? "Cancel" : "+ Add component"}
+            {showForm ? "Cancel" : "+ Add property component"}
           </button>
           {showForm ? (
             <form onSubmit={handleCreate} className="card" style={{ marginTop: "0.75rem", display: "flex", flexDirection: "column", gap: "0.75rem" }}>

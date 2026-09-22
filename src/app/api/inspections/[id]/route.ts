@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { recordAuditEvent } from "@/db/audit";
 import { getCurrentUserWithCapabilities } from "@/lib/auth/current-user";
+import { canAccessProperty, resolveUserPropertyScope } from "@/lib/auth/property-access";
 import { diffFields } from "@/lib/db/diff-fields";
 import { getPropertyEquipment } from "@/lib/equipment/property-equipment";
 import { INSPECTION_CAPABILITIES } from "@/lib/inspections/constants";
@@ -32,6 +33,15 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: "not_found" }, { status: 404 });
   }
 
+  const scope = await resolveUserPropertyScope(
+    context.user.id,
+    context.user.organizationId,
+    context.capabilityKeys,
+  );
+  if (!canAccessProperty(scope, inspection.propertyId)) {
+    return NextResponse.json({ error: "not_found" }, { status: 404 });
+  }
+
   return NextResponse.json({ inspection });
 }
 
@@ -45,10 +55,15 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   }
 
   const { id } = await params;
-  const { user } = context;
+  const { user, capabilityKeys } = context;
 
   const existing = await getInspection(user.organizationId, id);
   if (!existing) {
+    return NextResponse.json({ error: "not_found" }, { status: 404 });
+  }
+
+  const scope = await resolveUserPropertyScope(user.id, user.organizationId, capabilityKeys);
+  if (!canAccessProperty(scope, existing.propertyId)) {
     return NextResponse.json({ error: "not_found" }, { status: 404 });
   }
 

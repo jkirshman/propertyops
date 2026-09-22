@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { getCurrentUserWithCapabilities } from "@/lib/auth/current-user";
+import { canAccessProperty, resolveUserPropertyScope } from "@/lib/auth/property-access";
 import { INSPECTION_CAPABILITIES } from "@/lib/inspections/constants";
 import { getInspection, startInspectionIfDraft } from "@/lib/inspections/inspections";
 import { getInspectionResponse, updateInspectionResponse } from "@/lib/inspections/responses";
@@ -19,12 +20,18 @@ export async function PATCH(
   }
 
   const { id, responseId } = await params;
-  const { user } = context;
+  const { user, capabilityKeys } = context;
 
   const inspection = await getInspection(user.organizationId, id);
   if (!inspection) {
     return NextResponse.json({ error: "not_found" }, { status: 404 });
   }
+
+  const scope = await resolveUserPropertyScope(user.id, user.organizationId, capabilityKeys);
+  if (!canAccessProperty(scope, inspection.propertyId)) {
+    return NextResponse.json({ error: "not_found" }, { status: 404 });
+  }
+
   if (inspection.status === "completed" || inspection.status === "cancelled") {
     return NextResponse.json({ error: "inspection_finalized" }, { status: 409 });
   }

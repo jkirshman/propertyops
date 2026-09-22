@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { recordAuditEvent } from "@/db/audit";
 import { getCurrentUserWithCapabilities } from "@/lib/auth/current-user";
+import { canAccessProperty, resolveUserPropertyScope } from "@/lib/auth/property-access";
 import { PROPERTY_UNIT_CAPABILITIES } from "@/lib/property-units/constants";
 import { createPropertyUnit, listPropertyUnits } from "@/lib/property-units/property-units";
 import { getProperty } from "@/lib/properties/properties";
@@ -18,6 +19,12 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   }
 
   const { id } = await params;
+  const { user, capabilityKeys } = context;
+  const scope = await resolveUserPropertyScope(user.id, user.organizationId, capabilityKeys);
+  if (!canAccessProperty(scope, id)) {
+    return NextResponse.json({ error: "not_found" }, { status: 404 });
+  }
+
   const { searchParams } = new URL(request.url);
   const activeOnly = searchParams.get("activeOnly") === "true";
 
@@ -36,7 +43,12 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   }
 
   const { id } = await params;
-  const { user } = context;
+  const { user, capabilityKeys } = context;
+
+  const scope = await resolveUserPropertyScope(user.id, user.organizationId, capabilityKeys);
+  if (!canAccessProperty(scope, id)) {
+    return NextResponse.json({ error: "not_found" }, { status: 404 });
+  }
 
   const property = await getProperty(user.organizationId, id);
   if (!property) {

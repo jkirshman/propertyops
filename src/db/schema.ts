@@ -1,3 +1,4 @@
+import { sql } from "drizzle-orm";
 import {
   boolean,
   date,
@@ -333,6 +334,10 @@ export const propertyContacts = pgTable("property_contacts", {
   notes: text("notes"),
   isPrimary: boolean("is_primary").notNull().default(false),
   isActive: boolean("is_active").notNull().default(true),
+  // Null means legacy/authoritative (created before ACCESS-1, or by an
+  // Admin/Manager) — only a User-authored contact (this set to that user's id)
+  // is editable by a plain User, and only by that same user.
+  createdByUserId: uuid("created_by_user_id").references(() => users.id, { onDelete: "set null" }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
@@ -397,6 +402,13 @@ export const propertyPhotos = pgTable("property_photos", {
   propertyUnitId: uuid("property_unit_id").references(() => propertyUnits.id, {
     onDelete: "set null",
   }),
+  // Only populated for a component-photo upload (ACCESS-1) — category is
+  // "component" and this points at the specific Property Component pictured.
+  // Cascades with the component: a component photo has no meaning on its own.
+  propertyComponentId: uuid("property_component_id").references(
+    (): typeof propertyComponents.id => propertyComponents.id,
+    { onDelete: "cascade" },
+  ),
   // Exactly one cover photo per property is an application-level invariant
   // (setting a new one unsets the prior one), not a DB constraint — same
   // pattern as property_contacts.isPrimary.
@@ -919,6 +931,23 @@ export const vendors = pgTable("vendors", {
   insuranceExpiresAt: date("insurance_expires_at"),
   licenseExpiresAt: date("license_expires_at"),
   contractExpiresAt: date("contract_expires_at"),
+  // ACCESS-1 vendor approval workflow. Default 'approved' so every
+  // pre-existing (Admin/Manager-created) vendor keeps working unchanged.
+  // 'pending' vendors must never appear in normal active-vendor selectors;
+  // 'rejected' vendors stay permanently excluded (no re-submit-to-reopen).
+  approvalStatus: text("approval_status").notNull().default("approved"),
+  submittedByUserId: uuid("submitted_by_user_id").references(() => users.id, {
+    onDelete: "set null",
+  }),
+  // Property context the submission was made from — informational plus used
+  // to route the pending-approval notification to that property's Managers/Admins.
+  submissionPropertyId: uuid("submission_property_id").references(() => properties.id, {
+    onDelete: "set null",
+  }),
+  submissionNotes: text("submission_notes"),
+  reviewedByUserId: uuid("reviewed_by_user_id").references(() => users.id, { onDelete: "set null" }),
+  reviewedAt: timestamp("reviewed_at", { withTimezone: true }),
+  reviewNotes: text("review_notes"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
@@ -1252,6 +1281,42 @@ export const operationalEvents = pgTable("operational_events", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
+
+// ACCESS-1 property-access scoping. Administrator never needs a row here
+// (unrestricted via the properties.access.unrestricted capability instead —
+// see lib/auth/property-access.ts). A null propertyUnitId means whole-property
+// access; a specific one restricts a User to that Unit/Suite only. Two
+// partial unique indexes (rather than one plain unique index) because
+// Postgres treats NULLs as distinct values, which would otherwise allow
+// duplicate whole-property rows for the same user.
+export const userPropertyAccess = pgTable(
+  "user_property_access",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    propertyId: uuid("property_id")
+      .notNull()
+      .references(() => properties.id, { onDelete: "cascade" }),
+    propertyUnitId: uuid("property_unit_id").references(() => propertyUnits.id, {
+      onDelete: "cascade",
+    }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    createdByUserId: uuid("created_by_user_id").references(() => users.id, { onDelete: "set null" }),
+  },
+  (table) => [
+    uniqueIndex("user_property_access_whole_property_unique")
+      .on(table.userId, table.propertyId)
+      .where(sql`${table.propertyUnitId} is null`),
+    uniqueIndex("user_property_access_unit_unique")
+      .on(table.userId, table.propertyId, table.propertyUnitId)
+      .where(sql`${table.propertyUnitId} is not null`),
+  ],
+);
 
 export const auditLog = pgTable("audit_log", {
   id: uuid("id").primaryKey().defaultRandom(),

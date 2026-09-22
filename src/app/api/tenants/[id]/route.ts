@@ -2,9 +2,10 @@ import { NextResponse } from "next/server";
 
 import { recordAuditEvent } from "@/db/audit";
 import { getCurrentUserWithCapabilities } from "@/lib/auth/current-user";
+import { resolveUserPropertyScope } from "@/lib/auth/property-access";
 import { diffFields } from "@/lib/db/diff-fields";
 import { TENANT_CAPABILITIES } from "@/lib/tenants/constants";
-import { getTenant, updateTenant } from "@/lib/tenants/tenants";
+import { getTenant, tenantHasAccessibleLease, updateTenant } from "@/lib/tenants/tenants";
 import { updateTenantSchema } from "@/lib/validation/tenants";
 
 function pick<T extends Record<string, unknown>>(obj: T, keys: string[]): Partial<T> {
@@ -26,6 +27,15 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: "not_found" }, { status: 404 });
   }
 
+  const scope = await resolveUserPropertyScope(
+    context.user.id,
+    context.user.organizationId,
+    context.capabilityKeys,
+  );
+  if (scope.kind !== "all" && !(await tenantHasAccessibleLease(context.user.organizationId, id, scope))) {
+    return NextResponse.json({ error: "not_found" }, { status: 404 });
+  }
+
   return NextResponse.json({ tenant });
 }
 
@@ -43,6 +53,11 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
   const existing = await getTenant(user.organizationId, id);
   if (!existing) {
+    return NextResponse.json({ error: "not_found" }, { status: 404 });
+  }
+
+  const scope = await resolveUserPropertyScope(user.id, user.organizationId, context.capabilityKeys);
+  if (scope.kind !== "all" && !(await tenantHasAccessibleLease(user.organizationId, id, scope))) {
     return NextResponse.json({ error: "not_found" }, { status: 404 });
   }
 

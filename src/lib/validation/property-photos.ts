@@ -10,6 +10,8 @@ export const createPropertyPhotoSchema = z.object({
   category: z.enum(PHOTO_CATEGORIES),
   caption: z.preprocess(emptyToUndefined, z.string().trim().max(500).optional()),
   propertyUnitId: z.preprocess(emptyToUndefined, z.string().uuid().optional()),
+  // ACCESS-1: only present for a Property Component photo upload.
+  propertyComponentId: z.preprocess(emptyToUndefined, z.string().uuid().optional()),
 });
 
 export const updatePropertyPhotoSchema = z.object({

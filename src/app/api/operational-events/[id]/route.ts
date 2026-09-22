@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { recordAuditEvent } from "@/db/audit";
 import { getCurrentUserWithCapabilities } from "@/lib/auth/current-user";
+import { canAccessProperty, resolveUserPropertyScope } from "@/lib/auth/property-access";
 import { CALENDAR_CAPABILITIES } from "@/lib/calendar/constants";
 import { getOperationalEvent, updateOperationalEvent } from "@/lib/calendar/operational-events";
 import { diffFields } from "@/lib/db/diff-fields";
@@ -21,6 +22,17 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   const event = await getOperationalEvent(context.user.organizationId, id);
   if (!event) {
     return NextResponse.json({ error: "not_found" }, { status: 404 });
+  }
+
+  if (event.propertyId) {
+    const scope = await resolveUserPropertyScope(
+      context.user.id,
+      context.user.organizationId,
+      context.capabilityKeys,
+    );
+    if (!canAccessProperty(scope, event.propertyId)) {
+      return NextResponse.json({ error: "not_found" }, { status: 404 });
+    }
   }
 
   return NextResponse.json({ event });
@@ -43,6 +55,11 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     return NextResponse.json({ error: "not_found" }, { status: 404 });
   }
 
+  const scope = await resolveUserPropertyScope(user.id, user.organizationId, context.capabilityKeys);
+  if (existing.propertyId && !canAccessProperty(scope, existing.propertyId)) {
+    return NextResponse.json({ error: "not_found" }, { status: 404 });
+  }
+
   const body = await request.json().catch(() => null);
   const parsed = updateOperationalEventSchema.safeParse(body);
   if (!parsed.success) {
@@ -56,6 +73,9 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     const property = await getProperty(user.organizationId, parsed.data.propertyId);
     if (!property) {
       return NextResponse.json({ error: "invalid_property" }, { status: 400 });
+    }
+    if (!canAccessProperty(scope, parsed.data.propertyId)) {
+      return NextResponse.json({ error: "forbidden" }, { status: 403 });
     }
   }
 

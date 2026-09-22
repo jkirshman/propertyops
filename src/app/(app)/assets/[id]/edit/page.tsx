@@ -1,10 +1,11 @@
 import { notFound } from "next/navigation";
 
 import { AssetForm } from "@/components/assets/AssetForm";
-import { getAsset } from "@/lib/assets/assets";
+import { getAsset, isAssetVisibleForScope } from "@/lib/assets/assets";
 import { listAssetCategories } from "@/lib/assets/categories";
 import { ASSET_CAPABILITIES } from "@/lib/assets/constants";
 import { requireCapability } from "@/lib/auth/require-capability";
+import { resolveUserPropertyScope } from "@/lib/auth/property-access";
 
 export default async function EditAssetPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -12,6 +13,15 @@ export default async function EditAssetPage({ params }: { params: Promise<{ id: 
 
   const asset = await getAsset(context.user.organizationId, id);
   if (!asset) {
+    notFound();
+  }
+
+  const scope = await resolveUserPropertyScope(
+    context.user.id,
+    context.user.organizationId,
+    context.capabilityKeys,
+  );
+  if (!isAssetVisibleForScope(asset, scope)) {
     notFound();
   }
 

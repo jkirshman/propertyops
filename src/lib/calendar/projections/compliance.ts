@@ -1,4 +1,4 @@
-import { and, eq, isNotNull } from "drizzle-orm";
+import { and, eq, inArray, isNotNull } from "drizzle-orm";
 
 import { db } from "@/db/client";
 import { complianceRecords } from "@/db/schema";
@@ -43,7 +43,26 @@ export function projectComplianceEvent(row: ComplianceCalendarRow, today: string
   };
 }
 
-export async function fetchComplianceEvents(organizationId: string, today: string): Promise<CalendarEvent[]> {
+export async function fetchComplianceEvents(
+  organizationId: string,
+  today: string,
+  // ACCESS-1: null = unrestricted (no filter); an array scopes to those
+  // properties; an empty array short-circuits to no events.
+  propertyIds?: string[] | null,
+): Promise<CalendarEvent[]> {
+  if (propertyIds !== undefined && propertyIds !== null && propertyIds.length === 0) {
+    return [];
+  }
+
+  const conditions = [
+    eq(complianceRecords.organizationId, organizationId),
+    eq(complianceRecords.isActive, true),
+    isNotNull(complianceRecords.expirationDate),
+  ];
+  if (propertyIds !== undefined && propertyIds !== null) {
+    conditions.push(inArray(complianceRecords.propertyId, propertyIds));
+  }
+
   const rows = await db
     .select({
       id: complianceRecords.id,
@@ -53,13 +72,7 @@ export async function fetchComplianceEvents(organizationId: string, today: strin
       expirationDate: complianceRecords.expirationDate,
     })
     .from(complianceRecords)
-    .where(
-      and(
-        eq(complianceRecords.organizationId, organizationId),
-        eq(complianceRecords.isActive, true),
-        isNotNull(complianceRecords.expirationDate),
-      ),
-    );
+    .where(and(...conditions));
 
   return rows
     .map((row) => projectComplianceEvent(row, today))

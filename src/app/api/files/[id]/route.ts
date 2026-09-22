@@ -1,9 +1,14 @@
 import { NextResponse } from "next/server";
 
 import { recordAuditEvent } from "@/db/audit";
+import { resolveUserPropertyScope } from "@/lib/auth/property-access";
 import { getCurrentUserWithCapabilities } from "@/lib/auth/current-user";
 import { getFileRecord, streamPrivateFile } from "@/lib/files/files";
-import { getRelatedEntityFileRules } from "@/lib/files/related-entity-rules";
+import {
+  canAccessRelatedEntityPropertyContext,
+  getRelatedEntityFileRules,
+  resolveRelatedEntityPropertyContext,
+} from "@/lib/files/related-entity-rules";
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const context = await getCurrentUserWithCapabilities();
@@ -27,6 +32,20 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   const rules = getRelatedEntityFileRules(record.relatedEntityType ?? undefined);
   if (rules && !capabilityKeys.includes(rules.viewCapability)) {
     return NextResponse.json({ error: "forbidden" }, { status: 403 });
+  }
+
+  if (record.relatedEntityType && record.relatedEntityId) {
+    const context = await resolveRelatedEntityPropertyContext(
+      user.organizationId,
+      record.relatedEntityType,
+      record.relatedEntityId,
+    );
+    if (context) {
+      const scope = await resolveUserPropertyScope(user.id, user.organizationId, capabilityKeys);
+      if (!canAccessRelatedEntityPropertyContext(scope, context)) {
+        return NextResponse.json({ error: "not_found" }, { status: 404 });
+      }
+    }
   }
 
   const blob = await streamPrivateFile(record.blobPathname);

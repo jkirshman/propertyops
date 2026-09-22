@@ -2,8 +2,10 @@ import { NextResponse } from "next/server";
 
 import { recordAuditEvent } from "@/db/audit";
 import { getCurrentUserWithCapabilities } from "@/lib/auth/current-user";
+import { canAccessPropertyUnit, resolveUserPropertyScope } from "@/lib/auth/property-access";
 import { PROPERTY_CAPABILITIES } from "@/lib/properties/constants";
 import {
+  canViewPropertyPhoto,
   getPropertyPhoto,
   setCoverPhoto,
   updatePropertyPhoto,
@@ -25,10 +27,15 @@ export async function PATCH(
   }
 
   const { id, photoId } = await params;
-  const { user } = context;
+  const { user, capabilityKeys } = context;
 
   const existing = await getPropertyPhoto(user.organizationId, id, photoId);
   if (!existing) {
+    return NextResponse.json({ error: "not_found" }, { status: 404 });
+  }
+
+  const scope = await resolveUserPropertyScope(user.id, user.organizationId, capabilityKeys);
+  if (!canViewPropertyPhoto(scope, id, existing.propertyUnitId)) {
     return NextResponse.json({ error: "not_found" }, { status: 404 });
   }
 
@@ -63,6 +70,9 @@ export async function PATCH(
     const unit = await getPropertyUnit(user.organizationId, id, parsed.data.propertyUnitId);
     if (!unit) {
       return NextResponse.json({ error: "invalid_unit" }, { status: 400 });
+    }
+    if (!canAccessPropertyUnit(scope, id, parsed.data.propertyUnitId)) {
+      return NextResponse.json({ error: "forbidden" }, { status: 403 });
     }
   }
 

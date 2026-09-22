@@ -1,4 +1,4 @@
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, eq, inArray } from "drizzle-orm";
 
 import { db } from "@/db/client";
 import { complianceRecords } from "@/db/schema";
@@ -14,6 +14,8 @@ export interface ListComplianceRecordsOptions {
   propertyId?: string;
   isActive?: boolean;
   category?: string;
+  /** ACCESS-1: when provided and not null, results are limited to these Property ids. */
+  propertyIds?: string[] | null;
 }
 
 export async function listComplianceRecords(
@@ -22,6 +24,10 @@ export async function listComplianceRecords(
 ) {
   const conditions = [eq(complianceRecords.organizationId, organizationId)];
   if (options.propertyId) conditions.push(eq(complianceRecords.propertyId, options.propertyId));
+  if (options.propertyIds !== undefined && options.propertyIds !== null) {
+    if (options.propertyIds.length === 0) return [];
+    conditions.push(inArray(complianceRecords.propertyId, options.propertyIds));
+  }
   if (options.isActive !== undefined) conditions.push(eq(complianceRecords.isActive, options.isActive));
   if (options.category) conditions.push(eq(complianceRecords.category, options.category));
 

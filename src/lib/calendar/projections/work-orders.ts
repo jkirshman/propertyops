@@ -1,4 +1,4 @@
-import { and, eq, isNotNull, ne } from "drizzle-orm";
+import { and, eq, inArray, isNotNull, ne } from "drizzle-orm";
 
 import { db } from "@/db/client";
 import { workOrders } from "@/db/schema";
@@ -61,7 +61,23 @@ export function projectWorkOrderEvent(
 export async function fetchWorkOrderEvents(
   organizationId: string,
   now: Date,
+  // ACCESS-1: null = unrestricted (no filter); an array scopes to those
+  // properties; an empty array short-circuits to no events.
+  propertyIds?: string[] | null,
 ): Promise<CalendarEvent[]> {
+  if (propertyIds !== undefined && propertyIds !== null && propertyIds.length === 0) {
+    return [];
+  }
+
+  const conditions = [
+    eq(workOrders.organizationId, organizationId),
+    isNotNull(workOrders.scheduledStartAt),
+    ne(workOrders.source, "preventive_maintenance"),
+  ];
+  if (propertyIds !== undefined && propertyIds !== null) {
+    conditions.push(inArray(workOrders.propertyId, propertyIds));
+  }
+
   const rows = await db
     .select({
       id: workOrders.id,
@@ -77,13 +93,7 @@ export async function fetchWorkOrderEvents(
       scheduledEndAt: workOrders.scheduledEndAt,
     })
     .from(workOrders)
-    .where(
-      and(
-        eq(workOrders.organizationId, organizationId),
-        isNotNull(workOrders.scheduledStartAt),
-        ne(workOrders.source, "preventive_maintenance"),
-      ),
-    );
+    .where(and(...conditions));
 
   return rows
     .map((row) => projectWorkOrderEvent(row, now))

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { recordAuditEvent } from "@/db/audit";
 import { getCurrentUserWithCapabilities } from "@/lib/auth/current-user";
+import { canAccessProperty, forbiddenResponseBody, listAccessiblePropertyIds, resolveUserPropertyScope } from "@/lib/auth/property-access";
 import { getPropertyEquipment } from "@/lib/equipment/property-equipment";
 import { INSPECTION_CAPABILITIES } from "@/lib/inspections/constants";
 import { createInspection, listInspections } from "@/lib/inspections/inspections";
@@ -19,6 +20,12 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "forbidden" }, { status: 403 });
   }
 
+  const scope = await resolveUserPropertyScope(
+    context.user.id,
+    context.user.organizationId,
+    context.capabilityKeys,
+  );
+
   const { searchParams } = new URL(request.url);
   const inspections = await listInspections(context.user.organizationId, {
     propertyId: searchParams.get("propertyId") ?? undefined,
@@ -26,6 +33,7 @@ export async function GET(request: Request) {
     templateId: searchParams.get("templateId") ?? undefined,
     status: searchParams.get("status") ?? undefined,
     inspectorUserId: searchParams.get("inspectorUserId") ?? undefined,
+    propertyIds: listAccessiblePropertyIds(scope),
   });
 
   return NextResponse.json({ inspections });
@@ -51,6 +59,11 @@ export async function POST(request: Request) {
   }
 
   const { user } = context;
+
+  const scope = await resolveUserPropertyScope(user.id, user.organizationId, context.capabilityKeys);
+  if (!canAccessProperty(scope, parsed.data.propertyId)) {
+    return NextResponse.json(forbiddenResponseBody(), { status: 403 });
+  }
 
   if (parsed.data.propertyEquipmentId) {
     const equipment = await getPropertyEquipment(user.organizationId, parsed.data.propertyEquipmentId);

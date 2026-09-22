@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 
 import { InspectionDetailPanel } from "@/components/inspections/InspectionDetailPanel";
 import { requireCapability } from "@/lib/auth/require-capability";
+import { canAccessProperty, resolveUserPropertyScope } from "@/lib/auth/property-access";
 import { getPropertyEquipment } from "@/lib/equipment/property-equipment";
 import { INSPECTION_CAPABILITIES, INSPECTION_STATUS_LABELS, type InspectionStatus } from "@/lib/inspections/constants";
 import { getInspection } from "@/lib/inspections/inspections";
@@ -22,6 +23,15 @@ export default async function InspectionDetailPage({
 
   const inspection = await getInspection(context.user.organizationId, id);
   if (!inspection) {
+    notFound();
+  }
+
+  const scope = await resolveUserPropertyScope(
+    context.user.id,
+    context.user.organizationId,
+    context.capabilityKeys,
+  );
+  if (!canAccessProperty(scope, inspection.propertyId)) {
     notFound();
   }
 

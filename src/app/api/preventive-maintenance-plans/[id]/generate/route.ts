@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { recordAuditEvent } from "@/db/audit";
 import { getCurrentUserWithCapabilities } from "@/lib/auth/current-user";
+import { canAccessProperty, resolveUserPropertyScope } from "@/lib/auth/property-access";
 import { PREVENTIVE_MAINTENANCE_CAPABILITIES } from "@/lib/preventive-maintenance/constants";
 import { generatePreventiveMaintenanceOccurrence } from "@/lib/preventive-maintenance/occurrences";
 import { getPreventiveMaintenancePlan } from "@/lib/preventive-maintenance/plans";
@@ -17,10 +18,15 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   }
 
   const { id } = await params;
-  const { user } = context;
+  const { user, capabilityKeys } = context;
 
   const plan = await getPreventiveMaintenancePlan(user.organizationId, id);
   if (!plan) {
+    return NextResponse.json({ error: "not_found" }, { status: 404 });
+  }
+
+  const scope = await resolveUserPropertyScope(user.id, user.organizationId, capabilityKeys);
+  if (!canAccessProperty(scope, plan.propertyId)) {
     return NextResponse.json({ error: "not_found" }, { status: 404 });
   }
 

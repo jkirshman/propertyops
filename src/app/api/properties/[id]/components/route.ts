@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { recordAuditEvent } from "@/db/audit";
 import { getCurrentUserWithCapabilities } from "@/lib/auth/current-user";
+import { canAccessProperty, resolveUserPropertyScope } from "@/lib/auth/property-access";
 import { PROPERTY_COMPONENT_CAPABILITIES } from "@/lib/property-components/constants";
 import { createPropertyComponent, listPropertyComponents } from "@/lib/property-components/property-components";
 import { getProperty } from "@/lib/properties/properties";
@@ -18,10 +19,16 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   }
 
   const { id } = await params;
+  const { user, capabilityKeys } = context;
+  const scope = await resolveUserPropertyScope(user.id, user.organizationId, capabilityKeys);
+  if (!canAccessProperty(scope, id)) {
+    return NextResponse.json({ error: "not_found" }, { status: 404 });
+  }
+
   const { searchParams } = new URL(request.url);
   const activeOnly = searchParams.get("activeOnly") === "true";
 
-  const components = await listPropertyComponents(context.user.organizationId, id, { activeOnly });
+  const components = await listPropertyComponents(user.organizationId, id, { activeOnly });
   return NextResponse.json({ components });
 }
 
@@ -36,7 +43,12 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   }
 
   const { id } = await params;
-  const { user } = context;
+  const { user, capabilityKeys } = context;
+
+  const scope = await resolveUserPropertyScope(user.id, user.organizationId, capabilityKeys);
+  if (!canAccessProperty(scope, id)) {
+    return NextResponse.json({ error: "not_found" }, { status: 404 });
+  }
 
   const property = await getProperty(user.organizationId, id);
   if (!property) {

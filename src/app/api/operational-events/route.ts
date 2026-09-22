@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { recordAuditEvent } from "@/db/audit";
 import { getCurrentUserWithCapabilities } from "@/lib/auth/current-user";
+import { canAccessProperty, listAccessiblePropertyIds, resolveUserPropertyScope } from "@/lib/auth/property-access";
 import { CALENDAR_CAPABILITIES } from "@/lib/calendar/constants";
 import { createOperationalEvent, listOperationalEvents } from "@/lib/calendar/operational-events";
 import { getProperty } from "@/lib/properties/properties";
@@ -16,10 +17,17 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "forbidden" }, { status: 403 });
   }
 
+  const scope = await resolveUserPropertyScope(
+    context.user.id,
+    context.user.organizationId,
+    context.capabilityKeys,
+  );
+
   const { searchParams } = new URL(request.url);
   const events = await listOperationalEvents(context.user.organizationId, {
     propertyId: searchParams.get("propertyId") ?? undefined,
     status: searchParams.get("status") ?? undefined,
+    propertyIds: listAccessiblePropertyIds(scope),
   });
 
   return NextResponse.json({ events });
@@ -49,6 +57,11 @@ export async function POST(request: Request) {
     const property = await getProperty(user.organizationId, parsed.data.propertyId);
     if (!property) {
       return NextResponse.json({ error: "invalid_property" }, { status: 400 });
+    }
+
+    const scope = await resolveUserPropertyScope(user.id, user.organizationId, context.capabilityKeys);
+    if (!canAccessProperty(scope, parsed.data.propertyId)) {
+      return NextResponse.json({ error: "forbidden" }, { status: 403 });
     }
   }
 

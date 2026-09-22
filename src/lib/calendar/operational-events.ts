@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray, isNull, or } from "drizzle-orm";
 
 import { db } from "@/db/client";
 import { operationalEvents } from "@/db/schema";
@@ -14,6 +14,11 @@ export type OperationalEventRow = typeof operationalEvents.$inferSelect;
 export interface ListOperationalEventsOptions {
   propertyId?: string;
   status?: string;
+  // ACCESS-1: null/omitted = unrestricted (no filter, e.g. Administrator); an
+  // array scopes to those properties *plus* every org-wide (null-property)
+  // event, which stays visible to everyone regardless of scope; an empty
+  // array still returns org-wide events, just no property-tagged ones.
+  propertyIds?: string[] | null;
 }
 
 export async function listOperationalEvents(
@@ -26,6 +31,13 @@ export async function listOperationalEvents(
   }
   if (options.status) {
     conditions.push(eq(operationalEvents.status, options.status));
+  }
+  if (options.propertyIds !== undefined && options.propertyIds !== null) {
+    const scopeCondition =
+      options.propertyIds.length === 0
+        ? isNull(operationalEvents.propertyId)
+        : or(isNull(operationalEvents.propertyId), inArray(operationalEvents.propertyId, options.propertyIds))!;
+    conditions.push(scopeCondition);
   }
 
   return db
@@ -117,7 +129,11 @@ export function projectOperationalEvent(row: OperationalEventRow, now: Date): Ca
   };
 }
 
-export async function fetchOperationalEvents(organizationId: string, now: Date): Promise<CalendarEvent[]> {
-  const rows = await listOperationalEvents(organizationId);
+export async function fetchOperationalEvents(
+  organizationId: string,
+  now: Date,
+  propertyIds?: string[] | null,
+): Promise<CalendarEvent[]> {
+  const rows = await listOperationalEvents(organizationId, { propertyIds });
   return rows.map((row) => projectOperationalEvent(row, now));
 }

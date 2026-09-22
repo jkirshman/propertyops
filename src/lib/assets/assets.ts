@@ -1,10 +1,27 @@
-import { and, desc, eq, ilike, or, sql } from "drizzle-orm";
+import { and, desc, eq, ilike, inArray, isNotNull, or, sql } from "drizzle-orm";
 
 import { db } from "@/db/client";
 import { assetCounters, assets } from "@/db/schema";
 import { stripUndefined } from "@/lib/db/strip-undefined";
 import { formatAssetTag } from "@/lib/assets/numbering";
+import { canAccessProperty, type PropertyScope } from "@/lib/auth/property-access";
 import type { CreateAssetInput, UpdateAssetInput } from "@/lib/validation/assets";
+
+/**
+ * ACCESS-1: an unrestricted (Administrator) scope sees every asset as today.
+ * A scoped (Manager/User) role only sees assets clearly assigned to one of
+ * their accessible Properties — an unassigned or Person-assigned asset
+ * (assignedPropertyId null) is never visible to a scoped role.
+ */
+export function isAssetVisibleForScope(
+  asset: { assignedPropertyId: string | null },
+  scope: PropertyScope,
+): boolean {
+  if (scope.kind === "all") {
+    return true;
+  }
+  return asset.assignedPropertyId !== null && canAccessProperty(scope, asset.assignedPropertyId);
+}
 
 async function getNextAssetSequenceNumber(organizationId: string): Promise<number> {
   // Lazily create the counter row (first-ever asset for this org); a
@@ -30,10 +47,26 @@ export interface ListAssetsOptions {
   propertyId?: string;
   personId?: string;
   isActive?: boolean;
+  // ACCESS-1 property scoping (see src/lib/auth/property-access.ts):
+  // undefined/null = unrestricted (Administrator), no filter. An empty array
+  // means the caller has no accessible properties — short-circuits to [].
+  // Assets with a null assignedPropertyId (unassigned, or person-assigned)
+  // are excluded whenever this filter is applied, never merely "included
+  // because IN happens to skip NULLs" — this is deliberate, not incidental.
+  propertyIds?: string[] | null;
 }
 
 export async function listAssets(organizationId: string, options: ListAssetsOptions = {}) {
+  if (options.propertyIds !== undefined && options.propertyIds !== null && options.propertyIds.length === 0) {
+    return [];
+  }
+
   const conditions = [eq(assets.organizationId, organizationId)];
+
+  if (options.propertyIds !== undefined && options.propertyIds !== null) {
+    conditions.push(isNotNull(assets.assignedPropertyId));
+    conditions.push(inArray(assets.assignedPropertyId, options.propertyIds));
+  }
 
   if (options.categoryId) {
     conditions.push(eq(assets.categoryId, options.categoryId));

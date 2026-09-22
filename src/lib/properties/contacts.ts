@@ -3,10 +3,33 @@ import { and, asc, eq } from "drizzle-orm";
 import { db } from "@/db/client";
 import { propertyContacts } from "@/db/schema";
 import { stripUndefined } from "@/lib/db/strip-undefined";
+import { PROPERTY_CAPABILITIES } from "@/lib/properties/constants";
 import type {
   CreatePropertyContactInput,
   UpdatePropertyContactInput,
 } from "@/lib/validation/property-contacts";
+
+/**
+ * ACCESS-1 contact ownership: MANAGE_CONTACTS holders (Admin/Manager) may
+ * edit any contact. A CREATE_CONTACT-only holder (User) may edit only a
+ * contact they created themselves — a legacy contact with no
+ * `createdByUserId` (pre-ACCESS-1, or created by an Admin/Manager) is treated
+ * as authoritative and falls through to false for them, with no special-casing
+ * needed since `null !== currentUserId` already.
+ */
+export function canEditPropertyContact(
+  capabilityKeys: string[],
+  contact: { createdByUserId: string | null },
+  currentUserId: string,
+): boolean {
+  if (capabilityKeys.includes(PROPERTY_CAPABILITIES.MANAGE_CONTACTS)) {
+    return true;
+  }
+  return (
+    capabilityKeys.includes(PROPERTY_CAPABILITIES.CREATE_CONTACT) &&
+    contact.createdByUserId === currentUserId
+  );
+}
 
 export async function listPropertyContacts(organizationId: string, propertyId: string) {
   return db
@@ -43,6 +66,7 @@ export async function getPropertyContact(
 export async function createPropertyContact(
   organizationId: string,
   propertyId: string,
+  createdByUserId: string,
   input: CreatePropertyContactInput,
 ) {
   const [row] = await db
@@ -59,6 +83,7 @@ export async function createPropertyContact(
       mobilePhone: input.mobilePhone ?? null,
       notes: input.notes ?? null,
       isPrimary: input.isPrimary ?? false,
+      createdByUserId,
     })
     .returning();
   return row;

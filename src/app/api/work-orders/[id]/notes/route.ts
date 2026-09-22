@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { recordAuditEvent } from "@/db/audit";
 import { getCurrentUserWithCapabilities } from "@/lib/auth/current-user";
+import { canAccessProperty, resolveUserPropertyScope } from "@/lib/auth/property-access";
 import { createWorkOrderNoteSchema } from "@/lib/validation/work-order-notes";
 import { WORK_ORDER_CAPABILITIES } from "@/lib/work-orders/constants";
 import { createWorkOrderNote, listWorkOrderNotes } from "@/lib/work-orders/notes";
@@ -18,6 +19,18 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   }
 
   const { id } = await params;
+  const { user, capabilityKeys } = context;
+
+  const workOrder = await getWorkOrder(user.organizationId, id);
+  if (!workOrder) {
+    return NextResponse.json({ error: "not_found" }, { status: 404 });
+  }
+
+  const scope = await resolveUserPropertyScope(user.id, user.organizationId, capabilityKeys);
+  if (!canAccessProperty(scope, workOrder.propertyId)) {
+    return NextResponse.json({ error: "not_found" }, { status: 404 });
+  }
+
   const notes = await listWorkOrderNotes(context.user.organizationId, id);
   return NextResponse.json({ notes });
 }
@@ -33,10 +46,15 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   }
 
   const { id } = await params;
-  const { user } = context;
+  const { user, capabilityKeys } = context;
 
   const workOrder = await getWorkOrder(user.organizationId, id);
   if (!workOrder) {
+    return NextResponse.json({ error: "not_found" }, { status: 404 });
+  }
+
+  const scope = await resolveUserPropertyScope(user.id, user.organizationId, capabilityKeys);
+  if (!canAccessProperty(scope, workOrder.propertyId)) {
     return NextResponse.json({ error: "not_found" }, { status: 404 });
   }
 

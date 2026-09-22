@@ -2,8 +2,9 @@ import { NextResponse } from "next/server";
 
 import { recordAuditEvent } from "@/db/audit";
 import { getCurrentUserWithCapabilities } from "@/lib/auth/current-user";
+import { canAccessProperty, resolveUserPropertyScope } from "@/lib/auth/property-access";
 import { INSPECTION_CAPABILITIES } from "@/lib/inspections/constants";
-import { completeInspection } from "@/lib/inspections/inspections";
+import { completeInspection, getInspection } from "@/lib/inspections/inspections";
 import { buildInspectionCompletedWithFindingsNotification } from "@/lib/inspections/notification-events";
 import { createNotification } from "@/lib/notifications/notifications";
 import { listUsersWithCapability } from "@/lib/users/users";
@@ -18,7 +19,17 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
   }
 
   const { id } = await params;
-  const { user } = context;
+  const { user, capabilityKeys } = context;
+
+  const inspection = await getInspection(user.organizationId, id);
+  if (!inspection) {
+    return NextResponse.json({ error: "not_found" }, { status: 404 });
+  }
+
+  const scope = await resolveUserPropertyScope(user.id, user.organizationId, capabilityKeys);
+  if (!canAccessProperty(scope, inspection.propertyId)) {
+    return NextResponse.json({ error: "not_found" }, { status: 404 });
+  }
 
   const result = await completeInspection(user.organizationId, id);
 

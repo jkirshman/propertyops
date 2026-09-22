@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { PropertyComponentDetailPanel } from "@/components/properties/PropertyComponentDetailPanel";
+import { canAccessProperty, resolveUserPropertyScope } from "@/lib/auth/property-access";
 import { requireCapability } from "@/lib/auth/require-capability";
 import { COMPONENT_TYPE_LABELS, PROPERTY_COMPONENT_CAPABILITIES, type ComponentType } from "@/lib/property-components/constants";
 import { getPropertyComponent } from "@/lib/property-components/property-components";
@@ -19,6 +20,15 @@ export default async function PropertyComponentDetailPage({
 
   const component = await getPropertyComponent(context.user.organizationId, id);
   if (!component) {
+    notFound();
+  }
+
+  const scope = await resolveUserPropertyScope(
+    context.user.id,
+    context.user.organizationId,
+    context.capabilityKeys,
+  );
+  if (!canAccessProperty(scope, component.propertyId)) {
     notFound();
   }
 

@@ -1,6 +1,7 @@
 import { WorkOrderForm } from "@/components/work-orders/WorkOrderForm";
 import { getAsset, listAssets } from "@/lib/assets/assets";
 import { requireCapability } from "@/lib/auth/require-capability";
+import { listAccessiblePropertyIds, resolveUserPropertyScope } from "@/lib/auth/property-access";
 import { getPropertyEquipment } from "@/lib/equipment/property-equipment";
 import { getPropertyComponent } from "@/lib/property-components/property-components";
 import { listProperties } from "@/lib/properties/properties";
@@ -28,8 +29,14 @@ export default async function NewWorkOrderPage({
 
   const canAssignVendor = context.capabilityKeys.includes(VENDOR_CAPABILITIES.ASSIGN_WORK_ORDERS);
 
+  const scope = await resolveUserPropertyScope(
+    context.user.id,
+    context.user.organizationId,
+    context.capabilityKeys,
+  );
+
   const [properties, categories, users, assets, vendors] = await Promise.all([
-    listProperties(context.user.organizationId, { isActive: true }),
+    listProperties(context.user.organizationId, { isActive: true, propertyIds: listAccessiblePropertyIds(scope) }),
     listWorkOrderCategories(context.user.organizationId, { activeOnly: true }),
     listOrganizationUsers(context.user.organizationId),
     listAssets(context.user.organizationId, { isActive: true }),

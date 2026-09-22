@@ -24,6 +24,124 @@ import { hashPassword } from "../src/lib/auth/password";
 const DEFAULT_ORG_SLUG = "default";
 const ADMIN_ROLE_SLUG = "administrator";
 const ADMIN_CAPABILITY_KEY = "platform.admin";
+const MANAGER_ROLE_SLUG = "manager";
+const USER_ROLE_SLUG = "user";
+
+// ACCESS-1: Manager is a Property-scoped operational administrator — full
+// day-to-day management of assigned Properties, but never organization-wide
+// security/configuration (users/roles/email/system) or taxonomy management
+// (categories/templates/catalogs), and never properties.access.unrestricted
+// — Manager access is always governed by explicit user_property_access rows.
+const MANAGER_CAPABILITY_KEYS = [
+  "property.view",
+  "property.edit",
+  "property.manage_contacts",
+  "property.manage_notes",
+  "property.manage_documents",
+  "property_type.view",
+  "work_order.view",
+  "work_order.create",
+  "work_order.edit",
+  "work_order.assign",
+  "work_order.manage_status",
+  "work_order.manage_notes",
+  "work_order.manage_attachments",
+  "work_order.schedule",
+  "work_order_category.view",
+  "equipment.view",
+  "equipment.create",
+  "equipment.edit",
+  "equipment.manage_service",
+  "equipment.manage_documents",
+  "equipment_catalog.view",
+  "equipment_template.view",
+  "asset.view",
+  "asset.create",
+  "asset.edit",
+  "asset.assign",
+  "asset.retire",
+  "asset.manage_documents",
+  "asset.onboarding",
+  "asset.offboarding",
+  "asset_category.view",
+  "person.view",
+  "person.manage",
+  "preventive_maintenance.view",
+  "preventive_maintenance.create",
+  "preventive_maintenance.edit",
+  "preventive_maintenance.generate",
+  "preventive_maintenance.manage_status",
+  "vendor.view",
+  "vendor.create",
+  "vendor.edit",
+  "vendor.manage_contacts",
+  "vendor.manage_coverage",
+  "vendor.manage_documents",
+  "vendor.assign_work_orders",
+  "vendor.approve",
+  "vendor_category.view",
+  "inspection.view",
+  "inspection.create",
+  "inspection.edit",
+  "inspection.complete",
+  "inspection.schedule",
+  "inspection_template.view",
+  "compliance.view",
+  "compliance.create",
+  "compliance.edit",
+  "compliance.manage_documents",
+  "tenant.view",
+  "tenant.create",
+  "tenant.edit",
+  "tenant.manage_contacts",
+  "tenant.manage_documents",
+  "lease.view",
+  "lease.create",
+  "lease.edit",
+  "lease.manage_documents",
+  "lease.manage_status",
+  "calendar.view",
+  "calendar.create_manual_event",
+  "calendar.edit_manual_event",
+  "property_company.view",
+  "property_unit.view",
+  "property_unit.create",
+  "property_unit.edit",
+  "property_component.view",
+  "property_component.create",
+  "property_component.edit",
+  "property_component.manage_service",
+  "property_component.manage_documents",
+  "property_component.upload_photo",
+];
+
+// ACCESS-1: User is the simplified, Property/Unit-scoped role — mostly
+// view-only, with a small set of explicit create rights (Work Orders,
+// Property Notes, a limited Property Contact, a submitted-for-approval
+// Vendor, a Property Component photo). Never property.edit/create,
+// never *.manage taxonomy, never any Admin Hub capability.
+const USER_CAPABILITY_KEYS = [
+  "property.view",
+  "property.manage_notes",
+  "property.create_contact",
+  "equipment.view",
+  "asset.view",
+  "work_order.view",
+  "work_order.create",
+  "work_order_category.view",
+  "preventive_maintenance.view",
+  "vendor.view",
+  "vendor.submit",
+  "vendor_category.view",
+  "inspection.view",
+  "compliance.view",
+  "tenant.view",
+  "lease.view",
+  "property_unit.view",
+  "property_component.view",
+  "property_component.upload_photo",
+  "calendar.view",
+];
 
 // Admin Hub tile capabilities. All are granted to the administrator role below;
 // future roles can be granted a subset without any schema change.
@@ -47,6 +165,18 @@ const PROPERTY_CAPABILITIES = [
   { key: "property.manage_documents", description: "Manage property documents" },
   { key: "property_type.view", description: "View property types" },
   { key: "property_type.manage", description: "Manage property types" },
+  {
+    key: "property.create_contact",
+    description: "Create a property contact (edit limited to contacts the user created)",
+  },
+];
+
+// ACCESS-1 property-access scoping capabilities.
+const ACCESS_CAPABILITIES_SEED = [
+  {
+    key: "properties.access.unrestricted",
+    description: "Unrestricted access to every property in the organization (Administrator only)",
+  },
 ];
 
 const DEFAULT_PROPERTY_TYPES = [
@@ -83,6 +213,7 @@ const PROPERTY_COMPONENT_CAPABILITIES_SEED = [
   { key: "property_component.edit", description: "Edit or deactivate property components" },
   { key: "property_component.manage_service", description: "Manage property component service history" },
   { key: "property_component.manage_documents", description: "Manage property component documents" },
+  { key: "property_component.upload_photo", description: "Upload a photo of a property component" },
 ];
 
 // Work Order domain capabilities. All are granted to the administrator role below;
@@ -227,6 +358,8 @@ const VENDOR_CAPABILITIES_SEED = [
   { key: "vendor.assign_work_orders", description: "Assign vendors to work orders" },
   { key: "vendor_category.view", description: "View vendor categories" },
   { key: "vendor_category.manage", description: "Manage vendor categories" },
+  { key: "vendor.submit", description: "Submit a vendor for approval" },
+  { key: "vendor.approve", description: "Approve or reject a pending vendor submission" },
 ];
 
 const DEFAULT_VENDOR_CATEGORIES = [
@@ -391,6 +524,7 @@ async function main() {
     ...PROPERTY_COMPANY_CAPABILITIES_SEED,
     ...PROPERTY_UNIT_CAPABILITIES_SEED,
     ...PROPERTY_COMPONENT_CAPABILITIES_SEED,
+    ...ACCESS_CAPABILITIES_SEED,
   ]) {
     let [cap] = await db.select().from(capabilities).where(eq(capabilities.key, key)).limit(1);
 
@@ -403,6 +537,43 @@ async function main() {
       .insert(roleCapabilities)
       .values({ roleId: adminRole.id, capabilityId: cap.id })
       .onConflictDoNothing();
+  }
+
+  // ACCESS-1: seed Manager and User alongside the existing Administrator
+  // role — purely additive, the Administrator role/capabilities above are
+  // never modified by this block.
+  for (const [roleSlug, roleName, capabilityKeys] of [
+    [MANAGER_ROLE_SLUG, "Manager", MANAGER_CAPABILITY_KEYS],
+    [USER_ROLE_SLUG, "User", USER_CAPABILITY_KEYS],
+  ] as const) {
+    let [role] = await db
+      .select()
+      .from(roles)
+      .where(and(eq(roles.organizationId, org.id), eq(roles.slug, roleSlug)))
+      .limit(1);
+
+    if (!role) {
+      [role] = await db
+        .insert(roles)
+        .values({ organizationId: org.id, name: roleName, slug: roleSlug })
+        .returning();
+      console.log(`Created role ${role.id} (${roleSlug})`);
+    }
+
+    for (const key of capabilityKeys) {
+      const [cap] = await db.select().from(capabilities).where(eq(capabilities.key, key)).limit(1);
+      if (!cap) {
+        // Every key referenced here is also seeded above in this same run, so
+        // this only fires if a capability key was mistyped.
+        console.warn(`Skipping unknown capability "${key}" for role ${roleSlug}`);
+        continue;
+      }
+
+      await db
+        .insert(roleCapabilities)
+        .values({ roleId: role.id, capabilityId: cap.id })
+        .onConflictDoNothing();
+    }
   }
 
   for (const { name, slug, sortOrder, supportsUnits } of DEFAULT_PROPERTY_TYPES) {

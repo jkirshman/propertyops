@@ -1,4 +1,4 @@
-import { and, asc, eq, ilike } from "drizzle-orm";
+import { and, asc, eq, ilike, inArray } from "drizzle-orm";
 
 import { db } from "@/db/client";
 import { preventiveMaintenancePlans } from "@/db/schema";
@@ -20,6 +20,8 @@ export interface ListPreventiveMaintenancePlansOptions {
   isActive?: boolean;
   defaultAssigneeUserId?: string;
   dueState?: PmDueState;
+  /** ACCESS-1: when provided and not null, results are limited to these Property ids. */
+  propertyIds?: string[] | null;
 }
 
 export async function listPreventiveMaintenancePlans(
@@ -30,6 +32,10 @@ export async function listPreventiveMaintenancePlans(
 
   if (options.propertyId) {
     conditions.push(eq(preventiveMaintenancePlans.propertyId, options.propertyId));
+  }
+  if (options.propertyIds !== undefined && options.propertyIds !== null) {
+    if (options.propertyIds.length === 0) return [];
+    conditions.push(inArray(preventiveMaintenancePlans.propertyId, options.propertyIds));
   }
   if (options.propertyEquipmentId) {
     conditions.push(eq(preventiveMaintenancePlans.propertyEquipmentId, options.propertyEquipmentId));

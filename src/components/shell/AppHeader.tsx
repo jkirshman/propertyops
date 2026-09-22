@@ -20,6 +20,8 @@ function NavLink({ href, children }: { href: string; children: React.ReactNode }
 export function AppHeader({
   displayName,
   email,
+  navVariant,
+  myPropertyHref,
   showAdminLink,
   showCalendarLink,
   showPropertiesLink,
@@ -32,6 +34,12 @@ export function AppHeader({
 }: {
   displayName: string;
   email: string;
+  // ACCESS-1: "user" renders the simplified Home/My Property/Work Orders nav
+  // instead of the full capability-gated link set below — a User keeps every
+  // other module reachable as tabs inside their Property detail page, just
+  // not as top-level nav.
+  navVariant: "admin" | "manager" | "user";
+  myPropertyHref: string;
   showAdminLink: boolean;
   showCalendarLink: boolean;
   showPropertiesLink: boolean;
@@ -63,17 +71,26 @@ export function AppHeader({
           </Link>
           <nav style={{ display: "flex", gap: "1.1rem" }}>
             <NavLink href="/">Home</NavLink>
-            {showCalendarLink ? <NavLink href="/calendar">Calendar</NavLink> : null}
-            {showPropertiesLink ? <NavLink href="/properties">Properties</NavLink> : null}
-            {showWorkOrdersLink ? <NavLink href="/work-orders">Work Orders</NavLink> : null}
-            {showPreventiveMaintenanceLink ? (
-              <NavLink href="/preventive-maintenance">Preventive Maintenance</NavLink>
-            ) : null}
-            {showInspectionsLink ? <NavLink href="/inspections">Inspections</NavLink> : null}
-            {showVendorsLink ? <NavLink href="/vendors">Vendors</NavLink> : null}
-            {showTenantsLink ? <NavLink href="/tenants">Tenants</NavLink> : null}
-            {showAssetsLink ? <NavLink href="/assets">Assets</NavLink> : null}
-            {showAdminLink ? <NavLink href="/admin">Admin Hub</NavLink> : null}
+            {navVariant === "user" ? (
+              <>
+                <NavLink href={myPropertyHref}>My Property</NavLink>
+                {showWorkOrdersLink ? <NavLink href="/work-orders">Work Orders</NavLink> : null}
+              </>
+            ) : (
+              <>
+                {showCalendarLink ? <NavLink href="/calendar">Calendar</NavLink> : null}
+                {showPropertiesLink ? <NavLink href="/properties">Properties</NavLink> : null}
+                {showWorkOrdersLink ? <NavLink href="/work-orders">Work Orders</NavLink> : null}
+                {showPreventiveMaintenanceLink ? (
+                  <NavLink href="/preventive-maintenance">Preventive Maintenance</NavLink>
+                ) : null}
+                {showInspectionsLink ? <NavLink href="/inspections">Inspections</NavLink> : null}
+                {showVendorsLink ? <NavLink href="/vendors">Vendors</NavLink> : null}
+                {showTenantsLink ? <NavLink href="/tenants">Tenants</NavLink> : null}
+                {showAssetsLink ? <NavLink href="/assets">Assets</NavLink> : null}
+                {showAdminLink ? <NavLink href="/admin">Admin Hub</NavLink> : null}
+              </>
+            )}
           </nav>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", flexWrap: "wrap" }}>

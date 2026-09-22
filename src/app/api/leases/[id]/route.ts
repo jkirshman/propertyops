@@ -2,9 +2,11 @@ import { NextResponse } from "next/server";
 
 import { recordAuditEvent } from "@/db/audit";
 import { getCurrentUserWithCapabilities } from "@/lib/auth/current-user";
+import { canAccessPropertyUnit, resolveUserPropertyScope } from "@/lib/auth/property-access";
 import { diffFields } from "@/lib/db/diff-fields";
 import { getLeaseDateOrderingIssues } from "@/lib/leases/date-ordering";
 import { LEASE_CAPABILITIES } from "@/lib/leases/constants";
+import { resolveLeaseUnitChangeDecision } from "@/lib/leases/lease-unit-change";
 import { getLease, updateLease } from "@/lib/leases/leases";
 import { getPropertyUnit } from "@/lib/property-units/property-units";
 import { updateLeaseSchema } from "@/lib/validation/leases";
@@ -30,6 +32,15 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: "not_found" }, { status: 404 });
   }
 
+  const scope = await resolveUserPropertyScope(
+    context.user.id,
+    context.user.organizationId,
+    context.capabilityKeys,
+  );
+  if (!canAccessPropertyUnit(scope, lease.propertyId, lease.propertyUnitId)) {
+    return NextResponse.json({ error: "not_found" }, { status: 404 });
+  }
+
   return NextResponse.json({ lease });
 }
 
@@ -44,6 +55,11 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
   const existing = await getLease(user.organizationId, id);
   if (!existing) {
+    return NextResponse.json({ error: "not_found" }, { status: 404 });
+  }
+
+  const scope = await resolveUserPropertyScope(user.id, user.organizationId, capabilityKeys);
+  if (!canAccessPropertyUnit(scope, existing.propertyId, existing.propertyUnitId)) {
     return NextResponse.json({ error: "not_found" }, { status: 404 });
   }
 
@@ -75,11 +91,28 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     moveInDate: fields.moveInDate === null ? null : (fields.moveInDate ?? existing.moveInDate),
     moveOutDate: fields.moveOutDate === null ? null : (fields.moveOutDate ?? existing.moveOutDate),
   };
-  if (fields.propertyUnitId) {
-    const unit = await getPropertyUnit(user.organizationId, existing.propertyId, fields.propertyUnitId);
-    if (!unit || !unit.isActive) {
-      return NextResponse.json({ error: "invalid_unit" }, { status: 400 });
-    }
+  // getPropertyUnit is itself org+property scoped, so a Unit belonging to a
+  // different Property or a different organization already resolves to null
+  // here — resolveLeaseUnitChangeDecision treats that as invalid_unit. A
+  // Unit that legitimately belongs to this Property/org can still be outside
+  // the *requesting user's* own Property/Unit scope (e.g. a Unit-restricted
+  // caller moving a Lease to a Unit they don't have access to); that's the
+  // separate "forbidden" outcome, checked against `scope` below.
+  const unitCandidate = fields.propertyUnitId
+    ? await getPropertyUnit(user.organizationId, existing.propertyId, fields.propertyUnitId)
+    : null;
+  const unitChangeDecision = resolveLeaseUnitChangeDecision(
+    scope,
+    existing.propertyId,
+    fields.propertyUnitId,
+    existing.propertyUnitId,
+    unitCandidate,
+  );
+  if (unitChangeDecision === "invalid_unit") {
+    return NextResponse.json({ error: "invalid_unit" }, { status: 400 });
+  }
+  if (unitChangeDecision === "forbidden") {
+    return NextResponse.json({ error: "forbidden" }, { status: 403 });
   }
 
   const dateIssues = getLeaseDateOrderingIssues(mergedDates);

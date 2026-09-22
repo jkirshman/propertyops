@@ -1,3 +1,4 @@
+import { listAccessiblePropertyIds, type PropertyScope } from "@/lib/auth/property-access";
 import { COMPLIANCE_CAPABILITIES } from "@/lib/compliance/constants";
 import { listComplianceRecords } from "@/lib/compliance/compliance";
 import { classifyComplianceRecordStatus } from "@/lib/compliance/status";
@@ -231,21 +232,26 @@ export interface AppBrief {
 
 /**
  * Personalized "what needs my attention" data for the Home App Brief.
- * Personalization is capability-only for authorization (no property/location
- * access-scoping model exists yet), narrowed further by each category's App
- * Brief preference. A section is `null` (not rendered at all, and never
- * queried) when the caller lacks that module's VIEW capability OR has turned
- * that category's App Brief preference off; an empty-but-present section
- * means both checks passed and there's simply nothing due. Preferences never
- * expand what capability already restricts — see `isAppBriefSectionVisible`.
+ * Personalization is capability-AND-property-scope for authorization
+ * (ACCESS-1's Property/Unit scoping model — see lib/auth/property-access.ts),
+ * narrowed further by each category's App Brief preference. A section is
+ * `null` (not rendered at all, and never queried) when the caller lacks that
+ * module's VIEW capability OR has turned that category's App Brief preference
+ * off; an empty-but-present section means both checks passed and there's
+ * simply nothing due within the caller's accessible Properties. Preferences
+ * never expand what capability already restricts — see
+ * `isAppBriefSectionVisible`; property scope is a further, independent
+ * narrowing on top of both.
  */
 export async function getAppBrief(
   organizationId: string,
   capabilityKeys: string[],
   userId: string,
+  scope: PropertyScope,
 ): Promise<AppBrief> {
   const today = todayDateString();
   const has = (capability: string) => capabilityKeys.includes(capability);
+  const propertyIds = listAccessiblePropertyIds(scope);
 
   const appBriefPreferences = await getNotificationPreferencesForUser(userId);
   const appBriefEnabledByCategory = new Map(
@@ -281,12 +287,16 @@ export async function getAppBrief(
   );
 
   const [workOrderRows, pmRows, complianceRows, leaseRows, inspectionRows, equipmentRows] = await Promise.all([
-    workOrdersVisible ? listOpenWorkOrdersForBrief(organizationId) : null,
-    pmVisible ? listPreventiveMaintenancePlans(organizationId, { isActive: true }) : null,
-    complianceVisible ? listComplianceRecords(organizationId, { isActive: true }) : null,
-    leasesVisible ? listLeases(organizationId) : null,
-    inspectionsVisible ? listInspections(organizationId) : null,
-    equipmentVisible ? listPropertyEquipmentNeedingAttention(organizationId) : null,
+    workOrdersVisible ? listOpenWorkOrdersForBrief(organizationId, propertyIds) : null,
+    pmVisible ? listPreventiveMaintenancePlans(organizationId, { isActive: true, propertyIds }) : null,
+    complianceVisible ? listComplianceRecords(organizationId, { isActive: true, propertyIds }) : null,
+    // Leases are Unit-scoped — listLeases takes the full scope object (see
+    // lib/leases/leases.ts's buildLeaseScopeCondition) rather than a plain
+    // propertyIds array, so a Unit-restricted user never sees another Unit's
+    // lease milestones in their brief.
+    leasesVisible ? listLeases(organizationId, { scope }) : null,
+    inspectionsVisible ? listInspections(organizationId, { propertyIds }) : null,
+    equipmentVisible ? listPropertyEquipmentNeedingAttention(organizationId, propertyIds) : null,
   ]);
 
   const hasCapabilityForAnySection = [
@@ -303,7 +313,9 @@ export async function getAppBrief(
   // well-established, reused-elsewhere query functions.
   const needsPropertyNames = Boolean(pmRows || complianceRows || leaseRows || inspectionRows);
   const propertyNameById = needsPropertyNames
-    ? new Map((await listProperties(organizationId)).map((property) => [property.id, property.name]))
+    ? new Map(
+        (await listProperties(organizationId, { propertyIds })).map((property) => [property.id, property.name]),
+      )
     : new Map<string, string>();
   const nameFor = (propertyId: string) => propertyNameById.get(propertyId) ?? "Unknown property";
 

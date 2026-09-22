@@ -38,6 +38,10 @@ export const PROPERTY_COMPONENT_CAPABILITIES = {
   EDIT: "property_component.edit",
   MANAGE_SERVICE: "property_component.manage_service",
   MANAGE_DOCUMENTS: "property_component.manage_documents",
+  // ACCESS-1: narrower than MANAGE_DOCUMENTS — lets a User upload a photo of a
+  // Property Component without granting full component document management
+  // (cover-photo selection, deleting others' photos, etc).
+  UPLOAD_PHOTO: "property_component.upload_photo",
 } as const;
 
 export const PROPERTY_COMPONENT_FILES_ENTITY_TYPE = "property_component";

@@ -75,7 +75,11 @@ export async function listVendors(
   organizationId: string,
   options: ListVendorsOptions = {},
 ): Promise<VendorWithCategories[]> {
-  const conditions = [eq(vendors.organizationId, organizationId)];
+  // ACCESS-1: unconditional, not an opt-in filter — a pending or rejected
+  // vendor must never appear in a normal vendor selector anywhere in the
+  // app. The one deliberate exception is listPendingVendorSubmissions below,
+  // which queries `vendors` directly instead of going through this function.
+  const conditions = [eq(vendors.organizationId, organizationId), eq(vendors.approvalStatus, "approved")];
 
   if (options.isActive !== undefined) {
     conditions.push(eq(vendors.isActive, options.isActive));
@@ -127,7 +131,30 @@ export async function listVendors(
   return attachCategories(organizationId, rows);
 }
 
+/**
+ * ACCESS-1: approved-only, same as listVendors — every existing caller uses
+ * this to resolve a `vendorId` reference (on a Work Order, PM plan, service
+ * record, ...) or to render the normal vendor detail/edit page, none of
+ * which should ever be able to reach a pending/rejected vendor. The
+ * vendor-approval review flow uses getVendorForReview instead.
+ */
 export async function getVendor(organizationId: string, id: string): Promise<VendorRow | null> {
+  const [row] = await db
+    .select()
+    .from(vendors)
+    .where(
+      and(
+        eq(vendors.id, id),
+        eq(vendors.organizationId, organizationId),
+        eq(vendors.approvalStatus, "approved"),
+      ),
+    )
+    .limit(1);
+  return row ?? null;
+}
+
+/** Resolves a vendor regardless of approval status — used only by the pending-vendor review flow. */
+export async function getVendorForReview(organizationId: string, id: string): Promise<VendorRow | null> {
   const [row] = await db
     .select()
     .from(vendors)
@@ -179,6 +206,97 @@ export async function createVendor(organizationId: string, input: CreateVendorIn
   }
 
   return row;
+}
+
+export interface SubmitVendorInput {
+  name: string;
+  primaryPhone?: string;
+  primaryEmail?: string;
+  notes?: string;
+  categoryIds?: string[];
+}
+
+/** Case-insensitive exact-name match against vendors of any approval status — blocks an obvious re-submit, not fuzzy matching. */
+export async function findVendorByExactName(organizationId: string, name: string): Promise<VendorRow | null> {
+  const [row] = await db
+    .select()
+    .from(vendors)
+    .where(and(eq(vendors.organizationId, organizationId), ilike(vendors.name, name.trim())))
+    .limit(1);
+  return row ?? null;
+}
+
+export async function createVendorSubmission(
+  organizationId: string,
+  submittedByUserId: string,
+  propertyId: string,
+  input: SubmitVendorInput,
+): Promise<VendorRow> {
+  const [row] = await db
+    .insert(vendors)
+    .values({
+      organizationId,
+      name: input.name,
+      primaryPhone: input.primaryPhone ?? null,
+      primaryEmail: input.primaryEmail ?? null,
+      notes: input.notes ?? null,
+      approvalStatus: "pending",
+      submittedByUserId,
+      submissionPropertyId: propertyId,
+      submissionNotes: input.notes ?? null,
+    })
+    .returning();
+
+  if (input.categoryIds && input.categoryIds.length > 0) {
+    await replaceVendorCategories(organizationId, row.id, input.categoryIds);
+  }
+
+  return row;
+}
+
+/** Pending submissions, optionally restricted to a set of property ids (Manager scope) — `null` means unrestricted (Admin). */
+export async function listPendingVendorSubmissions(
+  organizationId: string,
+  propertyIds: string[] | null,
+): Promise<VendorWithCategories[]> {
+  const conditions = [eq(vendors.organizationId, organizationId), eq(vendors.approvalStatus, "pending")];
+
+  if (propertyIds !== null) {
+    if (propertyIds.length === 0) {
+      return [];
+    }
+    conditions.push(inArray(vendors.submissionPropertyId, propertyIds));
+  }
+
+  const rows = await db.select().from(vendors).where(and(...conditions)).orderBy(asc(vendors.createdAt));
+  return attachCategories(organizationId, rows);
+}
+
+export async function reviewVendorSubmission(
+  organizationId: string,
+  id: string,
+  reviewedByUserId: string,
+  decision: "approved" | "rejected",
+  reviewNotes?: string,
+): Promise<VendorRow | null> {
+  const [row] = await db
+    .update(vendors)
+    .set({
+      approvalStatus: decision,
+      reviewedByUserId,
+      reviewedAt: new Date(),
+      reviewNotes: reviewNotes ?? null,
+      updatedAt: new Date(),
+    })
+    .where(
+      and(
+        eq(vendors.id, id),
+        eq(vendors.organizationId, organizationId),
+        eq(vendors.approvalStatus, "pending"),
+      ),
+    )
+    .returning();
+  return row ?? null;
 }
 
 export async function updateVendor(

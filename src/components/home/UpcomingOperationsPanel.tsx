@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import type { PropertyScope } from "@/lib/auth/property-access";
 import { listCalendarEvents } from "@/lib/calendar";
 import { CALENDAR_SOURCE_TYPE_LABELS } from "@/lib/calendar/constants";
 import { formatDateOnly, formatTimestampInTimezone, todayInTimezone } from "@/lib/calendar/timezone";
@@ -43,9 +44,11 @@ function Column({ title, events, timezone, emptyText }: { title: string; events:
 export async function UpcomingOperationsPanel({
   organizationId,
   timezone,
+  scope,
 }: {
   organizationId: string;
   timezone: string;
+  scope: PropertyScope;
 }) {
   const today = todayInTimezone(timezone);
   const in7Days = new Date(`${today}T00:00:00.000Z`);
@@ -53,8 +56,8 @@ export async function UpcomingOperationsPanel({
   const rangeEnd = in7Days.toISOString().slice(0, 10);
 
   const [upcoming, overdue] = await Promise.all([
-    listCalendarEvents(organizationId, timezone, { rangeStart: today, rangeEnd }),
-    listCalendarEvents(organizationId, timezone, { overdueOnly: true }),
+    listCalendarEvents(organizationId, timezone, { rangeStart: today, rangeEnd }, scope),
+    listCalendarEvents(organizationId, timezone, { overdueOnly: true }, scope),
   ]);
 
   const todayEvents = upcoming.filter((event) => event.startAt.slice(0, 10) === today);

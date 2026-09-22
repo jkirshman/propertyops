@@ -8,6 +8,9 @@ export const VENDOR_ERROR_CODE_MESSAGES: Record<string, string> = {
   unauthenticated: "Your session has expired. Please log in again.",
   forbidden: "You don't have permission to do that.",
   not_found: "This vendor could not be found.",
+  // ACCESS-1 vendor-submission codes (POST /api/vendor-requests).
+  duplicate_vendor: "A vendor with this name already exists.",
+  invalid_property: "Select a valid property.",
 };
 
 export function describeVendorApiError(errorCode: string | undefined): string {

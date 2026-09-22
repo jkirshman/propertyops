@@ -93,5 +93,37 @@ export const updateVendorSchema = z.object({
   categoryIds: z.array(z.string().uuid()).max(50).optional(),
 });
 
+// ACCESS-1: a User submitting a vendor for approval — deliberately narrower
+// than createVendorSchema. No coverage/insurance/license/contract fields —
+// those are Admin/Manager-only concerns, set later if/when approved.
+export const submitVendorSchema = z.object({
+  name: z
+    .string({ error: "Vendor name is required." })
+    .trim()
+    .min(1, "Vendor name is required.")
+    .max(200, "Vendor name must be 200 characters or fewer."),
+  primaryPhone: z.preprocess(emptyToUndefined, z.string().trim().max(40).optional()),
+  primaryEmail: z.preprocess(
+    emptyToUndefined,
+    z
+      .string()
+      .trim()
+      .toLowerCase()
+      .email("Email address is invalid.")
+      .max(200, "Email address must be 200 characters or fewer.")
+      .optional(),
+  ),
+  notes: z.preprocess(emptyToUndefined, z.string().trim().max(4000).optional()),
+  categoryIds: z.array(z.string().uuid()).max(50).optional(),
+  propertyId: z.string().uuid({ error: "A property is required." }),
+});
+
+export const reviewVendorSubmissionSchema = z.object({
+  decision: z.enum(["approved", "rejected"], { error: "A decision is required." }),
+  reviewNotes: z.preprocess(emptyToUndefined, z.string().trim().max(4000).optional()),
+});
+
 export type CreateVendorInput = z.infer<typeof createVendorSchema>;
 export type UpdateVendorInput = z.infer<typeof updateVendorSchema>;
+export type SubmitVendorInput = z.infer<typeof submitVendorSchema>;
+export type ReviewVendorSubmissionInput = z.infer<typeof reviewVendorSubmissionSchema>;

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { recordAuditEvent } from "@/db/audit";
 import { getCurrentUserWithCapabilities } from "@/lib/auth/current-user";
+import { listAccessiblePropertyIds, resolveUserPropertyScope } from "@/lib/auth/property-access";
 import { PROPERTY_CAPABILITIES } from "@/lib/properties/constants";
 import { createProperty, listProperties } from "@/lib/properties/properties";
 import { createPropertySchema } from "@/lib/validation/properties";
@@ -23,11 +24,18 @@ export async function GET(request: Request) {
   const activeParam = searchParams.get("active");
   const isActive = activeParam === "true" ? true : activeParam === "false" ? false : undefined;
 
+  const scope = await resolveUserPropertyScope(
+    context.user.id,
+    context.user.organizationId,
+    context.capabilityKeys,
+  );
+
   const results = await listProperties(context.user.organizationId, {
     search,
     propertyTypeId,
     propertyCompanyId: propertyCompanyId as string | "unassigned" | undefined,
     isActive,
+    propertyIds: listAccessiblePropertyIds(scope),
   });
 
   return NextResponse.json({ properties: results });

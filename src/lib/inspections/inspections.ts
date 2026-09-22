@@ -1,4 +1,4 @@
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, inArray } from "drizzle-orm";
 
 import { db } from "@/db/client";
 import { inspectionResponses, inspections } from "@/db/schema";
@@ -19,11 +19,17 @@ export interface ListInspectionsOptions {
   templateId?: string;
   status?: string;
   inspectorUserId?: string;
+  /** ACCESS-1: when provided and not null, results are limited to these Property ids. */
+  propertyIds?: string[] | null;
 }
 
 export async function listInspections(organizationId: string, options: ListInspectionsOptions = {}) {
   const conditions = [eq(inspections.organizationId, organizationId)];
   if (options.propertyId) conditions.push(eq(inspections.propertyId, options.propertyId));
+  if (options.propertyIds !== undefined && options.propertyIds !== null) {
+    if (options.propertyIds.length === 0) return [];
+    conditions.push(inArray(inspections.propertyId, options.propertyIds));
+  }
   if (options.propertyEquipmentId) {
     conditions.push(eq(inspections.propertyEquipmentId, options.propertyEquipmentId));
   }

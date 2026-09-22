@@ -100,6 +100,9 @@ export async function listVendorsCoveringProperty(organizationId: string, proper
         eq(vendors.organizationId, organizationId),
         eq(vendors.coverageMode, "all"),
         eq(vendors.isActive, true),
+        // ACCESS-1: a pending/rejected vendor must never appear in a normal
+        // vendor selector, including this property-coverage lookup.
+        eq(vendors.approvalStatus, "approved"),
       ),
     );
   const allModeVendorIds = allVendorsRows.map((row) => row.id);
@@ -112,7 +115,13 @@ export async function listVendorsCoveringProperty(organizationId: string, proper
   const rows = await db
     .select()
     .from(vendors)
-    .where(and(inArray(vendors.id, matchingIds), eq(vendors.isActive, true)));
+    .where(
+      and(
+        inArray(vendors.id, matchingIds),
+        eq(vendors.isActive, true),
+        eq(vendors.approvalStatus, "approved"),
+      ),
+    );
 
   return attachCategories(organizationId, rows);
 }

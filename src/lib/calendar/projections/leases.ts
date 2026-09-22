@@ -1,9 +1,7 @@
-import { eq } from "drizzle-orm";
-
-import { db } from "@/db/client";
-import { leases } from "@/db/schema";
+import type { PropertyScope } from "@/lib/auth/property-access";
 import type { CalendarCategory } from "@/lib/calendar/constants";
 import type { CalendarEvent } from "@/lib/calendar/types";
+import { listLeases } from "@/lib/leases/leases";
 
 export interface LeaseCalendarRow {
   id: string;
@@ -69,22 +67,18 @@ export function projectLeaseMilestones(row: LeaseCalendarRow, today: string): Ca
   return events;
 }
 
-export async function fetchLeaseEvents(organizationId: string, today: string): Promise<CalendarEvent[]> {
-  const rows = await db
-    .select({
-      id: leases.id,
-      organizationId: leases.organizationId,
-      propertyId: leases.propertyId,
-      label: leases.label,
-      startDate: leases.startDate,
-      endDate: leases.endDate,
-      noticeDate: leases.noticeDate,
-      renewalOptionDate: leases.renewalOptionDate,
-      moveInDate: leases.moveInDate,
-      moveOutDate: leases.moveOutDate,
-    })
-    .from(leases)
-    .where(eq(leases.organizationId, organizationId));
-
+/**
+ * ACCESS-1: Leases are the one Unit-scoped entity in the app (see
+ * lib/leases/leases.ts's buildLeaseScopeCondition) — reuses `listLeases`
+ * rather than a raw query here so the calendar inherits the same Unit-aware
+ * scoping as every other Lease read path, instead of a second, potentially
+ * divergent implementation of the same rule.
+ */
+export async function fetchLeaseEvents(
+  organizationId: string,
+  today: string,
+  scope?: PropertyScope,
+): Promise<CalendarEvent[]> {
+  const rows = await listLeases(organizationId, { scope });
   return rows.flatMap((row) => projectLeaseMilestones(row, today));
 }

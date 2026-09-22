@@ -33,6 +33,8 @@ export interface ListWorkOrdersOptions {
   categoryId?: string;
   assignedUserId?: string;
   vendorId?: string;
+  /** ACCESS-1: when provided and not null, results are limited to these Property ids. */
+  propertyIds?: string[] | null;
 }
 
 export async function listWorkOrders(organizationId: string, options: ListWorkOrdersOptions = {}) {
@@ -40,6 +42,10 @@ export async function listWorkOrders(organizationId: string, options: ListWorkOr
 
   if (options.propertyId) {
     conditions.push(eq(workOrders.propertyId, options.propertyId));
+  }
+  if (options.propertyIds !== undefined && options.propertyIds !== null) {
+    if (options.propertyIds.length === 0) return [];
+    conditions.push(inArray(workOrders.propertyId, options.propertyIds));
   }
   if (options.propertyEquipmentId) {
     conditions.push(eq(workOrders.propertyEquipmentId, options.propertyEquipmentId));
@@ -80,7 +86,24 @@ export async function listWorkOrders(organizationId: string, options: ListWorkOr
 // Powers the Home App Brief's Overdue / High-Urgent Work Orders sections —
 // listWorkOrders' status filter only supports a single exact value, not "any
 // non-terminal status," so this is a dedicated query rather than a reuse.
-export async function listOpenWorkOrdersForBrief(organizationId: string) {
+export async function listOpenWorkOrdersForBrief(
+  organizationId: string,
+  // ACCESS-1: null/omitted = unrestricted; an array scopes to those
+  // properties; an empty array short-circuits to no rows.
+  propertyIds?: string[] | null,
+) {
+  if (propertyIds !== undefined && propertyIds !== null && propertyIds.length === 0) {
+    return [];
+  }
+
+  const conditions = [
+    eq(workOrders.organizationId, organizationId),
+    inArray(workOrders.status, WORK_ORDER_NON_TERMINAL_STATUSES),
+  ];
+  if (propertyIds !== undefined && propertyIds !== null) {
+    conditions.push(inArray(workOrders.propertyId, propertyIds));
+  }
+
   return db
     .select({
       id: workOrders.id,
@@ -94,12 +117,7 @@ export async function listOpenWorkOrdersForBrief(organizationId: string) {
     })
     .from(workOrders)
     .innerJoin(properties, eq(properties.id, workOrders.propertyId))
-    .where(
-      and(
-        eq(workOrders.organizationId, organizationId),
-        inArray(workOrders.status, WORK_ORDER_NON_TERMINAL_STATUSES),
-      ),
-    )
+    .where(and(...conditions))
     .orderBy(workOrders.openedAt);
 }
 

@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 
 import { LeaseForm, type LeaseFormValues } from "@/components/leases/LeaseForm";
 import { requireCapability } from "@/lib/auth/require-capability";
+import { canAccessPropertyUnit, resolveUserPropertyScope } from "@/lib/auth/property-access";
 import { LEASE_CAPABILITIES } from "@/lib/leases/constants";
 import { getLease } from "@/lib/leases/leases";
 import { getProperty } from "@/lib/properties/properties";
@@ -17,6 +18,15 @@ export default async function EditLeasePage({
 
   const lease = await getLease(context.user.organizationId, id);
   if (!lease) {
+    notFound();
+  }
+
+  const scope = await resolveUserPropertyScope(
+    context.user.id,
+    context.user.organizationId,
+    context.capabilityKeys,
+  );
+  if (!canAccessPropertyUnit(scope, lease.propertyId, lease.propertyUnitId)) {
     notFound();
   }
 

@@ -2,9 +2,10 @@ import { NextResponse } from "next/server";
 
 import { recordAuditEvent } from "@/db/audit";
 import { getCurrentUserWithCapabilities } from "@/lib/auth/current-user";
+import { resolveUserPropertyScope } from "@/lib/auth/property-access";
 import { TENANT_CAPABILITIES } from "@/lib/tenants/constants";
 import { createTenantContact, listTenantContacts } from "@/lib/tenants/contacts";
-import { getTenant } from "@/lib/tenants/tenants";
+import { getTenant, tenantHasAccessibleLease } from "@/lib/tenants/tenants";
 import { createTenantContactSchema } from "@/lib/validation/tenant-contacts";
 
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -17,6 +18,16 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   }
 
   const { id } = await params;
+
+  const scope = await resolveUserPropertyScope(
+    context.user.id,
+    context.user.organizationId,
+    context.capabilityKeys,
+  );
+  if (scope.kind !== "all" && !(await tenantHasAccessibleLease(context.user.organizationId, id, scope))) {
+    return NextResponse.json({ error: "not_found" }, { status: 404 });
+  }
+
   const contacts = await listTenantContacts(context.user.organizationId, id);
   return NextResponse.json({ contacts });
 }
@@ -35,6 +46,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
   const tenant = await getTenant(user.organizationId, id);
   if (!tenant) {
+    return NextResponse.json({ error: "not_found" }, { status: 404 });
+  }
+
+  const scope = await resolveUserPropertyScope(user.id, user.organizationId, context.capabilityKeys);
+  if (scope.kind !== "all" && !(await tenantHasAccessibleLease(user.organizationId, id, scope))) {
     return NextResponse.json({ error: "not_found" }, { status: 404 });
   }
 

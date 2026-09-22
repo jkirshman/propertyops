@@ -1,3 +1,4 @@
+import { listAccessiblePropertyIds, type PropertyScope } from "@/lib/auth/property-access";
 import { applyCalendarFilters, sortCalendarEvents } from "@/lib/calendar/filters";
 import { fetchComplianceEvents } from "@/lib/calendar/projections/compliance";
 import { fetchInspectionEvents } from "@/lib/calendar/projections/inspections";
@@ -22,24 +23,35 @@ export async function listCalendarEvents(
   organizationId: string,
   organizationTimezone: string,
   filters: CalendarFilters = {},
+  // ACCESS-1: the resolved requester's Property/Unit scope. Every source is
+  // filtered through it (Leases are Unit-aware via fetchLeaseEvents; manual
+  // events keep org-wide/null-property entries visible to everyone).
+  scope: PropertyScope = { kind: "all" },
 ): Promise<CalendarEvent[]> {
   const now = new Date();
   const today = todayInTimezone(organizationTimezone, now);
+  const propertyIds = listAccessiblePropertyIds(scope);
 
   const wants = (type: CalendarSourceType) => !filters.sourceType || filters.sourceType === type;
 
   const [workOrderEvents, pmEvents, inspectionEvents, complianceEvents, leaseEvents, manualEvents] =
     await Promise.all([
-      wants("work_order") ? fetchWorkOrderEvents(organizationId, now) : Promise.resolve([]),
+      wants("work_order") ? fetchWorkOrderEvents(organizationId, now, propertyIds) : Promise.resolve([]),
       wants("preventive_maintenance")
-        ? fetchPreventiveMaintenanceEvents(organizationId, now, today)
+        ? fetchPreventiveMaintenanceEvents(organizationId, now, today, propertyIds)
         : Promise.resolve([]),
       wants("inspection")
-        ? fetchInspectionEvents(organizationId, now, today, filters.includeCompletedInspections ?? false)
+        ? fetchInspectionEvents(
+            organizationId,
+            now,
+            today,
+            filters.includeCompletedInspections ?? false,
+            propertyIds,
+          )
         : Promise.resolve([]),
-      wants("compliance") ? fetchComplianceEvents(organizationId, today) : Promise.resolve([]),
-      wants("lease") ? fetchLeaseEvents(organizationId, today) : Promise.resolve([]),
-      wants("manual") ? fetchOperationalEvents(organizationId, now) : Promise.resolve([]),
+      wants("compliance") ? fetchComplianceEvents(organizationId, today, propertyIds) : Promise.resolve([]),
+      wants("lease") ? fetchLeaseEvents(organizationId, today, scope) : Promise.resolve([]),
+      wants("manual") ? fetchOperationalEvents(organizationId, now, propertyIds) : Promise.resolve([]),
     ]);
 
   const all = [

@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { listCalendarEvents } from "@/lib/calendar";
 import { CALENDAR_CAPABILITIES, CALENDAR_SOURCE_TYPES, type CalendarSourceType } from "@/lib/calendar/constants";
 import { getCurrentUserWithCapabilities } from "@/lib/auth/current-user";
+import { resolveUserPropertyScope } from "@/lib/auth/property-access";
 import { getOrganizationTimezone } from "@/lib/organizations/organizations";
 
 export async function GET(request: Request) {
@@ -22,19 +23,29 @@ export async function GET(request: Request) {
       : undefined;
 
   const timezone = await getOrganizationTimezone(context.user.organizationId);
+  const scope = await resolveUserPropertyScope(
+    context.user.id,
+    context.user.organizationId,
+    context.capabilityKeys,
+  );
 
-  const events = await listCalendarEvents(context.user.organizationId, timezone, {
-    propertyId: searchParams.get("propertyId") ?? undefined,
-    sourceType,
-    status: searchParams.get("status") ?? undefined,
-    vendorId: searchParams.get("vendorId") ?? undefined,
-    assignedUserId: searchParams.get("assignedUserId") ?? undefined,
-    upcomingOnly: searchParams.get("upcomingOnly") === "true",
-    overdueOnly: searchParams.get("overdueOnly") === "true",
-    rangeStart: searchParams.get("rangeStart") ?? undefined,
-    rangeEnd: searchParams.get("rangeEnd") ?? undefined,
-    includeCompletedInspections: searchParams.get("includeCompletedInspections") === "true",
-  });
+  const events = await listCalendarEvents(
+    context.user.organizationId,
+    timezone,
+    {
+      propertyId: searchParams.get("propertyId") ?? undefined,
+      sourceType,
+      status: searchParams.get("status") ?? undefined,
+      vendorId: searchParams.get("vendorId") ?? undefined,
+      assignedUserId: searchParams.get("assignedUserId") ?? undefined,
+      upcomingOnly: searchParams.get("upcomingOnly") === "true",
+      overdueOnly: searchParams.get("overdueOnly") === "true",
+      rangeStart: searchParams.get("rangeStart") ?? undefined,
+      rangeEnd: searchParams.get("rangeEnd") ?? undefined,
+      includeCompletedInspections: searchParams.get("includeCompletedInspections") === "true",
+    },
+    scope,
+  );
 
   return NextResponse.json({ events, timezone });
 }

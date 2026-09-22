@@ -5,6 +5,10 @@ export const PROPERTY_CAPABILITIES = {
   MANAGE_CONTACTS: "property.manage_contacts",
   MANAGE_NOTES: "property.manage_notes",
   MANAGE_DOCUMENTS: "property.manage_documents",
+  // ACCESS-1: narrower than MANAGE_CONTACTS — lets a User create a contact
+  // (which they may then edit themselves) without granting edit/delete rights
+  // over contacts they didn't create.
+  CREATE_CONTACT: "property.create_contact",
 } as const;
 
 export const PROPERTY_TYPE_CAPABILITIES = {
@@ -46,3 +50,10 @@ export const CONTACT_TYPE_LABELS: Record<ContactType, string> = {
 };
 
 export const PROPERTY_FILES_ENTITY_TYPE = "property";
+
+// ACCESS-1: contact types a User (holding only CREATE_CONTACT, not
+// MANAGE_CONTACTS) may assign when creating a Property Contact. Excludes
+// authoritative ownership roles (owner, landlord, property_manager,
+// asset_manager) and the lease-relationship "tenant" type — those stay
+// Admin/Manager-only via MANAGE_CONTACTS.
+export const USER_CREATABLE_CONTACT_TYPES: ContactType[] = ["emergency", "utility", "other"];

@@ -16,6 +16,30 @@ interface RoleOption {
   name: string;
 }
 
+interface PropertyAccessRow {
+  id: string;
+  propertyId: string;
+  propertyName: string;
+  propertyUnitId: string | null;
+  unitLabel: string | null;
+}
+
+interface PropertyOption {
+  id: string;
+  name: string;
+}
+
+interface UnitOption {
+  id: string;
+  unitLabel: string;
+  isActive: boolean;
+}
+
+// ACCESS-1: the capability that marks a role as unrestricted (organization-
+// wide) Property access — assigning rows below has no effect for a user
+// whose role currently holds it (see src/lib/auth/property-access.ts).
+const UNRESTRICTED_ACCESS_CAPABILITY = "properties.access.unrestricted";
+
 export function UserDetailPanel({ userId, isSelf }: { userId: string; isSelf: boolean }) {
   const [user, setUser] = useState<UserDetail | null>(null);
   const [roleName, setRoleName] = useState<string | null>(null);
@@ -29,11 +53,21 @@ export function UserDetailPanel({ userId, isSelf }: { userId: string; isSelf: bo
   const [busy, setBusy] = useState(false);
   const [activationUrl, setActivationUrl] = useState<string | null>(null);
 
+  const [propertyAccess, setPropertyAccess] = useState<PropertyAccessRow[]>([]);
+  const [properties, setProperties] = useState<PropertyOption[]>([]);
+  const [units, setUnits] = useState<UnitOption[]>([]);
+  const [accessPropertyId, setAccessPropertyId] = useState("");
+  const [accessUnitId, setAccessUnitId] = useState("");
+  const [accessError, setAccessError] = useState<string | null>(null);
+  const [accessBusy, setAccessBusy] = useState(false);
+
   const load = useCallback(async () => {
     try {
-      const [userResponse, rolesResponse] = await Promise.all([
+      const [userResponse, rolesResponse, accessResponse, propertiesResponse] = await Promise.all([
         fetch(`/api/admin/users/${userId}`),
         fetch("/api/roles"),
+        fetch(`/api/admin/users/${userId}/property-access`),
+        fetch("/api/properties"),
       ]);
       if (userResponse.ok) {
         const data = await userResponse.json();
@@ -46,6 +80,19 @@ export function UserDetailPanel({ userId, isSelf }: { userId: string; isSelf: bo
         const data = await rolesResponse.json();
         setRoles((data.roles ?? []).map((role: { id: string; name: string }) => ({ id: role.id, name: role.name })));
       }
+      if (accessResponse.ok) {
+        const data = await accessResponse.json();
+        setPropertyAccess(data.access ?? []);
+      }
+      if (propertiesResponse.ok) {
+        const data = await propertiesResponse.json();
+        setProperties(
+          (data.properties ?? []).map((property: { id: string; name: string }) => ({
+            id: property.id,
+            name: property.name,
+          })),
+        );
+      }
     } finally {
       setLoading(false);
     }
@@ -54,6 +101,75 @@ export function UserDetailPanel({ userId, isSelf }: { userId: string; isSelf: bo
   useEffect(() => {
     load();
   }, [load]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const request = accessPropertyId
+      ? fetch(`/api/properties/${accessPropertyId}/units`).then((response) => (response.ok ? response.json() : null))
+      : Promise.resolve(null);
+    request.then((data) => {
+      if (!cancelled) setUnits(data?.units ?? []);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [accessPropertyId]);
+
+  function handleAccessPropertyChange(propertyId: string) {
+    setAccessPropertyId(propertyId);
+    setAccessUnitId("");
+  }
+
+  async function handleAddAccess() {
+    if (!accessPropertyId) return;
+    setAccessError(null);
+    setAccessBusy(true);
+    try {
+      const response = await fetch(`/api/admin/users/${userId}/property-access`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ propertyId: accessPropertyId, propertyUnitId: accessUnitId || null }),
+      });
+      const data = await response.json().catch(() => null);
+      if (!response.ok) {
+        setAccessError(
+          data?.error === "already_assigned"
+            ? "This user already has that access assigned."
+            : "Could not assign that access.",
+        );
+        return;
+      }
+      setPropertyAccess(data.access ?? []);
+      setAccessPropertyId("");
+      setAccessUnitId("");
+    } catch {
+      setAccessError("Could not reach the server.");
+    } finally {
+      setAccessBusy(false);
+    }
+  }
+
+  async function handleRemoveAccess(accessId: string) {
+    setAccessError(null);
+    setAccessBusy(true);
+    try {
+      const response = await fetch(`/api/admin/users/${userId}/property-access/${accessId}`, {
+        method: "DELETE",
+      });
+      if (!response.ok) {
+        setAccessError("Could not remove that access.");
+        return;
+      }
+      setPropertyAccess((current) => current.filter((row) => row.id !== accessId));
+    } catch {
+      setAccessError("Could not reach the server.");
+    } finally {
+      setAccessBusy(false);
+    }
+  }
+
+  const activeUnits = units.filter((unit) => unit.isActive);
+  const isUnrestrictedRole = capabilityKeys.includes(UNRESTRICTED_ACCESS_CAPABILITY);
 
   async function patch(body: Record<string, unknown>) {
     setError(null);
@@ -217,6 +333,104 @@ export function UserDetailPanel({ userId, isSelf }: { userId: string; isSelf: bo
               ))}
             </div>
           )}
+        </div>
+      </div>
+
+      <div className="card" style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+        <strong>Property access</strong>
+        <p className="muted" style={{ fontSize: "0.85rem", margin: 0 }}>
+          Role decides what this person can do; access below decides which Properties (and
+          optionally which Unit/Suite) they can do it in.
+        </p>
+        {isUnrestrictedRole ? (
+          <p className="muted" style={{ fontSize: "0.85rem" }}>
+            This role has unrestricted access to every property — assigned rows below have no
+            effect unless this user is later reassigned to a restricted role.
+          </p>
+        ) : null}
+        {accessError ? <p className="error-text">{accessError}</p> : null}
+
+        {propertyAccess.length === 0 ? (
+          <p className="muted" style={{ fontSize: "0.85rem" }}>No properties assigned yet.</p>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: "0.4rem" }}>
+            {propertyAccess.map((row) => (
+              <div
+                key={row.id}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: "0.75rem",
+                  border: "1px solid var(--border)",
+                  borderRadius: "8px",
+                  padding: "0.5rem 0.75rem",
+                }}
+              >
+                <span style={{ fontSize: "0.9rem" }}>
+                  {row.propertyName}
+                  {row.propertyUnitId ? ` — Unit ${row.unitLabel ?? row.propertyUnitId}` : " — Whole property"}
+                </span>
+                <button
+                  type="button"
+                  className="button"
+                  disabled={accessBusy}
+                  onClick={() => handleRemoveAccess(row.id)}
+                >
+                  Remove
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div style={{ display: "flex", gap: "0.75rem", alignItems: "flex-end", flexWrap: "wrap" }}>
+          <div style={{ flex: "1 1 200px" }}>
+            <label className="label" htmlFor="access-property-select">
+              Property
+            </label>
+            <select
+              id="access-property-select"
+              className="input"
+              value={accessPropertyId}
+              onChange={(event) => handleAccessPropertyChange(event.target.value)}
+            >
+              <option value="">Select a property…</option>
+              {properties.map((property) => (
+                <option key={property.id} value={property.id}>
+                  {property.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          {accessPropertyId && activeUnits.length > 0 ? (
+            <div style={{ flex: "1 1 200px" }}>
+              <label className="label" htmlFor="access-unit-select">
+                Unit / Suite
+              </label>
+              <select
+                id="access-unit-select"
+                className="input"
+                value={accessUnitId}
+                onChange={(event) => setAccessUnitId(event.target.value)}
+              >
+                <option value="">Whole property</option>
+                {activeUnits.map((unit) => (
+                  <option key={unit.id} value={unit.id}>
+                    {unit.unitLabel}
+                  </option>
+                ))}
+              </select>
+            </div>
+          ) : null}
+          <button
+            type="button"
+            className="button button-primary"
+            disabled={accessBusy || !accessPropertyId}
+            onClick={handleAddAccess}
+          >
+            Add access
+          </button>
         </div>
       </div>
 

@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 
 import { PropertyForm, type PropertyFormValues } from "@/components/properties/PropertyForm";
 import { requireCapability } from "@/lib/auth/require-capability";
+import { canAccessProperty, resolveUserPropertyScope } from "@/lib/auth/property-access";
 import { PROPERTY_CAPABILITIES } from "@/lib/properties/constants";
 import { getProperty } from "@/lib/properties/properties";
 import { listPropertyTypes } from "@/lib/properties/property-types";
@@ -22,6 +23,15 @@ export default async function EditPropertyPage({
   ]);
 
   if (!property) {
+    notFound();
+  }
+
+  const scope = await resolveUserPropertyScope(
+    context.user.id,
+    context.user.organizationId,
+    context.capabilityKeys,
+  );
+  if (!canAccessProperty(scope, property.id)) {
     notFound();
   }
 

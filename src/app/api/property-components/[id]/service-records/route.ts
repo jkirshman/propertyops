@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { recordAuditEvent } from "@/db/audit";
 import { getCurrentUserWithCapabilities } from "@/lib/auth/current-user";
+import { canAccessProperty, resolveUserPropertyScope } from "@/lib/auth/property-access";
 import { PROPERTY_COMPONENT_CAPABILITIES } from "@/lib/property-components/constants";
 import { getPropertyComponent } from "@/lib/property-components/property-components";
 import {
@@ -22,7 +23,18 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   }
 
   const { id } = await params;
-  const records = await listPropertyComponentServiceRecords(context.user.organizationId, id);
+  const { user, capabilityKeys } = context;
+
+  const component = await getPropertyComponent(user.organizationId, id);
+  if (!component) {
+    return NextResponse.json({ error: "not_found" }, { status: 404 });
+  }
+  const scope = await resolveUserPropertyScope(user.id, user.organizationId, capabilityKeys);
+  if (!canAccessProperty(scope, component.propertyId)) {
+    return NextResponse.json({ error: "not_found" }, { status: 404 });
+  }
+
+  const records = await listPropertyComponentServiceRecords(user.organizationId, id);
   return NextResponse.json({ serviceRecords: records });
 }
 
@@ -37,10 +49,14 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   }
 
   const { id } = await params;
-  const { user } = context;
+  const { user, capabilityKeys } = context;
 
   const component = await getPropertyComponent(user.organizationId, id);
   if (!component) {
+    return NextResponse.json({ error: "not_found" }, { status: 404 });
+  }
+  const scope = await resolveUserPropertyScope(user.id, user.organizationId, capabilityKeys);
+  if (!canAccessProperty(scope, component.propertyId)) {
     return NextResponse.json({ error: "not_found" }, { status: 404 });
   }
 

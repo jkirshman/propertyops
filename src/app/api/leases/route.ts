@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { recordAuditEvent } from "@/db/audit";
 import { getCurrentUserWithCapabilities } from "@/lib/auth/current-user";
+import { canAccessPropertyUnit, forbiddenResponseBody, resolveUserPropertyScope } from "@/lib/auth/property-access";
 import { LEASE_CAPABILITIES } from "@/lib/leases/constants";
 import { createLease, listLeases } from "@/lib/leases/leases";
 import { getProperty } from "@/lib/properties/properties";
@@ -18,11 +19,18 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "forbidden" }, { status: 403 });
   }
 
+  const scope = await resolveUserPropertyScope(
+    context.user.id,
+    context.user.organizationId,
+    context.capabilityKeys,
+  );
+
   const { searchParams } = new URL(request.url);
   const leases = await listLeases(context.user.organizationId, {
     propertyId: searchParams.get("propertyId") ?? undefined,
     tenantId: searchParams.get("tenantId") ?? undefined,
     status: searchParams.get("status") ?? undefined,
+    scope,
   });
 
   return NextResponse.json({ leases });
@@ -47,6 +55,11 @@ export async function POST(request: Request) {
   }
 
   const { user } = context;
+
+  const scope = await resolveUserPropertyScope(user.id, user.organizationId, context.capabilityKeys);
+  if (!canAccessPropertyUnit(scope, parsed.data.propertyId, parsed.data.propertyUnitId ?? null)) {
+    return NextResponse.json(forbiddenResponseBody(), { status: 403 });
+  }
 
   const [property, tenant] = await Promise.all([
     getProperty(user.organizationId, parsed.data.propertyId),

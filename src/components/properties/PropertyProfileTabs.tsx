@@ -48,7 +48,7 @@ const TAB_LABELS: Record<Tab, string> = {
   compliance: "Compliance",
   leases: "Tenants / Leases",
   units: "Units / Suites",
-  components: "Components",
+  components: "Property Components",
   photos: "Photos",
   contacts: "Contacts",
   notes: "Notes",
@@ -127,6 +127,9 @@ export function PropertyProfileTabs({
   canEditUnits,
   canCreateComponents,
   canManagePhotos,
+  canUploadComponentPhotos = false,
+  canCreateContacts = false,
+  currentUserId,
 }: {
   propertyId: string;
   overview: PropertyOverview;
@@ -149,6 +152,9 @@ export function PropertyProfileTabs({
   canEditUnits: boolean;
   canCreateComponents: boolean;
   canManagePhotos: boolean;
+  canUploadComponentPhotos?: boolean;
+  canCreateContacts?: boolean;
+  currentUserId?: string;
 }) {
   const [tab, setTab] = useState<Tab>(initialTab ?? "overview");
   const visibleTabs = TABS.filter((value) => value !== "units" || supportsUnits);
@@ -213,9 +219,21 @@ export function PropertyProfileTabs({
         <PropertyComponentsPanel propertyId={propertyId} canCreate={canCreateComponents} />
       ) : null}
       {tab === "photos" ? (
-        <PropertyPhotosPanel propertyId={propertyId} supportsUnits={supportsUnits} canManage={canManagePhotos} />
+        <PropertyPhotosPanel
+          propertyId={propertyId}
+          supportsUnits={supportsUnits}
+          canManage={canManagePhotos}
+          canUploadComponentPhoto={canUploadComponentPhotos}
+        />
       ) : null}
-      {tab === "contacts" ? <ContactsPanel propertyId={propertyId} canManage={canManageContacts} /> : null}
+      {tab === "contacts" ? (
+        <ContactsPanel
+          propertyId={propertyId}
+          canManage={canManageContacts}
+          canCreate={canCreateContacts}
+          currentUserId={currentUserId}
+        />
+      ) : null}
       {tab === "notes" ? <NotesPanel propertyId={propertyId} canManage={canManageNotes} /> : null}
       {tab === "documents" ? <DocumentsPanel propertyId={propertyId} canManage={canManageDocuments} /> : null}
       {tab === "activity" ? <ActivityPanel propertyId={propertyId} /> : null}

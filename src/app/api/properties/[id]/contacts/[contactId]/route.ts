@@ -2,9 +2,10 @@ import { NextResponse } from "next/server";
 
 import { recordAuditEvent } from "@/db/audit";
 import { getCurrentUserWithCapabilities } from "@/lib/auth/current-user";
+import { canAccessProperty, resolveUserPropertyScope } from "@/lib/auth/property-access";
 import { diffFields } from "@/lib/db/diff-fields";
-import { getPropertyContact, updatePropertyContact } from "@/lib/properties/contacts";
-import { PROPERTY_CAPABILITIES } from "@/lib/properties/constants";
+import { canEditPropertyContact, getPropertyContact, updatePropertyContact } from "@/lib/properties/contacts";
+import { PROPERTY_CAPABILITIES, USER_CREATABLE_CONTACT_TYPES } from "@/lib/properties/constants";
 import { updatePropertyContactSchema } from "@/lib/validation/property-contacts";
 
 export async function PATCH(
@@ -16,16 +17,26 @@ export async function PATCH(
     return NextResponse.json({ error: "unauthenticated" }, { status: 401 });
   }
 
-  if (!context.capabilityKeys.includes(PROPERTY_CAPABILITIES.MANAGE_CONTACTS)) {
+  const { user, capabilityKeys } = context;
+  const canManage = capabilityKeys.includes(PROPERTY_CAPABILITIES.MANAGE_CONTACTS);
+  if (!canManage && !capabilityKeys.includes(PROPERTY_CAPABILITIES.CREATE_CONTACT)) {
     return NextResponse.json({ error: "forbidden" }, { status: 403 });
   }
 
   const { id, contactId } = await params;
-  const { user } = context;
+
+  const scope = await resolveUserPropertyScope(user.id, user.organizationId, capabilityKeys);
+  if (!canAccessProperty(scope, id)) {
+    return NextResponse.json({ error: "not_found" }, { status: 404 });
+  }
 
   const existing = await getPropertyContact(user.organizationId, id, contactId);
   if (!existing) {
     return NextResponse.json({ error: "not_found" }, { status: 404 });
+  }
+
+  if (!canEditPropertyContact(capabilityKeys, existing, user.id)) {
+    return NextResponse.json({ error: "forbidden" }, { status: 403 });
   }
 
   const body = await request.json().catch(() => null);
@@ -35,6 +46,26 @@ export async function PATCH(
       { error: "invalid_input", details: parsed.error.flatten() },
       { status: 400 },
     );
+  }
+
+  // Delete/deactivate and any authoritative-role reassignment stay
+  // MANAGE_CONTACTS-only, even for a User editing their own contact.
+  if (!canManage) {
+    if (parsed.data.isActive === false) {
+      return NextResponse.json({ error: "forbidden" }, { status: 403 });
+    }
+    if (
+      parsed.data.contactType !== undefined &&
+      !(USER_CREATABLE_CONTACT_TYPES as readonly string[]).includes(parsed.data.contactType)
+    ) {
+      return NextResponse.json(
+        {
+          error: "invalid_input",
+          details: { fieldErrors: { contactType: ["That contact type isn't available to you."] } },
+        },
+        { status: 400 },
+      );
+    }
   }
 
   const updated = await updatePropertyContact(user.organizationId, id, contactId, parsed.data);

@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 
 import { PreventiveMaintenanceDetailPanel } from "@/components/preventive-maintenance/PreventiveMaintenanceDetailPanel";
 import { requireCapability } from "@/lib/auth/require-capability";
+import { canAccessProperty, resolveUserPropertyScope } from "@/lib/auth/property-access";
 import { getPropertyEquipment } from "@/lib/equipment/property-equipment";
 import { PREVENTIVE_MAINTENANCE_CAPABILITIES } from "@/lib/preventive-maintenance/constants";
 import { getPreventiveMaintenancePlan } from "@/lib/preventive-maintenance/plans";
@@ -22,6 +23,15 @@ export default async function PreventiveMaintenancePlanDetailPage({
 
   const plan = await getPreventiveMaintenancePlan(context.user.organizationId, id);
   if (!plan) {
+    notFound();
+  }
+
+  const scope = await resolveUserPropertyScope(
+    context.user.id,
+    context.user.organizationId,
+    context.capabilityKeys,
+  );
+  if (!canAccessProperty(scope, plan.propertyId)) {
     notFound();
   }
 

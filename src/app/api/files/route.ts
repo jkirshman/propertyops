@@ -1,9 +1,14 @@
 import { NextResponse } from "next/server";
 
 import { recordAuditEvent } from "@/db/audit";
+import { resolveUserPropertyScope } from "@/lib/auth/property-access";
 import { getCurrentUserWithCapabilities } from "@/lib/auth/current-user";
 import { isFileStorageConfigured, listFilesForOrganization, uploadPrivateFile } from "@/lib/files/files";
-import { getRelatedEntityFileRules } from "@/lib/files/related-entity-rules";
+import {
+  canAccessRelatedEntityPropertyContext,
+  getRelatedEntityFileRules,
+  resolveRelatedEntityPropertyContext,
+} from "@/lib/files/related-entity-rules";
 
 export async function GET(request: Request) {
   const context = await getCurrentUserWithCapabilities();
@@ -19,6 +24,20 @@ export async function GET(request: Request) {
   const rules = getRelatedEntityFileRules(relatedEntityType);
   if (rules && !capabilityKeys.includes(rules.viewCapability)) {
     return NextResponse.json({ error: "forbidden" }, { status: 403 });
+  }
+
+  if (relatedEntityType && relatedEntityId) {
+    const context = await resolveRelatedEntityPropertyContext(
+      user.organizationId,
+      relatedEntityType,
+      relatedEntityId,
+    );
+    if (context) {
+      const scope = await resolveUserPropertyScope(user.id, user.organizationId, capabilityKeys);
+      if (!canAccessRelatedEntityPropertyContext(scope, context)) {
+        return NextResponse.json({ error: "not_found" }, { status: 404 });
+      }
+    }
   }
 
   const records = await listFilesForOrganization(
@@ -56,6 +75,20 @@ export async function POST(request: Request) {
   const rules = getRelatedEntityFileRules(relatedEntityType);
   if (rules && !capabilityKeys.includes(rules.manageCapability)) {
     return NextResponse.json({ error: "forbidden" }, { status: 403 });
+  }
+
+  if (relatedEntityType && relatedEntityId) {
+    const context = await resolveRelatedEntityPropertyContext(
+      user.organizationId,
+      relatedEntityType,
+      relatedEntityId,
+    );
+    if (context) {
+      const scope = await resolveUserPropertyScope(user.id, user.organizationId, capabilityKeys);
+      if (!canAccessRelatedEntityPropertyContext(scope, context)) {
+        return NextResponse.json({ error: "forbidden" }, { status: 403 });
+      }
+    }
   }
 
   let record;

@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
 
 import { getCurrentUserWithCapabilities } from "@/lib/auth/current-user";
+import { canAccessProperty, resolveUserPropertyScope } from "@/lib/auth/property-access";
 import { PROPERTY_CAPABILITIES } from "@/lib/properties/constants";
 import { listPropertyActivity } from "@/lib/properties/activity";
+import { getProperty } from "@/lib/properties/properties";
 
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const context = await getCurrentUserWithCapabilities();
@@ -15,6 +17,18 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   }
 
   const { id } = await params;
+  const { user, capabilityKeys } = context;
+
+  const property = await getProperty(user.organizationId, id);
+  if (!property) {
+    return NextResponse.json({ error: "not_found" }, { status: 404 });
+  }
+
+  const scope = await resolveUserPropertyScope(user.id, user.organizationId, capabilityKeys);
+  if (!canAccessProperty(scope, property.id)) {
+    return NextResponse.json({ error: "not_found" }, { status: 404 });
+  }
+
   const activity = await listPropertyActivity(context.user.organizationId, id);
   return NextResponse.json({ activity });
 }

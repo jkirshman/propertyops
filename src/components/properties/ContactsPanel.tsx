@@ -2,7 +2,12 @@
 
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 
-import { CONTACT_TYPES, CONTACT_TYPE_LABELS, type ContactType } from "@/lib/properties/constants";
+import {
+  CONTACT_TYPES,
+  CONTACT_TYPE_LABELS,
+  USER_CREATABLE_CONTACT_TYPES,
+  type ContactType,
+} from "@/lib/properties/constants";
 
 interface ContactRecord {
   id: string;
@@ -16,6 +21,7 @@ interface ContactRecord {
   notes: string | null;
   isPrimary: boolean;
   isActive: boolean;
+  createdByUserId: string | null;
 }
 
 interface ContactFormState {
@@ -56,7 +62,19 @@ function toFormState(contact: ContactRecord): ContactFormState {
   };
 }
 
-export function ContactsPanel({ propertyId, canManage }: { propertyId: string; canManage: boolean }) {
+export function ContactsPanel({
+  propertyId,
+  canManage,
+  canCreate = false,
+  currentUserId,
+}: {
+  propertyId: string;
+  canManage: boolean;
+  canCreate?: boolean;
+  currentUserId?: string;
+}) {
+  const canAddContact = canManage || canCreate;
+  const availableContactTypes = canManage ? CONTACT_TYPES : USER_CREATABLE_CONTACT_TYPES;
   const [contacts, setContacts] = useState<ContactRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -140,7 +158,7 @@ export function ContactsPanel({ propertyId, canManage }: { propertyId: string; c
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
-      {canManage ? (
+      {canAddContact ? (
         <div>
           <button
             type="button"
@@ -181,7 +199,7 @@ export function ContactsPanel({ propertyId, canManage }: { propertyId: string; c
                       setForm((prev) => ({ ...prev, contactType: event.target.value as ContactType }))
                     }
                   >
-                    {CONTACT_TYPES.map((type) => (
+                    {availableContactTypes.map((type) => (
                       <option key={type} value={type}>
                         {CONTACT_TYPE_LABELS[type]}
                       </option>
@@ -309,14 +327,16 @@ export function ContactsPanel({ propertyId, canManage }: { propertyId: string; c
                     </div>
                   ) : null}
                 </div>
-                {canManage ? (
+                {canManage || (canCreate && contact.createdByUserId === currentUserId) ? (
                   <div style={{ display: "flex", gap: "0.5rem", alignItems: "flex-start" }}>
                     <button type="button" className="button" onClick={() => startEdit(contact)}>
                       Edit
                     </button>
-                    <button type="button" className="button" onClick={() => toggleActive(contact)}>
-                      {contact.isActive ? "Deactivate" : "Reactivate"}
-                    </button>
+                    {canManage ? (
+                      <button type="button" className="button" onClick={() => toggleActive(contact)}>
+                        {contact.isActive ? "Deactivate" : "Reactivate"}
+                      </button>
+                    ) : null}
                   </div>
                 ) : null}
               </div>

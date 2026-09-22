@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { PropertyProfileTabs } from "@/components/properties/PropertyProfileTabs";
 import { ASSET_CAPABILITIES } from "@/lib/assets/constants";
 import { requireCapability } from "@/lib/auth/require-capability";
+import { canAccessProperty, resolveUserPropertyScope } from "@/lib/auth/property-access";
 import { COMPLIANCE_CAPABILITIES } from "@/lib/compliance/constants";
 import { EQUIPMENT_CAPABILITIES } from "@/lib/equipment/constants";
 import { INSPECTION_CAPABILITIES } from "@/lib/inspections/constants";
@@ -34,6 +35,15 @@ export default async function PropertyDetailPage({
 
   const property = await getProperty(context.user.organizationId, id);
   if (!property) {
+    notFound();
+  }
+
+  const scope = await resolveUserPropertyScope(
+    context.user.id,
+    context.user.organizationId,
+    context.capabilityKeys,
+  );
+  if (!canAccessProperty(scope, property.id)) {
     notFound();
   }
 
@@ -98,6 +108,9 @@ export default async function PropertyDetailPage({
         canEditUnits={context.capabilityKeys.includes(PROPERTY_UNIT_CAPABILITIES.EDIT)}
         canCreateComponents={context.capabilityKeys.includes(PROPERTY_COMPONENT_CAPABILITIES.CREATE)}
         canManagePhotos={context.capabilityKeys.includes(PROPERTY_CAPABILITIES.MANAGE_DOCUMENTS)}
+        canUploadComponentPhotos={context.capabilityKeys.includes(PROPERTY_COMPONENT_CAPABILITIES.UPLOAD_PHOTO)}
+        canCreateContacts={context.capabilityKeys.includes(PROPERTY_CAPABILITIES.CREATE_CONTACT)}
+        currentUserId={context.user.id}
       />
     </div>
   );

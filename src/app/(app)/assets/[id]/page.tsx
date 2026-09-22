@@ -2,10 +2,11 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { AssetDetailPanel } from "@/components/assets/AssetDetailPanel";
-import { getAsset } from "@/lib/assets/assets";
+import { getAsset, isAssetVisibleForScope } from "@/lib/assets/assets";
 import { getAssetCategory } from "@/lib/assets/categories";
 import { ASSET_CAPABILITIES, ASSET_STATUS_LABELS, type AssetStatus } from "@/lib/assets/constants";
 import { requireCapability } from "@/lib/auth/require-capability";
+import { resolveUserPropertyScope } from "@/lib/auth/property-access";
 import { WORK_ORDER_CAPABILITIES } from "@/lib/work-orders/constants";
 
 export default async function AssetDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -14,6 +15,15 @@ export default async function AssetDetailPage({ params }: { params: Promise<{ id
 
   const asset = await getAsset(context.user.organizationId, id);
   if (!asset) {
+    notFound();
+  }
+
+  const scope = await resolveUserPropertyScope(
+    context.user.id,
+    context.user.organizationId,
+    context.capabilityKeys,
+  );
+  if (!isAssetVisibleForScope(asset, scope)) {
     notFound();
   }
 

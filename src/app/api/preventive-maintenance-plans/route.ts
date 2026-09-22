@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { recordAuditEvent } from "@/db/audit";
 import { getCurrentUserWithCapabilities } from "@/lib/auth/current-user";
+import { canAccessProperty, forbiddenResponseBody, listAccessiblePropertyIds, resolveUserPropertyScope } from "@/lib/auth/property-access";
 import { getWorkOrderCategory } from "@/lib/work-orders/categories";
 import { getPropertyEquipment } from "@/lib/equipment/property-equipment";
 import { PREVENTIVE_MAINTENANCE_CAPABILITIES, type PmDueState } from "@/lib/preventive-maintenance/constants";
@@ -24,6 +25,12 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "forbidden" }, { status: 403 });
   }
 
+  const scope = await resolveUserPropertyScope(
+    context.user.id,
+    context.user.organizationId,
+    context.capabilityKeys,
+  );
+
   const { searchParams } = new URL(request.url);
   const activeParam = searchParams.get("active");
 
@@ -34,6 +41,7 @@ export async function GET(request: Request) {
     isActive: activeParam === "true" ? true : activeParam === "false" ? false : undefined,
     defaultAssigneeUserId: searchParams.get("assignedUserId") ?? undefined,
     dueState: (searchParams.get("dueState") as PmDueState | null) ?? undefined,
+    propertyIds: listAccessiblePropertyIds(scope),
   });
 
   return NextResponse.json({ plans });
@@ -59,6 +67,11 @@ export async function POST(request: Request) {
   }
 
   const { user } = context;
+
+  const scope = await resolveUserPropertyScope(user.id, user.organizationId, context.capabilityKeys);
+  if (!canAccessProperty(scope, parsed.data.propertyId)) {
+    return NextResponse.json(forbiddenResponseBody(), { status: 403 });
+  }
 
   const category = await getWorkOrderCategory(user.organizationId, parsed.data.categoryId);
   if (!category) {

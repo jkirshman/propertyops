@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { recordAuditEvent } from "@/db/audit";
 import { getCurrentUserWithCapabilities } from "@/lib/auth/current-user";
+import { canAccessProperty, resolveUserPropertyScope } from "@/lib/auth/property-access";
 import { diffFields } from "@/lib/db/diff-fields";
 import { PROPERTY_UNIT_CAPABILITIES } from "@/lib/property-units/constants";
 import { getPropertyUnit, updatePropertyUnit } from "@/lib/property-units/property-units";
@@ -21,10 +22,15 @@ export async function PATCH(
   }
 
   const { id, unitId } = await params;
-  const { user } = context;
+  const { user, capabilityKeys } = context;
 
   const existing = await getPropertyUnit(user.organizationId, id, unitId);
   if (!existing) {
+    return NextResponse.json({ error: "not_found" }, { status: 404 });
+  }
+
+  const scope = await resolveUserPropertyScope(user.id, user.organizationId, capabilityKeys);
+  if (!canAccessProperty(scope, existing.propertyId)) {
     return NextResponse.json({ error: "not_found" }, { status: 404 });
   }
 

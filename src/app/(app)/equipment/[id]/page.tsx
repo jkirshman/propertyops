@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 
 import { EquipmentDetailPanel } from "@/components/equipment/EquipmentDetailPanel";
 import { requireCapability } from "@/lib/auth/require-capability";
+import { canAccessProperty, resolveUserPropertyScope } from "@/lib/auth/property-access";
 import { getEquipmentCatalogItem } from "@/lib/equipment/catalog";
 import {
   EQUIPMENT_CAPABILITIES,
@@ -27,6 +28,15 @@ export default async function PropertyEquipmentDetailPage({
 
   const equipment = await getPropertyEquipment(context.user.organizationId, id);
   if (!equipment) {
+    notFound();
+  }
+
+  const scope = await resolveUserPropertyScope(
+    context.user.id,
+    context.user.organizationId,
+    context.capabilityKeys,
+  );
+  if (!canAccessProperty(scope, equipment.propertyId)) {
     notFound();
   }
 

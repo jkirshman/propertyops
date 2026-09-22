@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { recordAuditEvent } from "@/db/audit";
 import { getCurrentUserWithCapabilities } from "@/lib/auth/current-user";
+import { canAccessProperty, resolveUserPropertyScope } from "@/lib/auth/property-access";
 import { setPropertyEquipmentTemplateSelection } from "@/lib/equipment/template-resolution";
 import { getEquipmentTemplate } from "@/lib/equipment/templates";
 import { PROPERTY_CAPABILITIES } from "@/lib/properties/constants";
@@ -23,6 +24,11 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
   const existing = await getProperty(user.organizationId, id);
   if (!existing) {
+    return NextResponse.json({ error: "not_found" }, { status: 404 });
+  }
+
+  const scope = await resolveUserPropertyScope(user.id, user.organizationId, context.capabilityKeys);
+  if (!canAccessProperty(scope, existing.id)) {
     return NextResponse.json({ error: "not_found" }, { status: 404 });
   }
 

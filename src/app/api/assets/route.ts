@@ -4,6 +4,7 @@ import { recordAuditEvent } from "@/db/audit";
 import { createAsset, listAssets } from "@/lib/assets/assets";
 import { ASSET_CAPABILITIES } from "@/lib/assets/constants";
 import { getCurrentUserWithCapabilities } from "@/lib/auth/current-user";
+import { listAccessiblePropertyIds, resolveUserPropertyScope } from "@/lib/auth/property-access";
 import { createAssetSchema } from "@/lib/validation/assets";
 
 export async function GET(request: Request) {
@@ -15,6 +16,12 @@ export async function GET(request: Request) {
   if (!context.capabilityKeys.includes(ASSET_CAPABILITIES.VIEW)) {
     return NextResponse.json({ error: "forbidden" }, { status: 403 });
   }
+
+  const scope = await resolveUserPropertyScope(
+    context.user.id,
+    context.user.organizationId,
+    context.capabilityKeys,
+  );
 
   const { searchParams } = new URL(request.url);
   const activeParam = searchParams.get("active");
@@ -28,6 +35,7 @@ export async function GET(request: Request) {
     propertyId: searchParams.get("propertyId") ?? undefined,
     personId: searchParams.get("personId") ?? undefined,
     isActive: activeParam ? activeParam === "true" : undefined,
+    propertyIds: listAccessiblePropertyIds(scope),
   });
   return NextResponse.json({ assets });
 }

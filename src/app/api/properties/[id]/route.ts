@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { recordAuditEvent } from "@/db/audit";
 import { getCurrentUserWithCapabilities } from "@/lib/auth/current-user";
+import { canAccessProperty, resolveUserPropertyScope } from "@/lib/auth/property-access";
 import { diffFields } from "@/lib/db/diff-fields";
 import { PROPERTY_CAPABILITIES } from "@/lib/properties/constants";
 import { getProperty, updateProperty } from "@/lib/properties/properties";
@@ -23,6 +24,15 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: "not_found" }, { status: 404 });
   }
 
+  const scope = await resolveUserPropertyScope(
+    context.user.id,
+    context.user.organizationId,
+    context.capabilityKeys,
+  );
+  if (!canAccessProperty(scope, property.id)) {
+    return NextResponse.json({ error: "not_found" }, { status: 404 });
+  }
+
   return NextResponse.json({ property });
 }
 
@@ -41,6 +51,11 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
   const existing = await getProperty(user.organizationId, id);
   if (!existing) {
+    return NextResponse.json({ error: "not_found" }, { status: 404 });
+  }
+
+  const scope = await resolveUserPropertyScope(user.id, user.organizationId, context.capabilityKeys);
+  if (!canAccessProperty(scope, existing.id)) {
     return NextResponse.json({ error: "not_found" }, { status: 404 });
   }
 

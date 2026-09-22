@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
 
 import { recordAuditEvent } from "@/db/audit";
-import { getAsset, updateAsset } from "@/lib/assets/assets";
+import { getAsset, isAssetVisibleForScope, updateAsset } from "@/lib/assets/assets";
 import { ASSET_CAPABILITIES } from "@/lib/assets/constants";
 import { getCurrentUserWithCapabilities } from "@/lib/auth/current-user";
+import { resolveUserPropertyScope } from "@/lib/auth/property-access";
 import { retireAssetSchema } from "@/lib/validation/assets";
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -21,6 +22,11 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
   const existing = await getAsset(user.organizationId, id);
   if (!existing) {
+    return NextResponse.json({ error: "not_found" }, { status: 404 });
+  }
+
+  const scope = await resolveUserPropertyScope(user.id, user.organizationId, context.capabilityKeys);
+  if (!isAssetVisibleForScope(existing, scope)) {
     return NextResponse.json({ error: "not_found" }, { status: 404 });
   }
 

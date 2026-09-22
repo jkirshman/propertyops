@@ -1,4 +1,4 @@
-import { and, asc, eq, ilike, isNull, or } from "drizzle-orm";
+import { and, asc, eq, ilike, inArray, isNull, or } from "drizzle-orm";
 
 import { db } from "@/db/client";
 import { properties } from "@/db/schema";
@@ -12,6 +12,8 @@ export interface ListPropertiesOptions {
   // "unassigned" is a sentinel meaning propertyCompanyId IS NULL, distinct
   // from omitting the filter entirely.
   propertyCompanyId?: string | "unassigned";
+  /** ACCESS-1: when provided and not null, results are limited to these Property ids. */
+  propertyIds?: string[] | null;
 }
 
 export async function listProperties(organizationId: string, options: ListPropertiesOptions = {}) {
@@ -29,6 +31,11 @@ export async function listProperties(organizationId: string, options: ListProper
 
   if (options.isActive !== undefined) {
     conditions.push(eq(properties.isActive, options.isActive));
+  }
+
+  if (options.propertyIds !== undefined && options.propertyIds !== null) {
+    if (options.propertyIds.length === 0) return [];
+    conditions.push(inArray(properties.id, options.propertyIds));
   }
 
   if (options.search) {

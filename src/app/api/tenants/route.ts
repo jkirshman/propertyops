@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { recordAuditEvent } from "@/db/audit";
 import { getCurrentUserWithCapabilities } from "@/lib/auth/current-user";
+import { resolveUserPropertyScope } from "@/lib/auth/property-access";
 import { TENANT_CAPABILITIES } from "@/lib/tenants/constants";
 import { createTenant, listTenants } from "@/lib/tenants/tenants";
 import { createTenantSchema } from "@/lib/validation/tenants";
@@ -15,6 +16,12 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "forbidden" }, { status: 403 });
   }
 
+  const scope = await resolveUserPropertyScope(
+    context.user.id,
+    context.user.organizationId,
+    context.capabilityKeys,
+  );
+
   const { searchParams } = new URL(request.url);
   const activeParam = searchParams.get("active");
 
@@ -23,6 +30,7 @@ export async function GET(request: Request) {
     tenantType: searchParams.get("tenantType") ?? undefined,
     isActive: activeParam === "true" ? true : activeParam === "false" ? false : undefined,
     propertyId: searchParams.get("propertyId") ?? undefined,
+    scope,
   });
 
   return NextResponse.json({ tenants });

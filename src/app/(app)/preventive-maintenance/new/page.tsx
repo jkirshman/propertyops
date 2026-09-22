@@ -1,5 +1,6 @@
 import { PreventiveMaintenanceForm } from "@/components/preventive-maintenance/PreventiveMaintenanceForm";
 import { requireCapability } from "@/lib/auth/require-capability";
+import { listAccessiblePropertyIds, resolveUserPropertyScope } from "@/lib/auth/property-access";
 import { getPropertyEquipment } from "@/lib/equipment/property-equipment";
 import { PREVENTIVE_MAINTENANCE_CAPABILITIES } from "@/lib/preventive-maintenance/constants";
 import { listProperties } from "@/lib/properties/properties";
@@ -22,8 +23,14 @@ export default async function NewPreventiveMaintenancePlanPage({
     ? await getPropertyEquipment(context.user.organizationId, equipmentId)
     : null;
 
+  const scope = await resolveUserPropertyScope(
+    context.user.id,
+    context.user.organizationId,
+    context.capabilityKeys,
+  );
+
   const [properties, categories, users, vendors] = await Promise.all([
-    listProperties(context.user.organizationId, { isActive: true }),
+    listProperties(context.user.organizationId, { isActive: true, propertyIds: listAccessiblePropertyIds(scope) }),
     listWorkOrderCategories(context.user.organizationId, { activeOnly: true }),
     listOrganizationUsers(context.user.organizationId),
     listVendors(context.user.organizationId, { isActive: true }),

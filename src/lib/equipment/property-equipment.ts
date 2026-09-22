@@ -1,4 +1,4 @@
-import { and, asc, eq, or } from "drizzle-orm";
+import { and, asc, eq, inArray, or } from "drizzle-orm";
 
 import { db } from "@/db/client";
 import { properties, propertyEquipment } from "@/db/schema";
@@ -30,7 +30,25 @@ export async function listPropertyEquipment(
 
 // Org-wide (unlike listPropertyEquipment, which is single-property) — powers
 // the Home App Brief's "Equipment needing attention" section.
-export async function listPropertyEquipmentNeedingAttention(organizationId: string) {
+export async function listPropertyEquipmentNeedingAttention(
+  organizationId: string,
+  // ACCESS-1: null/omitted = unrestricted; an array scopes to those
+  // properties; an empty array short-circuits to no rows.
+  propertyIds?: string[] | null,
+) {
+  if (propertyIds !== undefined && propertyIds !== null && propertyIds.length === 0) {
+    return [];
+  }
+
+  const conditions = [
+    eq(propertyEquipment.organizationId, organizationId),
+    eq(propertyEquipment.isActive, true),
+    or(eq(propertyEquipment.condition, "poor"), eq(propertyEquipment.status, "out_of_service"))!,
+  ];
+  if (propertyIds !== undefined && propertyIds !== null) {
+    conditions.push(inArray(propertyEquipment.propertyId, propertyIds));
+  }
+
   return db
     .select({
       id: propertyEquipment.id,
@@ -42,13 +60,7 @@ export async function listPropertyEquipmentNeedingAttention(organizationId: stri
     })
     .from(propertyEquipment)
     .innerJoin(properties, eq(properties.id, propertyEquipment.propertyId))
-    .where(
-      and(
-        eq(propertyEquipment.organizationId, organizationId),
-        eq(propertyEquipment.isActive, true),
-        or(eq(propertyEquipment.condition, "poor"), eq(propertyEquipment.status, "out_of_service")),
-      ),
-    )
+    .where(and(...conditions))
     .orderBy(asc(properties.name), asc(propertyEquipment.displayName));
 }
 

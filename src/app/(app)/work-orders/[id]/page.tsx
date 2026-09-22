@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { WorkOrderDetailPanel } from "@/components/work-orders/WorkOrderDetailPanel";
 import { listAssets } from "@/lib/assets/assets";
 import { requireCapability } from "@/lib/auth/require-capability";
+import { canAccessProperty, resolveUserPropertyScope } from "@/lib/auth/property-access";
 import { getOrganizationTimezone } from "@/lib/organizations/organizations";
 import { getProperty } from "@/lib/properties/properties";
 import { listOrganizationUsers } from "@/lib/users/users";
@@ -29,6 +30,15 @@ export default async function WorkOrderDetailPage({
 
   const workOrder = await getWorkOrder(context.user.organizationId, id);
   if (!workOrder) {
+    notFound();
+  }
+
+  const scope = await resolveUserPropertyScope(
+    context.user.id,
+    context.user.organizationId,
+    context.capabilityKeys,
+  );
+  if (!canAccessProperty(scope, workOrder.propertyId)) {
     notFound();
   }
 

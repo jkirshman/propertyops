@@ -2,9 +2,11 @@ import { NextResponse } from "next/server";
 
 import { recordAuditEvent } from "@/db/audit";
 import { getCurrentUserWithCapabilities } from "@/lib/auth/current-user";
+import { resolveUserPropertyScope } from "@/lib/auth/property-access";
 import { diffFields } from "@/lib/db/diff-fields";
 import { TENANT_CAPABILITIES } from "@/lib/tenants/constants";
 import { getTenantContact, updateTenantContact } from "@/lib/tenants/contacts";
+import { tenantHasAccessibleLease } from "@/lib/tenants/tenants";
 import { updateTenantContactSchema } from "@/lib/validation/tenant-contacts";
 
 export async function PATCH(
@@ -24,6 +26,11 @@ export async function PATCH(
 
   const existing = await getTenantContact(user.organizationId, id, contactId);
   if (!existing) {
+    return NextResponse.json({ error: "not_found" }, { status: 404 });
+  }
+
+  const scope = await resolveUserPropertyScope(user.id, user.organizationId, context.capabilityKeys);
+  if (scope.kind !== "all" && !(await tenantHasAccessibleLease(user.organizationId, id, scope))) {
     return NextResponse.json({ error: "not_found" }, { status: 404 });
   }
 

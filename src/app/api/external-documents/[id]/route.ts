@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { recordAuditEvent } from "@/db/audit";
+import { resolveUserPropertyScope } from "@/lib/auth/property-access";
 import { getCurrentUserWithCapabilities } from "@/lib/auth/current-user";
 import { diffFields } from "@/lib/db/diff-fields";
 import {
@@ -8,7 +9,11 @@ import {
   updateExternalDocumentLink,
 } from "@/lib/external-documents/external-documents";
 import { sanitizeUrlForAudit } from "@/lib/external-documents/url-validation";
-import { getRelatedEntityFileRules } from "@/lib/files/related-entity-rules";
+import {
+  canAccessRelatedEntityPropertyContext,
+  getRelatedEntityFileRules,
+  resolveRelatedEntityPropertyContext,
+} from "@/lib/files/related-entity-rules";
 import { updateExternalDocumentLinkSchema } from "@/lib/validation/external-documents";
 
 function sanitizedForAudit(row: { externalUrl?: string }) {
@@ -33,6 +38,18 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   const rules = getRelatedEntityFileRules(existing.relatedEntityType);
   if (rules && !capabilityKeys.includes(rules.manageCapability)) {
     return NextResponse.json({ error: "forbidden" }, { status: 403 });
+  }
+
+  const propertyContext = await resolveRelatedEntityPropertyContext(
+    user.organizationId,
+    existing.relatedEntityType,
+    existing.relatedEntityId,
+  );
+  if (propertyContext) {
+    const scope = await resolveUserPropertyScope(user.id, user.organizationId, capabilityKeys);
+    if (!canAccessRelatedEntityPropertyContext(scope, propertyContext)) {
+      return NextResponse.json({ error: "not_found" }, { status: 404 });
+    }
   }
 
   const body = await request.json().catch(() => null);
