@@ -19,6 +19,8 @@ const ACTION_LABELS: Record<string, string> = {
   "property_equipment.service_record_update": "Service record updated",
   "property_equipment.document_upload": "Document uploaded",
   "property_equipment.document_download": "Document downloaded",
+  "property_equipment.photo_upload": "Photo uploaded",
+  "property_equipment.photo_metadata_changed": "Photo caption updated",
   "work_order.equipment_linked": "Linked to a work order",
   "work_order.equipment_unlinked": "Unlinked from a work order",
 };

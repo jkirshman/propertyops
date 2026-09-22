@@ -20,6 +20,7 @@ import { VENDOR_CAPABILITIES } from "@/lib/vendors/constants";
 import { getProperty } from "@/lib/properties/properties";
 import { getPropertyType } from "@/lib/properties/property-types";
 import { WORK_ORDER_CAPABILITIES } from "@/lib/work-orders/constants";
+import { canUploadEntityPhoto } from "@/lib/property-photos/photo-rules";
 
 export default async function PropertyDetailPage({
   params,
@@ -108,7 +109,10 @@ export default async function PropertyDetailPage({
         canEditUnits={context.capabilityKeys.includes(PROPERTY_UNIT_CAPABILITIES.EDIT)}
         canCreateComponents={context.capabilityKeys.includes(PROPERTY_COMPONENT_CAPABILITIES.CREATE)}
         canManagePhotos={context.capabilityKeys.includes(PROPERTY_CAPABILITIES.MANAGE_DOCUMENTS)}
-        canUploadComponentPhotos={context.capabilityKeys.includes(PROPERTY_COMPONENT_CAPABILITIES.UPLOAD_PHOTO)}
+        canUploadEntityPhotos={
+          canUploadEntityPhoto(context.capabilityKeys, "component") ||
+          canUploadEntityPhoto(context.capabilityKeys, "equipment")
+        }
         canCreateContacts={context.capabilityKeys.includes(PROPERTY_CAPABILITIES.CREATE_CONTACT)}
         currentUserId={context.user.id}
       />

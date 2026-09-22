@@ -7,6 +7,7 @@ import { requireCapability } from "@/lib/auth/require-capability";
 import { COMPONENT_TYPE_LABELS, PROPERTY_COMPONENT_CAPABILITIES, type ComponentType } from "@/lib/property-components/constants";
 import { getPropertyComponent } from "@/lib/property-components/property-components";
 import { getProperty } from "@/lib/properties/properties";
+import { canUploadEntityPhoto } from "@/lib/property-photos/photo-rules";
 import { WORK_ORDER_CAPABILITIES } from "@/lib/work-orders/constants";
 import { getVendor } from "@/lib/vendors/vendors";
 
@@ -73,6 +74,7 @@ export default async function PropertyComponentDetailPage({
         canEdit={capabilityKeys.includes(PROPERTY_COMPONENT_CAPABILITIES.EDIT)}
         canManageService={capabilityKeys.includes(PROPERTY_COMPONENT_CAPABILITIES.MANAGE_SERVICE)}
         canManageDocuments={capabilityKeys.includes(PROPERTY_COMPONENT_CAPABILITIES.MANAGE_DOCUMENTS)}
+        canUploadPhotos={canUploadEntityPhoto(capabilityKeys, "component")}
         canCreateWorkOrders={capabilityKeys.includes(WORK_ORDER_CAPABILITIES.CREATE)}
       />
     </div>

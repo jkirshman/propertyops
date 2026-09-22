@@ -636,6 +636,70 @@ a.muted:hover {
   }
 }
 
+/* --- Photos (PHOTO-1) ----------------------------------------------------- */
+
+.photo-upload-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.75rem;
+}
+
+.photo-upload-submit {
+  align-self: flex-start;
+}
+
+.photo-filter-row {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.photo-grid {
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 0.9rem;
+}
+
+.photo-card {
+  padding: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  min-width: 0;
+}
+
+.photo-thumb {
+  display: block;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  border-radius: 6px;
+  background: var(--background);
+}
+
+.photo-card-action {
+  font-size: 0.8rem;
+  padding: 0.4rem 0.7rem;
+}
+
+@media (max-width: 640px) {
+  /* Field use: a full-width, thumb-reachable submit and two-up thumbnails. */
+  .photo-upload-submit {
+    align-self: stretch;
+    min-height: 44px;
+  }
+
+  .photo-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.6rem;
+  }
+
+  .photo-card-action {
+    min-height: 40px;
+  }
+}
+
 /* --- Login screen --------------------------------------------------------- */
 
 .login-page {

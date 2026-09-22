@@ -4,6 +4,9 @@ export const EQUIPMENT_CAPABILITIES = {
   EDIT: "equipment.edit",
   MANAGE_SERVICE: "equipment.manage_service",
   MANAGE_DOCUMENTS: "equipment.manage_documents",
+  // PHOTO-1: mirrors property_component.upload_photo — lets a scoped User
+  // attach a condition photo to Equipment without full document management.
+  UPLOAD_PHOTO: "equipment.upload_photo",
 } as const;
 
 export const EQUIPMENT_CATALOG_CAPABILITIES = {

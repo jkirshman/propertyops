@@ -113,6 +113,13 @@
       "when": 1790100244104,
       "tag": "0015_auth_1_password_reset",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1790104070081,
+      "tag": "0016_photo_1_equipment_photos",
+      "breakpoints": true
     }
   ]
 }

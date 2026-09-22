@@ -1,7 +1,14 @@
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray, type SQL } from "drizzle-orm";
 
 import { db } from "@/db/client";
-import { files, propertyPhotos } from "@/db/schema";
+import {
+  files,
+  propertyComponents,
+  propertyEquipment,
+  propertyPhotos,
+  propertyUnits,
+  users,
+} from "@/db/schema";
 import { canAccessProperty, canAccessPropertyUnit, type PropertyScope } from "@/lib/auth/property-access";
 import { stripUndefined } from "@/lib/db/strip-undefined";
 import type { CreatePropertyPhotoInput, UpdatePropertyPhotoInput } from "@/lib/validation/property-photos";
@@ -26,7 +33,12 @@ export function canViewPropertyPhoto(
   return canAccessPropertyUnit(scope, propertyId, photoPropertyUnitId);
 }
 
-export async function listPropertyPhotos(organizationId: string, propertyId: string) {
+/**
+ * PHOTO-1: one joined read shape for every photo list — the aggregate
+ * Property gallery and each entity's own Photos section — so the owning
+ * entity's label and the uploader travel with the photo.
+ */
+async function selectPhotos(where: SQL | undefined) {
   return db
     .select({
       id: propertyPhotos.id,
@@ -36,15 +48,54 @@ export async function listPropertyPhotos(organizationId: string, propertyId: str
       caption: propertyPhotos.caption,
       propertyUnitId: propertyPhotos.propertyUnitId,
       propertyComponentId: propertyPhotos.propertyComponentId,
+      propertyEquipmentId: propertyPhotos.propertyEquipmentId,
       isCover: propertyPhotos.isCover,
+      uploadedByUserId: propertyPhotos.uploadedByUserId,
       createdAt: propertyPhotos.createdAt,
       fileName: files.fileName,
       mimeType: files.mimeType,
+      uploadedByName: users.displayName,
+      unitLabel: propertyUnits.unitLabel,
+      componentType: propertyComponents.componentType,
+      componentName: propertyComponents.name,
+      componentOtherTypeLabel: propertyComponents.otherTypeLabel,
+      equipmentDisplayName: propertyEquipment.displayName,
     })
     .from(propertyPhotos)
     .innerJoin(files, eq(files.id, propertyPhotos.fileId))
-    .where(and(eq(propertyPhotos.organizationId, organizationId), eq(propertyPhotos.propertyId, propertyId)))
+    .leftJoin(users, eq(users.id, propertyPhotos.uploadedByUserId))
+    .leftJoin(propertyUnits, eq(propertyUnits.id, propertyPhotos.propertyUnitId))
+    .leftJoin(propertyComponents, eq(propertyComponents.id, propertyPhotos.propertyComponentId))
+    .leftJoin(propertyEquipment, eq(propertyEquipment.id, propertyPhotos.propertyEquipmentId))
+    .where(where)
     .orderBy(desc(propertyPhotos.isCover), desc(propertyPhotos.createdAt));
+}
+
+export type PhotoListRow = Awaited<ReturnType<typeof selectPhotos>>[number];
+
+/** Every photo on a Property, whatever owns it (aggregate gallery). */
+export async function listPropertyPhotos(organizationId: string, propertyId: string) {
+  return selectPhotos(and(eq(propertyPhotos.organizationId, organizationId), eq(propertyPhotos.propertyId, propertyId)));
+}
+
+/** Photos owned by one Equipment record. */
+export async function listEquipmentPhotos(organizationId: string, propertyEquipmentId: string) {
+  return selectPhotos(
+    and(
+      eq(propertyPhotos.organizationId, organizationId),
+      eq(propertyPhotos.propertyEquipmentId, propertyEquipmentId),
+    ),
+  );
+}
+
+/** Photos owned by one Property Component — includes ACCESS-1-era uploads made from the Property Photos tab. */
+export async function listComponentPhotos(organizationId: string, propertyComponentId: string) {
+  return selectPhotos(
+    and(
+      eq(propertyPhotos.organizationId, organizationId),
+      eq(propertyPhotos.propertyComponentId, propertyComponentId),
+    ),
+  );
 }
 
 export async function getPropertyPhoto(organizationId: string, propertyId: string, id: string) {
@@ -116,7 +167,9 @@ export async function createPropertyPhoto(
   organizationId: string,
   propertyId: string,
   uploadedByUserId: string | null,
-  input: CreatePropertyPhotoInput,
+  // propertyEquipmentId is never accepted from the generic Property Photos
+  // request body — only the Equipment photo route sets it.
+  input: CreatePropertyPhotoInput & { propertyEquipmentId?: string },
 ) {
   const [row] = await db
     .insert(propertyPhotos)
@@ -128,6 +181,7 @@ export async function createPropertyPhoto(
       caption: input.caption ?? null,
       propertyUnitId: input.propertyUnitId ?? null,
       propertyComponentId: input.propertyComponentId ?? null,
+      propertyEquipmentId: input.propertyEquipmentId ?? null,
       uploadedByUserId,
     })
     .returning();

@@ -7,6 +7,14 @@ import { getFileRecord } from "@/lib/files/files";
 import { PROPERTY_FILES_ENTITY_TYPE, PROPERTY_CAPABILITIES } from "@/lib/properties/constants";
 import { getProperty } from "@/lib/properties/properties";
 import { COMPONENT_PHOTO_CATEGORY } from "@/lib/property-photos/constants";
+import {
+  canViewPhotoSource,
+  isAllowedGeneralPhotoRequest,
+  presentPhoto,
+  resolvePhotoSource,
+  validatePhotoOwnerBelongsToProperty,
+  validatePhotoOwnerExclusivity,
+} from "@/lib/property-photos/photo-rules";
 import { canViewPropertyPhoto, createPropertyPhoto, listPropertyPhotos } from "@/lib/property-photos/property-photos";
 import { getPropertyComponent } from "@/lib/property-components/property-components";
 import { PROPERTY_COMPONENT_CAPABILITIES } from "@/lib/property-components/constants";
@@ -31,11 +39,21 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   }
 
   const photos = await listPropertyPhotos(user.organizationId, id);
-  // Photos are Mixed (brief §24): a photo tied to a specific Unit must
-  // respect Unit restriction; a Property-wide (propertyUnitId null) photo
-  // stays visible to anyone who can access the property at all.
-  const visiblePhotos = photos.filter((photo) => canViewPropertyPhoto(scope, id, photo.propertyUnitId));
-  return NextResponse.json({ photos: visiblePhotos });
+  // PHOTO-1: the aggregate gallery — general, Unit, Component and Equipment
+  // photos together. Photos are Mixed (brief §24): a photo tied to a
+  // specific Unit must respect Unit restriction; a Property-wide
+  // (propertyUnitId null) photo stays visible to anyone who can access the
+  // property at all. An entity photo is additionally dropped when the viewer
+  // lacks that entity's view capability — /api/files/[id] would refuse to
+  // serve its image anyway.
+  const visiblePhotos = photos.filter(
+    (photo) =>
+      canViewPropertyPhoto(scope, id, photo.propertyUnitId) &&
+      canViewPhotoSource(capabilityKeys, resolvePhotoSource(photo)),
+  );
+  return NextResponse.json({
+    photos: visiblePhotos.map((photo) => presentPhoto(photo, { userId: user.id, capabilityKeys })),
+  });
 }
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -69,6 +87,17 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: "invalid_input", details: parsed.error.flatten() }, { status: 400 });
   }
 
+  // PHOTO-1: at most one owner, and a non-component request must use a
+  // general Property category (never "component"/"equipment" by hand).
+  if (!validatePhotoOwnerExclusivity(parsed.data).ok) {
+    return NextResponse.json({ error: "multiple_owners" }, { status: 400 });
+  }
+  if (!isAllowedGeneralPhotoRequest(parsed.data)) {
+    return NextResponse.json({ error: "invalid_category" }, { status: 400 });
+  }
+
+  // Legacy (ACCESS-1) API compatibility: the UI now uploads Component photos
+  // from the Component page, but this route still accepts them.
   // A component-photo-only uploader (no full MANAGE_DOCUMENTS) may only
   // create a "component" photo, always paired with a propertyComponentId
   // belonging to this same property — never a cover photo, unit photo, or
@@ -82,12 +111,12 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       return NextResponse.json({ error: "forbidden" }, { status: 403 });
     }
     const component = await getPropertyComponent(user.organizationId, parsed.data.propertyComponentId);
-    if (!component || component.propertyId !== id) {
+    if (!validatePhotoOwnerBelongsToProperty({ organizationId: user.organizationId, propertyId: id }, component).ok) {
       return NextResponse.json({ error: "invalid_component" }, { status: 400 });
     }
   } else if (parsed.data.propertyComponentId) {
     const component = await getPropertyComponent(user.organizationId, parsed.data.propertyComponentId);
-    if (!component || component.propertyId !== id) {
+    if (!validatePhotoOwnerBelongsToProperty({ organizationId: user.organizationId, propertyId: id }, component).ok) {
       return NextResponse.json({ error: "invalid_component" }, { status: 400 });
     }
   }

@@ -20,6 +20,9 @@ const ACTION_LABELS: Record<string, string> = {
   "property.note_create": "Note added",
   "property.document_upload": "Document uploaded",
   "property.document_download": "Document downloaded",
+  "property_photo.upload": "Photo uploaded",
+  "property_photo.metadata_changed": "Photo details updated",
+  "property_photo.cover_changed": "Cover photo changed",
 };
 
 export function ActivityPanel({ propertyId }: { propertyId: string }) {

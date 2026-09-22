@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
 import {
   boolean,
+  check,
   date,
   index,
   integer,
@@ -430,7 +431,9 @@ export const propertyUnits = pgTable(
 // Photo-specific metadata layered on top of a generic `files` row (fileId) —
 // keeps `files` itself free of photo-only columns that every other module's
 // attachments would carry unused (POLISH-3).
-export const propertyPhotos = pgTable("property_photos", {
+export const propertyPhotos = pgTable(
+  "property_photos",
+  {
   id: uuid("id").primaryKey().defaultRandom(),
   organizationId: uuid("organization_id")
     .notNull()
@@ -460,9 +463,27 @@ export const propertyPhotos = pgTable("property_photos", {
   // (setting a new one unsets the prior one), not a DB constraint — same
   // pattern as property_contacts.isPrimary.
   isCover: boolean("is_cover").notNull().default(false),
+  // PHOTO-1: only populated for an Equipment photo (category "equipment").
+  // Cascades with the equipment record, mirroring propertyComponentId.
+  propertyEquipmentId: uuid("property_equipment_id").references(
+    (): typeof propertyEquipment.id => propertyEquipment.id,
+    { onDelete: "cascade" },
+  ),
+  // Also the ownership signal for PHOTO-1's uploader-may-edit-own-caption rule.
   uploadedByUserId: uuid("uploaded_by_user_id").references(() => users.id, { onDelete: "set null" }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-});
+  },
+  (table) => [
+    // PHOTO-1: a photo has at most one owning sub-entity (Unit, Component or
+    // Equipment); none = a general Property photo. Added NOT VALID in the
+    // migration so any pre-existing row isn't re-checked — see
+    // lib/property-photos/photo-rules.ts for how legacy rows are read.
+    check(
+      "property_photos_single_owner",
+      sql`num_nonnulls(${table.propertyUnitId}, ${table.propertyComponentId}, ${table.propertyEquipmentId}) <= 1`,
+    ),
+  ],
+);
 
 export const equipmentCatalogItems = pgTable(
   "equipment_catalog_items",

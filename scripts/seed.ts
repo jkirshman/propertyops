@@ -53,6 +53,7 @@ const MANAGER_CAPABILITY_KEYS = [
   "equipment.edit",
   "equipment.manage_service",
   "equipment.manage_documents",
+  "equipment.upload_photo",
   "equipment_catalog.view",
   "equipment_template.view",
   "asset.view",
@@ -118,13 +119,14 @@ const MANAGER_CAPABILITY_KEYS = [
 // ACCESS-1: User is the simplified, Property/Unit-scoped role — mostly
 // view-only, with a small set of explicit create rights (Work Orders,
 // Property Notes, a limited Property Contact, a submitted-for-approval
-// Vendor, a Property Component photo). Never property.edit/create,
+// Vendor, a Property Component or Equipment photo). Never property.edit/create,
 // never *.manage taxonomy, never any Admin Hub capability.
 const USER_CAPABILITY_KEYS = [
   "property.view",
   "property.manage_notes",
   "property.create_contact",
   "equipment.view",
+  "equipment.upload_photo",
   "asset.view",
   "work_order.view",
   "work_order.create",
@@ -250,6 +252,7 @@ const EQUIPMENT_CAPABILITIES_SEED = [
   { key: "equipment.edit", description: "Edit installed property equipment" },
   { key: "equipment.manage_service", description: "Record equipment service history" },
   { key: "equipment.manage_documents", description: "Manage equipment documents" },
+  { key: "equipment.upload_photo", description: "Upload a photo of installed property equipment" },
   { key: "equipment_catalog.view", description: "View the equipment catalog" },
   { key: "equipment_catalog.manage", description: "Manage the equipment catalog" },
   { key: "equipment_template.view", description: "View equipment templates" },

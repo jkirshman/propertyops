@@ -8,6 +8,7 @@ import { EquipmentInspectionsPanel } from "@/components/equipment/EquipmentInspe
 import { EquipmentPreventiveMaintenancePanel } from "@/components/equipment/EquipmentPreventiveMaintenancePanel";
 import { EquipmentServiceHistoryPanel } from "@/components/equipment/EquipmentServiceHistoryPanel";
 import { EquipmentWorkOrdersPanel } from "@/components/equipment/EquipmentWorkOrdersPanel";
+import { EntityPhotosPanel } from "@/components/photos/EntityPhotosPanel";
 import {
   EQUIPMENT_CONDITIONS,
   EQUIPMENT_CONDITION_LABELS,
@@ -32,10 +33,11 @@ export interface EquipmentRecord {
   notes: string | null;
 }
 
-const TABS = ["overview", "service", "workorders", "maintenance", "inspections", "documents", "activity"] as const;
+const TABS = ["overview", "photos", "service", "workorders", "maintenance", "inspections", "documents", "activity"] as const;
 type Tab = (typeof TABS)[number];
 const TAB_LABELS: Record<Tab, string> = {
   overview: "Overview",
+  photos: "Photos",
   service: "Service History",
   workorders: "Work Orders",
   maintenance: "Preventive Maintenance",
@@ -49,6 +51,7 @@ export function EquipmentDetailPanel({
   canEdit,
   canManageService,
   canManageDocuments,
+  canUploadPhotos,
   canCreateWorkOrders,
   canCreatePreventiveMaintenance,
   canCreateInspections,
@@ -57,6 +60,7 @@ export function EquipmentDetailPanel({
   canEdit: boolean;
   canManageService: boolean;
   canManageDocuments: boolean;
+  canUploadPhotos: boolean;
   canCreateWorkOrders: boolean;
   canCreatePreventiveMaintenance: boolean;
   canCreateInspections: boolean;
@@ -309,6 +313,13 @@ export function EquipmentDetailPanel({
         </div>
       ) : null}
 
+      {tab === "photos" ? (
+        <EntityPhotosPanel
+          idPrefix="equipment-photo"
+          photosUrl={`/api/property-equipment/${equipment.id}/photos`}
+          canUpload={canUploadPhotos}
+        />
+      ) : null}
       {tab === "service" ? (
         <EquipmentServiceHistoryPanel propertyEquipmentId={equipment.id} canManage={canManageService} />
       ) : null}

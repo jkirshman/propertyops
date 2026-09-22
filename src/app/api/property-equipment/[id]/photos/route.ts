@@ -2,18 +2,15 @@ import { NextResponse } from "next/server";
 
 import { getCurrentUserWithCapabilities } from "@/lib/auth/current-user";
 import { canAccessProperty, resolveUserPropertyScope } from "@/lib/auth/property-access";
+import { EQUIPMENT_CAPABILITIES, PROPERTY_EQUIPMENT_FILES_ENTITY_TYPE } from "@/lib/equipment/constants";
+import { getPropertyEquipment } from "@/lib/equipment/property-equipment";
 import { isFileStorageConfigured } from "@/lib/files/files";
-import {
-  PROPERTY_COMPONENT_CAPABILITIES,
-  PROPERTY_COMPONENT_FILES_ENTITY_TYPE,
-} from "@/lib/property-components/constants";
-import { getPropertyComponent } from "@/lib/property-components/property-components";
-import { COMPONENT_PHOTO_CATEGORY } from "@/lib/property-photos/constants";
+import { EQUIPMENT_PHOTO_CATEGORY } from "@/lib/property-photos/constants";
 import { createEntityPhotoFromUpload, readCaption } from "@/lib/property-photos/entity-photo-upload";
 import { canUploadEntityPhoto, presentPhoto } from "@/lib/property-photos/photo-rules";
-import { listComponentPhotos } from "@/lib/property-photos/property-photos";
+import { listEquipmentPhotos } from "@/lib/property-photos/property-photos";
 
-/** PHOTO-1: the Component's own Photos section — includes legacy uploads made from Property Photos. */
+/** PHOTO-1: the Equipment record's own Photos tab. */
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const context = await getCurrentUserWithCapabilities();
   if (!context) {
@@ -21,36 +18,35 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   }
 
   const { user, capabilityKeys } = context;
-  if (!capabilityKeys.includes(PROPERTY_COMPONENT_CAPABILITIES.VIEW)) {
+  if (!capabilityKeys.includes(EQUIPMENT_CAPABILITIES.VIEW)) {
     return NextResponse.json({ error: "forbidden" }, { status: 403 });
   }
 
-  const { id: componentId } = await params;
-  const component = await getPropertyComponent(user.organizationId, componentId);
-  if (!component) {
+  const { id: equipmentId } = await params;
+  const equipment = await getPropertyEquipment(user.organizationId, equipmentId);
+  if (!equipment) {
     return NextResponse.json({ error: "not_found" }, { status: 404 });
   }
 
   const scope = await resolveUserPropertyScope(user.id, user.organizationId, capabilityKeys);
-  if (!canAccessProperty(scope, component.propertyId)) {
+  if (!canAccessProperty(scope, equipment.propertyId)) {
     return NextResponse.json({ error: "not_found" }, { status: 404 });
   }
 
-  const rows = await listComponentPhotos(user.organizationId, componentId);
+  const rows = await listEquipmentPhotos(user.organizationId, equipmentId);
   return NextResponse.json({
     photos: rows.map((row) => presentPhoto(row, { userId: user.id, capabilityKeys })),
   });
 }
 
 /**
- * ACCESS-1: the narrow upload path for PROPERTY_COMPONENT_CAPABILITIES.UPLOAD_PHOTO
- * holders (a User, typically) — deliberately uploads directly rather than
- * going through POST /api/files, whose per-related-entity-type gate there
- * requires the *full* manage-documents capability. PHOTO-1 makes this the
- * primary Component photo path for every role, from the Component detail
- * page. It can only ever create a `category: "component"` property_photos row
- * tied to this one component — never a cover photo, never any other category,
- * and there is intentionally no DELETE handler.
+ * PHOTO-1: attach a condition photo directly to an Equipment record. Open to
+ * EQUIPMENT_CAPABILITIES.MANAGE_DOCUMENTS (Manager/Admin) and the narrower
+ * UPLOAD_PHOTO (scoped User) — the same two-tier shape as Component photos.
+ * The Equipment must be in the caller's organization (org-scoped lookup) and
+ * in a Property they can access; the photo is always created on that
+ * Equipment's own Property, so it can never point at an unrelated entity.
+ * No cover, no Unit tag, no DELETE handler.
  */
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const context = await getCurrentUserWithCapabilities();
@@ -59,19 +55,19 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   }
 
   const { user, capabilityKeys } = context;
-  if (!canUploadEntityPhoto(capabilityKeys, "component")) {
+  if (!canUploadEntityPhoto(capabilityKeys, "equipment")) {
     return NextResponse.json({ error: "forbidden" }, { status: 403 });
   }
 
-  const { id: componentId } = await params;
+  const { id: equipmentId } = await params;
 
-  const component = await getPropertyComponent(user.organizationId, componentId);
-  if (!component) {
+  const equipment = await getPropertyEquipment(user.organizationId, equipmentId);
+  if (!equipment) {
     return NextResponse.json({ error: "not_found" }, { status: 404 });
   }
 
   const scope = await resolveUserPropertyScope(user.id, user.organizationId, capabilityKeys);
-  if (!canAccessProperty(scope, component.propertyId)) {
+  if (!canAccessProperty(scope, equipment.propertyId)) {
     return NextResponse.json({ error: "not_found" }, { status: 404 });
   }
 
@@ -90,12 +86,12 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     photo = await createEntityPhotoFromUpload({
       organizationId: user.organizationId,
       userId: user.id,
-      propertyId: component.propertyId,
+      propertyId: equipment.propertyId,
       file,
       caption: readCaption(formData),
-      category: COMPONENT_PHOTO_CATEGORY,
-      owner: { kind: "component", id: componentId, filesEntityType: PROPERTY_COMPONENT_FILES_ENTITY_TYPE },
-      auditEntityType: "property_component",
+      category: EQUIPMENT_PHOTO_CATEGORY,
+      owner: { kind: "equipment", id: equipmentId, filesEntityType: PROPERTY_EQUIPMENT_FILES_ENTITY_TYPE },
+      auditEntityType: PROPERTY_EQUIPMENT_FILES_ENTITY_TYPE,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "upload failed";

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 
+import { EntityPhotosPanel } from "@/components/photos/EntityPhotosPanel";
 import { EntityDocumentsPanel } from "@/components/shared/EntityDocumentsPanel";
 import { PropertyComponentServiceHistoryPanel } from "@/components/properties/PropertyComponentServiceHistoryPanel";
 import { PropertyComponentWorkOrdersPanel } from "@/components/properties/PropertyComponentWorkOrdersPanel";
@@ -28,6 +29,7 @@ export function PropertyComponentDetailPanel({
   canEdit,
   canManageService,
   canManageDocuments,
+  canUploadPhotos,
   canCreateWorkOrders,
 }: {
   initialComponent: PropertyComponentRecord;
@@ -35,6 +37,7 @@ export function PropertyComponentDetailPanel({
   canEdit: boolean;
   canManageService: boolean;
   canManageDocuments: boolean;
+  canUploadPhotos: boolean;
   canCreateWorkOrders: boolean;
 }) {
   const [component, setComponent] = useState(initialComponent);
@@ -123,6 +126,15 @@ export function PropertyComponentDetailPanel({
           ) : null}
         </div>
       ) : null}
+
+      <section aria-labelledby="component-photos-heading" style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+        <h2 id="component-photos-heading" style={{ fontSize: "1rem" }}>Photos</h2>
+        <EntityPhotosPanel
+          idPrefix="component-photo"
+          photosUrl={`/api/property-components/${component.id}/photos`}
+          canUpload={canUploadPhotos}
+        />
+      </section>
 
       <div className="card">
         <h2 style={{ fontSize: "1rem", marginBottom: "0.75rem" }}>Service history</h2>

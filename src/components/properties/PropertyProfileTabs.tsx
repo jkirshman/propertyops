@@ -127,7 +127,7 @@ export function PropertyProfileTabs({
   canEditUnits,
   canCreateComponents,
   canManagePhotos,
-  canUploadComponentPhotos = false,
+  canUploadEntityPhotos = false,
   canCreateContacts = false,
   currentUserId,
 }: {
@@ -152,7 +152,7 @@ export function PropertyProfileTabs({
   canEditUnits: boolean;
   canCreateComponents: boolean;
   canManagePhotos: boolean;
-  canUploadComponentPhotos?: boolean;
+  canUploadEntityPhotos?: boolean;
   canCreateContacts?: boolean;
   currentUserId?: string;
 }) {
@@ -216,7 +216,7 @@ export function PropertyProfileTabs({
           propertyId={propertyId}
           supportsUnits={supportsUnits}
           canManage={canManagePhotos}
-          canUploadComponentPhoto={canUploadComponentPhotos}
+          canUploadEntityPhotos={canUploadEntityPhotos}
         />
       ) : null}
       {tab === "contacts" ? (
