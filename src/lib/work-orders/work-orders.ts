@@ -1,7 +1,7 @@
-import { and, desc, eq, ilike, inArray, or, sql } from "drizzle-orm";
+import { and, desc, eq, getTableColumns, ilike, inArray, or, sql } from "drizzle-orm";
 
 import { db } from "@/db/client";
-import { properties, workOrderCounters, workOrders } from "@/db/schema";
+import { properties, propertyUnits, workOrderCounters, workOrders } from "@/db/schema";
 import { stripUndefined } from "@/lib/db/strip-undefined";
 import { formatWorkOrderNumber } from "@/lib/work-orders/numbering";
 import { WORK_ORDER_NON_TERMINAL_STATUSES } from "@/lib/work-orders/constants";
@@ -76,14 +76,23 @@ export async function listWorkOrders(organizationId: string, options: ListWorkOr
     conditions.push(or(ilike(workOrders.subject, term), ilike(workOrders.number, term))!);
   }
 
+  // UNIT-OPS-1: carries the owning Unit's label so lists can show
+  // "Fitness Center" / "Property-wide" without a second round trip.
+  // Property-scoped only — callers apply filterAccessibleWorkOrders.
   return db
-    .select()
+    .select({
+      ...getTableColumns(workOrders),
+      unitLabel: propertyUnits.unitLabel,
+      unitIsActive: propertyUnits.isActive,
+    })
     .from(workOrders)
+    .leftJoin(propertyUnits, eq(propertyUnits.id, workOrders.propertyUnitId))
     .where(and(...conditions))
     .orderBy(desc(workOrders.updatedAt));
 }
 
-// Powers the Home App Brief's Overdue / High-Urgent Work Orders sections —
+// Powers the Home App Brief's Overdue / High-Urgent Work Orders sections
+// (Property-scoped here; the brief applies filterAccessibleWorkOrders) —
 // listWorkOrders' status filter only supports a single exact value, not "any
 // non-terminal status," so this is a dedicated query rather than a reuse.
 export async function listOpenWorkOrdersForBrief(
@@ -113,6 +122,7 @@ export async function listOpenWorkOrdersForBrief(
       status: workOrders.status,
       openedAt: workOrders.openedAt,
       propertyId: workOrders.propertyId,
+      propertyUnitId: workOrders.propertyUnitId,
       propertyName: properties.name,
     })
     .from(workOrders)
@@ -145,6 +155,7 @@ export async function createWorkOrder(
     .values({
       organizationId,
       propertyId: input.propertyId,
+      propertyUnitId: input.propertyUnitId ?? null,
       propertyEquipmentId: input.propertyEquipmentId ?? null,
       propertyComponentId: input.propertyComponentId ?? null,
       assetId: input.assetId ?? null,

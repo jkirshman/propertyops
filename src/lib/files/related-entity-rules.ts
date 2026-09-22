@@ -10,7 +10,7 @@ import {
   propertyEquipment,
   workOrders,
 } from "@/db/schema";
-import { canAccessProperty, canAccessPropertyUnit, type PropertyScope } from "@/lib/auth/property-access";
+import { canAccessPropertyUnit, type PropertyScope } from "@/lib/auth/property-access";
 import { ASSET_CAPABILITIES, ASSET_FILES_ENTITY_TYPE } from "@/lib/assets/constants";
 import { COMPLIANCE_CAPABILITIES, COMPLIANCE_FILES_ENTITY_TYPE } from "@/lib/compliance/constants";
 import { EQUIPMENT_CAPABILITIES, PROPERTY_EQUIPMENT_FILES_ENTITY_TYPE } from "@/lib/equipment/constants";
@@ -84,28 +84,16 @@ export function getRelatedEntityFileRules(
 
 export interface RelatedEntityPropertyContext {
   propertyId: string;
-  // null unless the related entity is itself Unit-scoped (Lease, or
-  // Unit-owned Equipment — UNIT-EQUIP-1). Every Property-wide entity type
-  // resolves to `null` here even
-  // though it clearly belongs to a Property — Documents/Files are
-  // Property-wide everywhere in this app, so there is no Unit to check.
+  // UNIT-OPS-1: the Unit the related entity belongs to, or null for a
+  // Property-wide / Shared record. Only Unit-ownable entities (Work Orders,
+  // Equipment, Leases) ever resolve a non-null value; everything else is
+  // Property-wide by nature. One rule applies to all of them — see
+  // canAccessRelatedEntityPropertyContext.
   propertyUnitId: string | null;
-  // True for Lease, and for Equipment only when it is Unit-owned
-  // (UNIT-EQUIP-1). Drives which access rule applies below — NOT simply
-  // `propertyUnitId !== null`, because a Lease that hasn't been tied to a
-  // specific Unit yet (propertyUnitId: null) must still go through the
-  // stricter Unit-aware check: `leases.ts` (Tenant/Lease cluster) already
-  // hides such a Lease from a Unit-restricted user, since which Unit it
-  // belongs to can't be proven — a document attached to that same Lease must
-  // be hidden from that same user too, or it becomes a bypass of that rule.
-  // Every Property-wide entity type is `false` here even when its resolved
-  // propertyUnitId also happens to be null, because those ARE meant to stay
-  // visible to a Unit-restricted user (Property-wide data, per the brief).
-  isUnitScopedEntity: boolean;
 }
 
 /**
- * ACCESS-1: resolves the Property (and, for Lease, Unit) a file/external-
+ * ACCESS-1: resolves the Property (and, for a Unit-owned record, Unit) a file/external-
  * document's related entity belongs to, so file/document access can be
  * checked against the requester's Property scope alongside the capability
  * check above. Returns `null` when the related entity type has no single
@@ -127,15 +115,17 @@ export async function resolveRelatedEntityPropertyContext(
         .from(properties)
         .where(and(eq(properties.id, relatedEntityId), eq(properties.organizationId, organizationId)))
         .limit(1);
-      return row ? { propertyId: row.id, propertyUnitId: null, isUnitScopedEntity: false } : null;
+      return row ? { propertyId: row.id, propertyUnitId: null } : null;
     }
     case WORK_ORDER_FILES_ENTITY_TYPE: {
       const [row] = await db
-        .select({ propertyId: workOrders.propertyId })
+        .select({ propertyId: workOrders.propertyId, propertyUnitId: workOrders.propertyUnitId })
         .from(workOrders)
         .where(and(eq(workOrders.id, relatedEntityId), eq(workOrders.organizationId, organizationId)))
         .limit(1);
-      return row ? { propertyId: row.propertyId, propertyUnitId: null, isUnitScopedEntity: false } : null;
+      // UNIT-OPS-1: Work Order attachments inherit the Work Order's own
+      // visibility — another Unit's attachments (and their filenames) 404.
+      return row ? { propertyId: row.propertyId, propertyUnitId: row.propertyUnitId } : null;
     }
     case PROPERTY_EQUIPMENT_FILES_ENTITY_TYPE: {
       const [row] = await db
@@ -146,13 +136,8 @@ export async function resolveRelatedEntityPropertyContext(
         )
         .limit(1);
       // UNIT-EQUIP-1: Equipment documents and photo images inherit Equipment
-      // visibility. Unit-owned Equipment takes the Unit-aware check;
-      // Property-wide (Shared) Equipment deliberately stays on the plain
-      // Property check — unlike a Unit-less Lease, Shared Equipment is meant
-      // to be visible to Unit-restricted users (see equipment-access.ts).
-      return row
-        ? { propertyId: row.propertyId, propertyUnitId: row.propertyUnitId, isUnitScopedEntity: row.propertyUnitId !== null }
-        : null;
+      // visibility (Shared Equipment's stay visible to Unit-restricted users).
+      return row ? { propertyId: row.propertyId, propertyUnitId: row.propertyUnitId } : null;
     }
     case PROPERTY_COMPONENT_FILES_ENTITY_TYPE: {
       const [row] = await db
@@ -162,7 +147,7 @@ export async function resolveRelatedEntityPropertyContext(
           and(eq(propertyComponents.id, relatedEntityId), eq(propertyComponents.organizationId, organizationId)),
         )
         .limit(1);
-      return row ? { propertyId: row.propertyId, propertyUnitId: null, isUnitScopedEntity: false } : null;
+      return row ? { propertyId: row.propertyId, propertyUnitId: null } : null;
     }
     case LEASE_FILES_ENTITY_TYPE: {
       const [row] = await db
@@ -170,7 +155,9 @@ export async function resolveRelatedEntityPropertyContext(
         .from(leases)
         .where(and(eq(leases.id, relatedEntityId), eq(leases.organizationId, organizationId)))
         .limit(1);
-      return row ? { propertyId: row.propertyId, propertyUnitId: row.propertyUnitId, isUnitScopedEntity: true } : null;
+      // UNIT-OPS-1: a Lease with no Unit is Property-wide / Shared, exactly
+      // as the Lease list and detail pages treat it.
+      return row ? { propertyId: row.propertyId, propertyUnitId: row.propertyUnitId } : null;
     }
     case COMPLIANCE_FILES_ENTITY_TYPE: {
       const [row] = await db
@@ -180,7 +167,7 @@ export async function resolveRelatedEntityPropertyContext(
           and(eq(complianceRecords.id, relatedEntityId), eq(complianceRecords.organizationId, organizationId)),
         )
         .limit(1);
-      return row ? { propertyId: row.propertyId, propertyUnitId: null, isUnitScopedEntity: false } : null;
+      return row ? { propertyId: row.propertyId, propertyUnitId: null } : null;
     }
     case ASSET_FILES_ENTITY_TYPE: {
       const [row] = await db
@@ -188,7 +175,7 @@ export async function resolveRelatedEntityPropertyContext(
         .from(assets)
         .where(and(eq(assets.id, relatedEntityId), eq(assets.organizationId, organizationId)))
         .limit(1);
-      return row?.assignedPropertyId ? { propertyId: row.assignedPropertyId, propertyUnitId: null, isUnitScopedEntity: false } : null;
+      return row?.assignedPropertyId ? { propertyId: row.assignedPropertyId, propertyUnitId: null } : null;
     }
     // Tenant (no propertyId column — may span multiple Properties via its
     // Leases) and Vendor (org-wide, not Property-scoped) have no single
@@ -202,19 +189,15 @@ export async function resolveRelatedEntityPropertyContext(
 }
 
 /**
- * Applies the standard ACCESS-1 decision for a resolved property context:
- * Unit-scoped records (Lease) require Unit-level access — including when the
- * Lease itself has no Unit set yet (propertyUnitId: null), which must still
- * go through canAccessPropertyUnit(..., null) so a Unit-restricted user is
- * denied (consistent with how the Leases module itself hides such a Lease
- * from them). Every other Property-scoped record only requires access to the
- * Property itself, regardless of its (always-null) propertyUnitId.
+ * Applies the standard ACCESS-1 / UNIT-OPS-1 decision for a resolved
+ * property context: the same canAccessPropertyUnit rule the related record's
+ * own pages use. A Property-wide / Shared context (propertyUnitId null) only
+ * needs access to the Property; a Unit-owned one needs whole-Property access
+ * or a row for that Unit.
  */
 export function canAccessRelatedEntityPropertyContext(
   scope: PropertyScope,
   context: RelatedEntityPropertyContext,
 ): boolean {
-  return context.isUnitScopedEntity
-    ? canAccessPropertyUnit(scope, context.propertyId, context.propertyUnitId)
-    : canAccessProperty(scope, context.propertyId);
+  return canAccessPropertyUnit(scope, context.propertyId, context.propertyUnitId);
 }

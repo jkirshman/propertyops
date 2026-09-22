@@ -831,6 +831,12 @@ export const workOrders = pgTable(
     propertyId: uuid("property_id")
       .notNull()
       .references(() => properties.id, { onDelete: "cascade" }),
+    // UNIT-OPS-1: null = Property-wide / Shared (visible to anyone who can
+    // access the Property); set = owned by that Unit/Suite of the same
+    // Property. "no action" for the same reason as property_equipment: a Unit
+    // with Work Orders can't be deleted out from under them, yet a Property
+    // delete still cascades both away in one statement.
+    propertyUnitId: uuid("property_unit_id").references(() => propertyUnits.id, { onDelete: "no action" }),
     propertyEquipmentId: uuid("property_equipment_id").references(() => propertyEquipment.id, {
       onDelete: "set null",
     }),
@@ -866,7 +872,10 @@ export const workOrders = pgTable(
     scheduledStartAt: timestamp("scheduled_start_at", { withTimezone: true }),
     scheduledEndAt: timestamp("scheduled_end_at", { withTimezone: true }),
   },
-  (table) => [uniqueIndex("work_orders_org_number_unique").on(table.organizationId, table.number)],
+  (table) => [
+    uniqueIndex("work_orders_org_number_unique").on(table.organizationId, table.number),
+    index("work_orders_property_unit_idx").on(table.propertyId, table.propertyUnitId),
+  ],
 );
 
 export const workOrderNotes = pgTable("work_order_notes", {
@@ -1152,7 +1161,12 @@ export const inspectionTemplateItems = pgTable("inspection_template_items", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
-export const inspections = pgTable("inspections", {
+// UNIT-OPS-1: this row is the scheduled/run Inspection instance itself —
+// there is no separate schedule or template-assignment record — so Unit
+// ownership lives here. Templates stay Unit-agnostic and reusable.
+export const inspections = pgTable(
+  "inspections",
+  {
   id: uuid("id").primaryKey().defaultRandom(),
   organizationId: uuid("organization_id")
     .notNull()
@@ -1160,6 +1174,9 @@ export const inspections = pgTable("inspections", {
   propertyId: uuid("property_id")
     .notNull()
     .references(() => properties.id, { onDelete: "cascade" }),
+  // UNIT-OPS-1: null = Property-wide / Shared; set = that Unit/Suite of the
+  // same Property. Same FK behavior as work_orders.property_unit_id.
+  propertyUnitId: uuid("property_unit_id").references(() => propertyUnits.id, { onDelete: "no action" }),
   propertyEquipmentId: uuid("property_equipment_id").references(() => propertyEquipment.id, {
     onDelete: "set null",
   }),
@@ -1185,7 +1202,9 @@ export const inspections = pgTable("inspections", {
   createdByUserId: uuid("created_by_user_id").references(() => users.id, { onDelete: "set null" }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
-});
+  },
+  (table) => [index("inspections_property_unit_idx").on(table.propertyId, table.propertyUnitId)],
+);
 
 // One row per template item, created when the inspection starts. Every
 // item-context field is snapshotted here so a later template edit (renamed,

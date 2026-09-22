@@ -2,7 +2,9 @@ import { and, eq, inArray, or, isNotNull } from "drizzle-orm";
 
 import { db } from "@/db/client";
 import { inspections } from "@/db/schema";
+import { listAccessiblePropertyIds, type PropertyScope } from "@/lib/auth/property-access";
 import type { CalendarEvent } from "@/lib/calendar/types";
+import { filterAccessibleInspections } from "@/lib/inspections/inspection-access";
 
 const ACTIVE_STATUSES = new Set(["draft", "in_progress"]);
 
@@ -10,6 +12,7 @@ export interface InspectionCalendarRow {
   id: string;
   organizationId: string;
   propertyId: string;
+  propertyUnitId: string | null;
   templateName: string;
   status: string;
   inspectorUserId: string | null;
@@ -60,11 +63,12 @@ export async function fetchInspectionEvents(
   now: Date,
   today: string,
   includeCompleted: boolean,
-  // ACCESS-1: null = unrestricted (no filter); an array scopes to those
-  // properties; an empty array short-circuits to no events.
-  propertyIds?: string[] | null,
+  // ACCESS-1 / UNIT-OPS-1: Property-scoped in SQL, then Unit-scoped via
+  // filterAccessibleInspections before projecting.
+  scope: PropertyScope,
 ): Promise<CalendarEvent[]> {
-  if (propertyIds !== undefined && propertyIds !== null && propertyIds.length === 0) {
+  const propertyIds = listAccessiblePropertyIds(scope);
+  if (propertyIds !== null && propertyIds.length === 0) {
     return [];
   }
 
@@ -72,7 +76,7 @@ export async function fetchInspectionEvents(
     eq(inspections.organizationId, organizationId),
     or(isNotNull(inspections.scheduledDate), isNotNull(inspections.scheduledStartAt))!,
   ];
-  if (propertyIds !== undefined && propertyIds !== null) {
+  if (propertyIds !== null) {
     conditions.push(inArray(inspections.propertyId, propertyIds));
   }
 
@@ -81,6 +85,7 @@ export async function fetchInspectionEvents(
       id: inspections.id,
       organizationId: inspections.organizationId,
       propertyId: inspections.propertyId,
+      propertyUnitId: inspections.propertyUnitId,
       templateName: inspections.templateName,
       status: inspections.status,
       inspectorUserId: inspections.inspectorUserId,
@@ -91,7 +96,7 @@ export async function fetchInspectionEvents(
     .from(inspections)
     .where(and(...conditions));
 
-  return rows
+  return filterAccessibleInspections(scope, rows)
     .filter((row) => includeCompleted || ACTIVE_STATUSES.has(row.status))
     .map((row) => projectInspectionEvent(row, now, today))
     .filter((event): event is CalendarEvent => event !== null);

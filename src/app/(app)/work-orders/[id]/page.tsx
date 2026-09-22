@@ -4,10 +4,13 @@ import { notFound } from "next/navigation";
 import { WorkOrderDetailPanel } from "@/components/work-orders/WorkOrderDetailPanel";
 import { listAssets } from "@/lib/assets/assets";
 import { requireCapability } from "@/lib/auth/require-capability";
-import { canAccessProperty, resolveUserPropertyScope } from "@/lib/auth/property-access";
+import { resolveUserPropertyScope } from "@/lib/auth/property-access";
 import { redactHiddenEquipmentLink, resolveHiddenEquipmentIds } from "@/lib/equipment/equipment-access";
 import { getOrganizationTimezone } from "@/lib/organizations/organizations";
 import { getProperty } from "@/lib/properties/properties";
+import { getPropertyUnit } from "@/lib/property-units/property-units";
+import { getRecordUnitOptions } from "@/lib/property-units/record-units";
+import { formatRecordUnitLabel } from "@/lib/property-units/unit-display";
 import { listOrganizationUsers } from "@/lib/users/users";
 import { VENDOR_CAPABILITIES } from "@/lib/vendors/constants";
 import { listVendors } from "@/lib/vendors/vendors";
@@ -19,7 +22,7 @@ import {
   type WorkOrderStatus,
 } from "@/lib/work-orders/constants";
 import { listWorkOrderCategories } from "@/lib/work-orders/categories";
-import { getWorkOrder } from "@/lib/work-orders/work-orders";
+import { getAccessibleWorkOrder } from "@/lib/work-orders/work-order-access";
 
 export default async function WorkOrderDetailPage({
   params,
@@ -29,17 +32,14 @@ export default async function WorkOrderDetailPage({
   const { id } = await params;
   const context = await requireCapability(WORK_ORDER_CAPABILITIES.VIEW, "/work-orders");
 
-  const workOrder = await getWorkOrder(context.user.organizationId, id);
-  if (!workOrder) {
-    notFound();
-  }
-
   const scope = await resolveUserPropertyScope(
     context.user.id,
     context.user.organizationId,
     context.capabilityKeys,
   );
-  if (!canAccessProperty(scope, workOrder.propertyId)) {
+  // UNIT-OPS-1: another Unit's Work Order is a 404, same as another Property's.
+  const workOrder = await getAccessibleWorkOrder(context.user.organizationId, scope, id);
+  if (!workOrder) {
     notFound();
   }
 
@@ -49,14 +49,27 @@ export default async function WorkOrderDetailPage({
     await resolveHiddenEquipmentIds(context.user.organizationId, scope),
   );
 
-  const [property, categories, users, assets, vendors, timezone] = await Promise.all([
+  const [property, currentUnit, categories, users, assets, vendors, timezone] = await Promise.all([
     getProperty(context.user.organizationId, workOrder.propertyId),
+    workOrder.propertyUnitId
+      ? getPropertyUnit(context.user.organizationId, workOrder.propertyId, workOrder.propertyUnitId)
+      : Promise.resolve(null),
     listWorkOrderCategories(context.user.organizationId, { activeOnly: true }),
     listOrganizationUsers(context.user.organizationId),
     listAssets(context.user.organizationId, { isActive: true }),
     listVendors(context.user.organizationId, { isActive: true }),
     getOrganizationTimezone(context.user.organizationId),
   ]);
+
+  const canEdit = capabilityKeys.includes(WORK_ORDER_CAPABILITIES.EDIT);
+  // Only ever the viewer's own accessible Units — safe for view-only users too.
+  const unitOptions = property ? await getRecordUnitOptions(context.user.organizationId, property, scope) : null;
+  // "(inactive)" keeps a deactivated Unit's history readable (UNIT-OPS-1).
+  const unitLabel = formatRecordUnitLabel({
+    propertyUnitId: workOrder.propertyUnitId,
+    unitLabel: currentUnit?.unitLabel ?? null,
+    unitIsActive: currentUnit?.isActive ?? null,
+  });
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
@@ -66,6 +79,7 @@ export default async function WorkOrderDetailPage({
           <h1 style={{ marginBottom: "0.3rem" }}>{workOrder.subject}</h1>
           <div className="muted" style={{ fontSize: "0.9rem" }}>
             {property ? <Link href={`/properties/${property.id}`} className="text-link">{property.name}</Link> : "Unknown property"}
+            {workOrder.propertyUnitId ? ` · ${unitLabel}` : ""}
             {" · "}
             {WORK_ORDER_STATUS_LABELS[workOrder.status as WorkOrderStatus] ?? workOrder.status}
             {workOrder.source && workOrder.source !== "staff" ? (
@@ -88,6 +102,7 @@ export default async function WorkOrderDetailPage({
           priority: workOrder.priority,
           status: workOrder.status,
           assignedUserId: workOrder.assignedUserId,
+          propertyUnitId: workOrder.propertyUnitId,
           propertyEquipmentId,
           propertyEquipmentRestricted,
           assetId: workOrder.assetId,
@@ -99,12 +114,14 @@ export default async function WorkOrderDetailPage({
           scheduledEndAt: workOrder.scheduledEndAt ? workOrder.scheduledEndAt.toISOString() : null,
         }}
         propertyId={workOrder.propertyId}
+        unitOptions={unitOptions}
+        initialUnitLabel={unitLabel}
         categories={categories}
         users={users}
         assets={assets}
         vendors={vendors}
         timezone={timezone}
-        canEdit={capabilityKeys.includes(WORK_ORDER_CAPABILITIES.EDIT)}
+        canEdit={canEdit}
         canAssign={capabilityKeys.includes(WORK_ORDER_CAPABILITIES.ASSIGN)}
         canAssignVendor={capabilityKeys.includes(VENDOR_CAPABILITIES.ASSIGN_WORK_ORDERS)}
         canManageStatus={capabilityKeys.includes(WORK_ORDER_CAPABILITIES.MANAGE_STATUS)}

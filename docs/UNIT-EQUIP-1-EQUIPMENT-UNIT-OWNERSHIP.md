@@ -55,7 +55,7 @@ is Unit-restricted like anyone else.
 | Vendor → Service History | Filtered by Equipment visibility (this route previously had no Property scoping at all) |
 | Expected vs. actual | Withheld (`restricted: true`). Its counts would reveal other Units' Equipment. |
 | PM plans for hidden Equipment | Hidden everywhere: list, detail, edit, occurrences, generate, Home brief, Calendar |
-| Work Orders and Inspections linked to hidden Equipment | Still visible, since they stay Property-scoped as before. The Equipment link is redacted (`propertyEquipmentId: null`, `propertyEquipmentRestricted: true`) and can't be changed by that user. |
+| Work Orders and Inspections linked to hidden Equipment | Still visible, since they stay Property-scoped as before. The Equipment link is redacted (`propertyEquipmentId: null`, `propertyEquipmentRestricted: true`) and can't be changed by that user. *Superseded by UNIT-OPS-1: Work Orders and Inspections now have their own Unit and are hidden entirely when it's another Unit; the redaction remains only for legacy Shared records.* |
 | `?propertyEquipmentId=` / `?equipmentId=` on WO, PM, and Inspection lists and new pages | Hidden Equipment returns an empty result or is ignored |
 | Linking Equipment on WO/PM/Inspection create or update | Only visible Equipment can be linked (`invalid_equipment`) |
 | `GET /api/files` with no entity filter | Now requires `files.manage`. It listed every file's metadata org-wide to any signed-in user. |

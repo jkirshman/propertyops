@@ -1,7 +1,7 @@
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, getTableColumns, inArray } from "drizzle-orm";
 
 import { db } from "@/db/client";
-import { inspectionResponses, inspections } from "@/db/schema";
+import { inspectionResponses, inspections, propertyUnits } from "@/db/schema";
 import { stripUndefined } from "@/lib/db/strip-undefined";
 import type { CreateInspectionInput, UpdateInspectionInput } from "@/lib/validation/inspections";
 
@@ -37,9 +37,16 @@ export async function listInspections(organizationId: string, options: ListInspe
   if (options.status) conditions.push(eq(inspections.status, options.status));
   if (options.inspectorUserId) conditions.push(eq(inspections.inspectorUserId, options.inspectorUserId));
 
+  // UNIT-OPS-1: carries the owning Unit's label for list display.
+  // Property-scoped only — callers apply filterAccessibleInspections.
   return db
-    .select()
+    .select({
+      ...getTableColumns(inspections),
+      unitLabel: propertyUnits.unitLabel,
+      unitIsActive: propertyUnits.isActive,
+    })
     .from(inspections)
+    .leftJoin(propertyUnits, eq(propertyUnits.id, inspections.propertyUnitId))
     .where(and(...conditions))
     .orderBy(desc(inspections.updatedAt));
 }
@@ -75,6 +82,7 @@ export async function createInspection(
     .values({
       organizationId,
       propertyId: input.propertyId,
+      propertyUnitId: input.propertyUnitId ?? null,
       propertyEquipmentId: input.propertyEquipmentId ?? null,
       templateId: input.templateId,
       templateName: template.name,

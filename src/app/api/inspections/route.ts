@@ -2,13 +2,22 @@ import { NextResponse } from "next/server";
 
 import { recordAuditEvent } from "@/db/audit";
 import { getCurrentUserWithCapabilities } from "@/lib/auth/current-user";
-import { canAccessProperty, forbiddenResponseBody, listAccessiblePropertyIds, resolveUserPropertyScope } from "@/lib/auth/property-access";
+import {
+  canAccessProperty,
+  canUserAccessPropertyUnit,
+  forbiddenResponseBody,
+  listAccessiblePropertyIds,
+  resolveUserPropertyScope,
+} from "@/lib/auth/property-access";
 import { redactHiddenEquipmentLink, resolveHiddenEquipmentIds } from "@/lib/equipment/equipment-access";
 import { getAccessiblePropertyEquipment } from "@/lib/equipment/property-equipment";
 import { INSPECTION_CAPABILITIES } from "@/lib/inspections/constants";
+import { filterAccessibleInspections } from "@/lib/inspections/inspection-access";
 import { createInspection, listInspections } from "@/lib/inspections/inspections";
 import { buildInspectionScheduledNotification } from "@/lib/inspections/notification-events";
 import { createNotification } from "@/lib/notifications/notifications";
+import { getProperty } from "@/lib/properties/properties";
+import { resolveRecordUnit } from "@/lib/property-units/record-units";
 import { createInspectionSchema } from "@/lib/validation/inspections";
 
 export async function GET(request: Request) {
@@ -45,9 +54,13 @@ export async function GET(request: Request) {
     inspectorUserId: searchParams.get("inspectorUserId") ?? undefined,
     propertyIds: listAccessiblePropertyIds(scope),
   });
-  // Inspections stay Property-scoped; only a hidden Equipment link is stripped.
+  // UNIT-OPS-1: another Unit's Inspections are dropped entirely; a visible
+  // legacy Shared Inspection on another Unit's Equipment keeps UNIT-EQUIP-1's
+  // link redaction.
   const hiddenEquipmentIds = await resolveHiddenEquipmentIds(context.user.organizationId, scope);
-  const inspections = rows.map((row) => redactHiddenEquipmentLink(row, hiddenEquipmentIds));
+  const inspections = filterAccessibleInspections(scope, rows).map((row) =>
+    redactHiddenEquipmentLink(row, hiddenEquipmentIds),
+  );
 
   return NextResponse.json({ inspections });
 }
@@ -78,11 +91,31 @@ export async function POST(request: Request) {
     return NextResponse.json(forbiddenResponseBody(), { status: 403 });
   }
 
-  if (parsed.data.propertyEquipmentId) {
-    const equipment = await getAccessiblePropertyEquipment(user.organizationId, scope, parsed.data.propertyEquipmentId);
-    if (!equipment || equipment.propertyId !== parsed.data.propertyId) {
-      return NextResponse.json({ error: "invalid_equipment" }, { status: 400 });
-    }
+  const property = await getProperty(user.organizationId, parsed.data.propertyId);
+  if (!property) {
+    return NextResponse.json({ error: "invalid_property" }, { status: 400 });
+  }
+
+  const equipment = parsed.data.propertyEquipmentId
+    ? await getAccessiblePropertyEquipment(user.organizationId, scope, parsed.data.propertyEquipmentId)
+    : null;
+  if (parsed.data.propertyEquipmentId && (!equipment || equipment.propertyId !== parsed.data.propertyId)) {
+    return NextResponse.json({ error: "invalid_equipment" }, { status: 400 });
+  }
+
+  // UNIT-OPS-1: same Unit + Equipment-consistency rule as Work Orders.
+  const unit = await resolveRecordUnit({
+    organizationId: user.organizationId,
+    scope,
+    property,
+    mode: "create",
+    requestedUnitId: parsed.data.propertyUnitId,
+    currentUnitId: null,
+    equipmentUnitId: equipment?.propertyUnitId ?? null,
+    recordNoun: "inspections",
+  });
+  if (!unit.ok) {
+    return NextResponse.json(unit.body, { status: unit.status });
   }
 
   if (
@@ -92,7 +125,10 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "forbidden" }, { status: 403 });
   }
 
-  const created = await createInspection(user.organizationId, user.id, parsed.data);
+  const created = await createInspection(user.organizationId, user.id, {
+    ...parsed.data,
+    propertyUnitId: unit.propertyUnitId,
+  });
   if (!created) {
     return NextResponse.json({ error: "invalid_template" }, { status: 400 });
   }
@@ -106,7 +142,16 @@ export async function POST(request: Request) {
     after: created.inspection,
   });
 
-  if (created.inspection.scheduledStartAt && created.inspection.inspectorUserId) {
+  if (
+    created.inspection.scheduledStartAt &&
+    created.inspection.inspectorUserId &&
+    (await canUserAccessPropertyUnit(
+      user.organizationId,
+      created.inspection.inspectorUserId,
+      created.inspection.propertyId,
+      created.inspection.propertyUnitId,
+    ))
+  ) {
     await createNotification({
       organizationId: user.organizationId,
       recipientUserId: created.inspection.inspectorUserId,

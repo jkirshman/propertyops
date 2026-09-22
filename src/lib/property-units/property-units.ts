@@ -84,3 +84,18 @@ export async function updatePropertyUnit(
     .returning();
   return row ?? null;
 }
+
+/**
+ * UNIT-OPS-1: the `{ propertyUnitId, unitLabel }` payload every
+ * `*.unit_changed` audit event records (matching UNIT-EQUIP-1's
+ * property_equipment.unit_changed), so Activity can read
+ * "Fitness Center → Property-wide" instead of raw ids.
+ */
+export async function describeUnitForAudit(
+  organizationId: string,
+  propertyId: string,
+  unitId: string | null,
+): Promise<{ propertyUnitId: string | null; unitLabel: string | null }> {
+  const unit = unitId ? await getPropertyUnit(organizationId, propertyId, unitId) : null;
+  return { propertyUnitId: unitId, unitLabel: unit?.unitLabel ?? null };
+}

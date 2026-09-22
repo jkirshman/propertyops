@@ -1,4 +1,4 @@
-import { and, desc, eq, or, type SQL } from "drizzle-orm";
+import { and, desc, eq, isNull, or, type SQL } from "drizzle-orm";
 
 import { db } from "@/db/client";
 import { leases } from "@/db/schema";
@@ -9,13 +9,22 @@ import type { CreateLeaseInput, UpdateLeaseInput } from "@/lib/validation/leases
 export type LeaseRow = typeof leases.$inferSelect;
 
 /**
- * ACCESS-1: Leases are the one Unit-scoped entity in the app. Builds an OR
- * across the user's access rows — a whole-property row (propertyUnitId null)
- * matches any unit at that property, a unit-restricted row matches only its
- * own unit. Only meaningful for a "scoped" (non-unrestricted) scope — callers
- * check `scope.kind !== "all"` before calling. Returns `null` when the scope
- * grants access to nothing at all (an empty access list), which callers must
- * treat as "match no rows" without running a query.
+ * ACCESS-1 / UNIT-OPS-1: SQL form of canAccessPropertyUnit for Leases. Builds
+ * an OR across the user's access rows — a whole-property row
+ * (propertyUnitId null) matches any Lease at that property; a
+ * unit-restricted row matches Leases on its own Unit AND Leases with no Unit
+ * (Property-wide / Shared).
+ *
+ * UNIT-OPS-1 fixed an inconsistency here: this condition used to hide
+ * NULL-unit Leases from Unit-restricted users, while Lease detail, activity,
+ * and documents (canAccessPropertyUnit(..., null)) showed them — so a Lease
+ * could be missing from the list yet reachable by URL. NULL now means
+ * Shared everywhere, matching Equipment / Work Orders / Inspections.
+ *
+ * Only meaningful for a "scoped" (non-unrestricted) scope — callers check
+ * `scope.kind !== "all"` before calling. Returns `null` when the scope grants
+ * access to nothing at all (an empty access list), which callers must treat
+ * as "match no rows" without running a query.
  */
 export function buildLeaseScopeCondition(scope: Extract<PropertyScope, { kind: "scoped" }>): SQL | null {
   if (scope.access.length === 0) {
@@ -24,7 +33,10 @@ export function buildLeaseScopeCondition(scope: Extract<PropertyScope, { kind: "
   const rowConditions = scope.access.map((row) =>
     row.propertyUnitId === null
       ? eq(leases.propertyId, row.propertyId)
-      : and(eq(leases.propertyId, row.propertyId), eq(leases.propertyUnitId, row.propertyUnitId)),
+      : and(
+          eq(leases.propertyId, row.propertyId),
+          or(eq(leases.propertyUnitId, row.propertyUnitId), isNull(leases.propertyUnitId)),
+        ),
   );
   return or(...rowConditions) as SQL;
 }

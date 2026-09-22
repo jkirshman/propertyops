@@ -3,12 +3,15 @@ import { notFound } from "next/navigation";
 
 import { InspectionDetailPanel } from "@/components/inspections/InspectionDetailPanel";
 import { requireCapability } from "@/lib/auth/require-capability";
-import { canAccessProperty, resolveUserPropertyScope } from "@/lib/auth/property-access";
+import { resolveUserPropertyScope } from "@/lib/auth/property-access";
 import { getAccessiblePropertyEquipment } from "@/lib/equipment/property-equipment";
 import { INSPECTION_CAPABILITIES, INSPECTION_STATUS_LABELS, type InspectionStatus } from "@/lib/inspections/constants";
-import { getInspection } from "@/lib/inspections/inspections";
+import { getAccessibleInspection } from "@/lib/inspections/inspection-access";
 import { getOrganizationTimezone } from "@/lib/organizations/organizations";
 import { getProperty } from "@/lib/properties/properties";
+import { getPropertyUnit } from "@/lib/property-units/property-units";
+import { getRecordUnitOptions } from "@/lib/property-units/record-units";
+import { formatRecordUnitLabel } from "@/lib/property-units/unit-display";
 import { listOrganizationUsers } from "@/lib/users/users";
 import { WORK_ORDER_CAPABILITIES } from "@/lib/work-orders/constants";
 import { listWorkOrderCategories } from "@/lib/work-orders/categories";
@@ -21,22 +24,22 @@ export default async function InspectionDetailPage({
   const { id } = await params;
   const context = await requireCapability(INSPECTION_CAPABILITIES.VIEW, "/inspections");
 
-  const inspection = await getInspection(context.user.organizationId, id);
-  if (!inspection) {
-    notFound();
-  }
-
   const scope = await resolveUserPropertyScope(
     context.user.id,
     context.user.organizationId,
     context.capabilityKeys,
   );
-  if (!canAccessProperty(scope, inspection.propertyId)) {
+  // UNIT-OPS-1: another Unit's Inspection is a 404, same as another Property's.
+  const inspection = await getAccessibleInspection(context.user.organizationId, scope, id);
+  if (!inspection) {
     notFound();
   }
 
-  const [property, equipment, categories, users, timezone] = await Promise.all([
+  const [property, currentUnit, equipment, categories, users, timezone] = await Promise.all([
     getProperty(context.user.organizationId, inspection.propertyId),
+    inspection.propertyUnitId
+      ? getPropertyUnit(context.user.organizationId, inspection.propertyId, inspection.propertyUnitId)
+      : Promise.resolve(null),
     // UNIT-EQUIP-1: another Unit's Equipment resolves to null — no name/link.
     inspection.propertyEquipmentId
       ? getAccessiblePropertyEquipment(context.user.organizationId, scope, inspection.propertyEquipmentId)
@@ -51,6 +54,13 @@ export default async function InspectionDetailPage({
     : null;
 
   const { capabilityKeys } = context;
+  // Only ever the viewer's own accessible Units — safe for view-only users too.
+  const unitOptions = property ? await getRecordUnitOptions(context.user.organizationId, property, scope) : null;
+  const unitLabel = formatRecordUnitLabel({
+    propertyUnitId: inspection.propertyUnitId,
+    unitLabel: currentUnit?.unitLabel ?? null,
+    unitIsActive: currentUnit?.isActive ?? null,
+  });
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
@@ -58,6 +68,7 @@ export default async function InspectionDetailPage({
         <div>
           <div className="muted" style={{ fontSize: "0.85rem" }}>
             {property ? <Link href={`/properties/${property.id}`} className="text-link">{property.name}</Link> : "Unknown property"}
+            {inspection.propertyUnitId ? ` · ${unitLabel}` : ""}
             {equipment ? (
               <>
                 {" · "}
@@ -77,6 +88,7 @@ export default async function InspectionDetailPage({
         initialInspection={{
           id: inspection.id,
           propertyId: inspection.propertyId,
+          propertyUnitId: inspection.propertyUnitId,
           propertyEquipmentId: inspection.propertyEquipmentId && equipment ? inspection.propertyEquipmentId : null,
           status: inspection.status,
           overallResult: inspection.overallResult,
@@ -85,6 +97,10 @@ export default async function InspectionDetailPage({
           scheduledStartAt: inspection.scheduledStartAt ? inspection.scheduledStartAt.toISOString() : null,
           scheduledEndAt: inspection.scheduledEndAt ? inspection.scheduledEndAt.toISOString() : null,
         }}
+        unitOptions={unitOptions}
+        initialUnitLabel={unitLabel}
+        // UNIT-OPS-1: Unit-owned (or hidden) linked Equipment pins the Unit.
+        unitLockedByEquipment={Boolean(inspection.propertyEquipmentId) && (!equipment || equipment.propertyUnitId !== null)}
         categories={categories}
         users={users}
         timezone={timezone}

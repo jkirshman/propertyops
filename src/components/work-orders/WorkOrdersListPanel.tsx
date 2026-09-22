@@ -4,6 +4,13 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { InteractiveRow } from "@/components/shared/InteractiveRow";
+import { UnitFilterSelect } from "@/components/shared/UnitFilterSelect";
+import {
+  UNIT_FILTER_ALL,
+  buildUnitFilterOptions,
+  formatRecordUnitLabel,
+  matchesUnitFilter,
+} from "@/lib/property-units/unit-display";
 import {
   WORK_ORDER_PRIORITY_LABELS,
   WORK_ORDER_SOURCE_LABELS,
@@ -37,6 +44,10 @@ interface WorkOrderRow {
   assignedUserId: string | null;
   vendorId: string | null;
   updatedAt: string;
+  // UNIT-OPS-1
+  propertyUnitId: string | null;
+  unitLabel: string | null;
+  unitIsActive: boolean | null;
 }
 
 export function WorkOrdersListPanel({
@@ -59,6 +70,7 @@ export function WorkOrdersListPanel({
   const [assignedUserId, setAssignedUserId] = useState("");
   const [vendorId, setVendorId] = useState("");
   const [vendors, setVendors] = useState<OptionRecord[]>([]);
+  const [unitFilter, setUnitFilter] = useState(UNIT_FILTER_ALL);
 
   useEffect(() => {
     fetch("/api/properties?active=true")
@@ -100,6 +112,16 @@ export function WorkOrdersListPanel({
     return () => clearTimeout(handle);
   }, [load]);
 
+  // UNIT-OPS-1: rows are already Unit-scoped by the server. The Unit filter
+  // appears once a single Property is chosen (Unit labels repeat across
+  // Properties), built only from the rows returned.
+  const unitFilterOptions = useMemo(
+    () => (propertyId ? buildUnitFilterOptions(workOrders) : []),
+    [propertyId, workOrders],
+  );
+  const showUnits = workOrders.some((wo) => wo.propertyUnitId !== null);
+  const visibleWorkOrders = propertyId ? workOrders.filter((wo) => matchesUnitFilter(wo, unitFilter)) : workOrders;
+
   const propertyNameById = useMemo(() => {
     const map = new Map<string, string>();
     for (const property of properties) map.set(property.id, property.name);
@@ -135,7 +157,15 @@ export function WorkOrdersListPanel({
             value={search}
             onChange={(event) => setSearch(event.target.value)}
           />
-          <select className="input" style={{ maxWidth: 180 }} value={propertyId} onChange={(event) => setPropertyId(event.target.value)}>
+          <select
+            className="input"
+            style={{ maxWidth: 180 }}
+            value={propertyId}
+            onChange={(event) => {
+              setPropertyId(event.target.value);
+              setUnitFilter(UNIT_FILTER_ALL);
+            }}
+          >
             <option value="">All properties</option>
             {properties.map((property) => (
               <option key={property.id} value={property.id}>
@@ -143,6 +173,7 @@ export function WorkOrdersListPanel({
               </option>
             ))}
           </select>
+          <UnitFilterSelect id="work-orders-unit-filter" options={unitFilterOptions} value={unitFilter} onChange={setUnitFilter} />
           <select className="input" style={{ maxWidth: 150 }} value={status} onChange={(event) => setStatus(event.target.value)}>
             <option value="">All statuses</option>
             {WORK_ORDER_STATUSES.map((value) => (
@@ -202,7 +233,7 @@ export function WorkOrdersListPanel({
       <div className="card">
         {loading ? (
           <p className="muted">Loading…</p>
-        ) : workOrders.length === 0 ? (
+        ) : visibleWorkOrders.length === 0 ? (
           <p className="muted">
             No work orders match your filters yet.{" "}
             {canCreate ? <Link href="/work-orders/new" className="text-link">Create the first one.</Link> : null}
@@ -215,6 +246,7 @@ export function WorkOrdersListPanel({
                   <th style={{ padding: "0.5rem" }}>Number</th>
                   <th style={{ padding: "0.5rem" }}>Subject</th>
                   <th style={{ padding: "0.5rem" }}>Property</th>
+                  {showUnits ? <th style={{ padding: "0.5rem" }}>Unit / Suite</th> : null}
                   <th style={{ padding: "0.5rem" }}>Category</th>
                   <th style={{ padding: "0.5rem" }}>Priority</th>
                   <th style={{ padding: "0.5rem" }}>Status</th>
@@ -226,7 +258,7 @@ export function WorkOrdersListPanel({
                 </tr>
               </thead>
               <tbody>
-                {workOrders.map((wo) => (
+                {visibleWorkOrders.map((wo) => (
                   <InteractiveRow key={wo.id} href={`/work-orders/${wo.id}`} style={{ borderBottom: "1px solid var(--border)" }}>
                     <td style={{ padding: "0.5rem" }}>
                       <Link href={`/work-orders/${wo.id}`} className="entity-link">{wo.number}</Link>
@@ -235,6 +267,7 @@ export function WorkOrdersListPanel({
                       <Link href={`/work-orders/${wo.id}`} className="entity-link">{wo.subject}</Link>
                     </td>
                     <td style={{ padding: "0.5rem" }}>{propertyNameById.get(wo.propertyId) ?? "—"}</td>
+                    {showUnits ? <td style={{ padding: "0.5rem" }}>{formatRecordUnitLabel(wo)}</td> : null}
                     <td style={{ padding: "0.5rem" }}>{categoryNameById.get(wo.categoryId) ?? "—"}</td>
                     <td style={{ padding: "0.5rem" }}>
                       {WORK_ORDER_PRIORITY_LABELS[wo.priority as WorkOrderPriority] ?? wo.priority}

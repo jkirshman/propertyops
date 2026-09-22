@@ -2,7 +2,9 @@ import { and, eq, inArray, isNotNull, ne } from "drizzle-orm";
 
 import { db } from "@/db/client";
 import { workOrders } from "@/db/schema";
+import { listAccessiblePropertyIds, type PropertyScope } from "@/lib/auth/property-access";
 import type { CalendarEvent } from "@/lib/calendar/types";
+import { filterAccessibleWorkOrders } from "@/lib/work-orders/work-order-access";
 
 const TERMINAL_STATUSES = new Set(["resolved", "closed", "cancelled"]);
 
@@ -12,6 +14,7 @@ export interface WorkOrderCalendarRow {
   number: string;
   subject: string;
   propertyId: string;
+  propertyUnitId: string | null;
   vendorId: string | null;
   assignedUserId: string | null;
   status: string;
@@ -61,11 +64,13 @@ export function projectWorkOrderEvent(
 export async function fetchWorkOrderEvents(
   organizationId: string,
   now: Date,
-  // ACCESS-1: null = unrestricted (no filter); an array scopes to those
-  // properties; an empty array short-circuits to no events.
-  propertyIds?: string[] | null,
+  // ACCESS-1 / UNIT-OPS-1: Property-scoped in SQL, then Unit-scoped via
+  // filterAccessibleWorkOrders before projecting — another Unit's Work
+  // Orders never become events, so they can't show up or be counted.
+  scope: PropertyScope,
 ): Promise<CalendarEvent[]> {
-  if (propertyIds !== undefined && propertyIds !== null && propertyIds.length === 0) {
+  const propertyIds = listAccessiblePropertyIds(scope);
+  if (propertyIds !== null && propertyIds.length === 0) {
     return [];
   }
 
@@ -74,7 +79,7 @@ export async function fetchWorkOrderEvents(
     isNotNull(workOrders.scheduledStartAt),
     ne(workOrders.source, "preventive_maintenance"),
   ];
-  if (propertyIds !== undefined && propertyIds !== null) {
+  if (propertyIds !== null) {
     conditions.push(inArray(workOrders.propertyId, propertyIds));
   }
 
@@ -85,6 +90,7 @@ export async function fetchWorkOrderEvents(
       number: workOrders.number,
       subject: workOrders.subject,
       propertyId: workOrders.propertyId,
+      propertyUnitId: workOrders.propertyUnitId,
       vendorId: workOrders.vendorId,
       assignedUserId: workOrders.assignedUserId,
       status: workOrders.status,
@@ -95,7 +101,7 @@ export async function fetchWorkOrderEvents(
     .from(workOrders)
     .where(and(...conditions));
 
-  return rows
+  return filterAccessibleWorkOrders(scope, rows)
     .map((row) => projectWorkOrderEvent(row, now))
     .filter((event): event is CalendarEvent => event !== null);
 }

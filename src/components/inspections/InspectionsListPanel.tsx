@@ -4,6 +4,13 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { InteractiveRow } from "@/components/shared/InteractiveRow";
+import { UnitFilterSelect } from "@/components/shared/UnitFilterSelect";
+import {
+  UNIT_FILTER_ALL,
+  buildUnitFilterOptions,
+  formatRecordUnitLabel,
+  matchesUnitFilter,
+} from "@/lib/property-units/unit-display";
 import {
   INSPECTION_RESULT_LABELS,
   INSPECTION_STATUSES,
@@ -27,6 +34,10 @@ interface InspectionRow {
   inspectorUserId: string | null;
   scheduledDate: string | null;
   updatedAt: string;
+  // UNIT-OPS-1
+  propertyUnitId: string | null;
+  unitLabel: string | null;
+  unitIsActive: boolean | null;
 }
 
 export function InspectionsListPanel({
@@ -42,6 +53,7 @@ export function InspectionsListPanel({
   const [loading, setLoading] = useState(true);
   const [propertyId, setPropertyId] = useState(initialPropertyId ?? "");
   const [status, setStatus] = useState("");
+  const [unitFilter, setUnitFilter] = useState(UNIT_FILTER_ALL);
 
   useEffect(() => {
     fetch("/api/properties?active=true")
@@ -72,6 +84,17 @@ export function InspectionsListPanel({
     return () => clearTimeout(handle);
   }, [load]);
 
+  // UNIT-OPS-1: see WorkOrdersListPanel — server-scoped rows, Unit filter
+  // once a single Property is chosen.
+  const unitFilterOptions = useMemo(
+    () => (propertyId ? buildUnitFilterOptions(inspections) : []),
+    [propertyId, inspections],
+  );
+  const showUnits = inspections.some((inspection) => inspection.propertyUnitId !== null);
+  const visibleInspections = propertyId
+    ? inspections.filter((inspection) => matchesUnitFilter(inspection, unitFilter))
+    : inspections;
+
   const propertyNameById = useMemo(() => {
     const map = new Map<string, string>();
     for (const property of properties) map.set(property.id, property.name);
@@ -88,7 +111,15 @@ export function InspectionsListPanel({
     <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
       <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between" }}>
         <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap", flex: 1 }}>
-          <select className="input" style={{ maxWidth: 200 }} value={propertyId} onChange={(event) => setPropertyId(event.target.value)}>
+          <select
+            className="input"
+            style={{ maxWidth: 200 }}
+            value={propertyId}
+            onChange={(event) => {
+              setPropertyId(event.target.value);
+              setUnitFilter(UNIT_FILTER_ALL);
+            }}
+          >
             <option value="">All properties</option>
             {properties.map((property) => (
               <option key={property.id} value={property.id}>
@@ -96,6 +127,7 @@ export function InspectionsListPanel({
               </option>
             ))}
           </select>
+          <UnitFilterSelect id="inspections-unit-filter" options={unitFilterOptions} value={unitFilter} onChange={setUnitFilter} />
           <select className="input" style={{ maxWidth: 170 }} value={status} onChange={(event) => setStatus(event.target.value)}>
             <option value="">All statuses</option>
             {INSPECTION_STATUSES.map((value) => (
@@ -118,7 +150,7 @@ export function InspectionsListPanel({
       <div className="card">
         {loading ? (
           <p className="muted">Loading…</p>
-        ) : inspections.length === 0 ? (
+        ) : visibleInspections.length === 0 ? (
           <p className="muted">
             No inspections match your filters yet.{" "}
             {canCreate ? <Link href="/inspections/new" className="text-link">Start one.</Link> : null}
@@ -130,6 +162,7 @@ export function InspectionsListPanel({
                 <tr style={{ textAlign: "left", borderBottom: "1px solid var(--border)" }}>
                   <th style={{ padding: "0.5rem" }}>Inspection</th>
                   <th style={{ padding: "0.5rem" }}>Property</th>
+                  {showUnits ? <th style={{ padding: "0.5rem" }}>Unit / Suite</th> : null}
                   <th style={{ padding: "0.5rem" }}>Status</th>
                   <th style={{ padding: "0.5rem" }}>Result</th>
                   <th style={{ padding: "0.5rem" }}>Inspector</th>
@@ -138,12 +171,13 @@ export function InspectionsListPanel({
                 </tr>
               </thead>
               <tbody>
-                {inspections.map((inspection) => (
+                {visibleInspections.map((inspection) => (
                   <InteractiveRow key={inspection.id} href={`/inspections/${inspection.id}`} style={{ borderBottom: "1px solid var(--border)" }}>
                     <td style={{ padding: "0.5rem" }}>
                       <Link href={`/inspections/${inspection.id}`} className="entity-link">{inspection.templateName}</Link>
                     </td>
                     <td style={{ padding: "0.5rem" }}>{propertyNameById.get(inspection.propertyId) ?? "—"}</td>
+                    {showUnits ? <td style={{ padding: "0.5rem" }}>{formatRecordUnitLabel(inspection)}</td> : null}
                     <td style={{ padding: "0.5rem" }}>
                       {INSPECTION_STATUS_LABELS[inspection.status as InspectionStatus] ?? inspection.status}
                     </td>

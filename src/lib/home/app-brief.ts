@@ -6,6 +6,7 @@ import { EQUIPMENT_CAPABILITIES } from "@/lib/equipment/constants";
 import { filterAccessibleEquipment, resolveHiddenEquipmentIds } from "@/lib/equipment/equipment-access";
 import { listPropertyEquipmentNeedingAttention } from "@/lib/equipment/property-equipment";
 import { INSPECTION_CAPABILITIES } from "@/lib/inspections/constants";
+import { filterAccessibleInspections } from "@/lib/inspections/inspection-access";
 import { listInspections } from "@/lib/inspections/inspections";
 import {
   LEASE_CAPABILITIES,
@@ -24,6 +25,7 @@ import { listPreventiveMaintenancePlans } from "@/lib/preventive-maintenance/pla
 import { listProperties } from "@/lib/properties/properties";
 import { WORK_ORDER_CAPABILITIES, WORK_ORDER_STALE_THRESHOLD_DAYS } from "@/lib/work-orders/constants";
 import { isWorkOrderOverdue, isWorkOrderUrgentPriority } from "@/lib/work-orders/attention";
+import { filterAccessibleWorkOrders } from "@/lib/work-orders/work-order-access";
 import { listOpenWorkOrdersForBrief } from "@/lib/work-orders/work-orders";
 
 // Maps every Home App Brief section to the Notification Preferences category
@@ -289,7 +291,11 @@ export async function getAppBrief(
   );
 
   const [workOrderRows, pmRows, complianceRows, leaseRows, inspectionRows, equipmentRows] = await Promise.all([
-    workOrdersVisible ? listOpenWorkOrdersForBrief(organizationId, propertyIds) : null,
+    // UNIT-OPS-1: Property-scoped by the query, Unit-scoped here — before
+    // selecting/counting, so another Unit's Work Orders never reach totals.
+    workOrdersVisible
+      ? listOpenWorkOrdersForBrief(organizationId, propertyIds).then((rows) => filterAccessibleWorkOrders(scope, rows))
+      : null,
     // UNIT-EQUIP-1: PM plans for another Unit's Equipment are dropped (see
     // lib/preventive-maintenance/plan-access.ts).
     pmVisible
@@ -304,7 +310,10 @@ export async function getAppBrief(
     // propertyIds array, so a Unit-restricted user never sees another Unit's
     // lease milestones in their brief.
     leasesVisible ? listLeases(organizationId, { scope }) : null,
-    inspectionsVisible ? listInspections(organizationId, { propertyIds }) : null,
+    // UNIT-OPS-1: same for Inspections.
+    inspectionsVisible
+      ? listInspections(organizationId, { propertyIds }).then((rows) => filterAccessibleInspections(scope, rows))
+      : null,
     // UNIT-EQUIP-1: Property-scoped by the query, Unit-scoped here.
     equipmentVisible
       ? listPropertyEquipmentNeedingAttention(organizationId, propertyIds).then((rows) =>

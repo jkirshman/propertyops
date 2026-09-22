@@ -2,12 +2,12 @@ import { NextResponse } from "next/server";
 
 import { recordAuditEvent } from "@/db/audit";
 import { getCurrentUserWithCapabilities } from "@/lib/auth/current-user";
-import { canAccessProperty, resolveUserPropertyScope } from "@/lib/auth/property-access";
+import { listUserIdsWithCapabilityForProperty, resolveUserPropertyScope } from "@/lib/auth/property-access";
 import { INSPECTION_CAPABILITIES } from "@/lib/inspections/constants";
-import { completeInspection, getInspection } from "@/lib/inspections/inspections";
+import { completeInspection } from "@/lib/inspections/inspections";
+import { getAccessibleInspection } from "@/lib/inspections/inspection-access";
 import { buildInspectionCompletedWithFindingsNotification } from "@/lib/inspections/notification-events";
 import { createNotification } from "@/lib/notifications/notifications";
-import { listUsersWithCapability } from "@/lib/users/users";
 
 export async function POST(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const context = await getCurrentUserWithCapabilities();
@@ -21,13 +21,10 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
   const { id } = await params;
   const { user, capabilityKeys } = context;
 
-  const inspection = await getInspection(user.organizationId, id);
-  if (!inspection) {
-    return NextResponse.json({ error: "not_found" }, { status: 404 });
-  }
-
+  // UNIT-OPS-1: another Unit's Inspection is a 404, same as another Property's.
   const scope = await resolveUserPropertyScope(user.id, user.organizationId, capabilityKeys);
-  if (!canAccessProperty(scope, inspection.propertyId)) {
+  const inspection = await getAccessibleInspection(user.organizationId, scope, id);
+  if (!inspection) {
     return NextResponse.json({ error: "not_found" }, { status: 404 });
   }
 
@@ -57,12 +54,20 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
 
   if (result.inspection.overallResult !== "passed") {
     const notification = buildInspectionCompletedWithFindingsNotification(result.inspection);
-    const recipients = await listUsersWithCapability(user.organizationId, INSPECTION_CAPABILITIES.EDIT);
-    for (const recipient of recipients) {
-      if (recipient.id === user.id) continue;
+    // UNIT-OPS-1: editors who can see this Inspection — its Property and, if
+    // Unit-owned, its Unit. (Previously every editor org-wide was notified,
+    // including ones with no access to the Property at all.)
+    const recipientIds = await listUserIdsWithCapabilityForProperty(
+      user.organizationId,
+      result.inspection.propertyId,
+      INSPECTION_CAPABILITIES.EDIT,
+      result.inspection.propertyUnitId,
+    );
+    for (const recipientId of recipientIds) {
+      if (recipientId === user.id) continue;
       await createNotification({
         organizationId: user.organizationId,
-        recipientUserId: recipient.id,
+        recipientUserId: recipientId,
         actorUserId: user.id,
         ...notification,
       });

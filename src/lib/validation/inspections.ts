@@ -24,6 +24,8 @@ function checkScheduleOrdering(
 export const createInspectionSchema = z
   .object({
     propertyId: z.string().uuid("Select a property."),
+    // UNIT-OPS-1: null/omitted = Property-wide / Shared (see work-orders.ts).
+    propertyUnitId: z.preprocess(emptyToUndefined, z.string().uuid().nullable().optional()),
     propertyEquipmentId: z.preprocess(emptyToUndefined, z.string().uuid().optional()),
     templateId: z.string().uuid("Select an inspection template."),
     scheduledDate: z.preprocess(emptyToUndefined, z.string().regex(DATE_PATTERN, "Enter a valid date.").optional()),
@@ -36,6 +38,7 @@ export const createInspectionSchema = z
 
 export const updateInspectionSchema = z
   .object({
+    propertyUnitId: z.preprocess(emptyToUndefined, z.string().uuid().optional().nullable()),
     propertyEquipmentId: z.preprocess(emptyToUndefined, z.string().uuid().optional().nullable()),
     scheduledDate: z.preprocess(
       emptyToUndefined,

@@ -3,7 +3,9 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useState, type FormEvent } from "react";
 
+import { UnitSelect, type UnitSelectOptions } from "@/components/shared/UnitSelect";
 import { COMPONENT_TYPE_LABELS, type ComponentType } from "@/lib/property-components/constants";
+import { defaultNewRecordUnitId, filterEquipmentForUnit } from "@/lib/property-units/unit-display";
 import { WORK_ORDER_PRIORITIES, WORK_ORDER_PRIORITY_LABELS } from "@/lib/work-orders/constants";
 
 function componentLabel(component: ComponentOption): string {
@@ -26,6 +28,7 @@ interface UserOption {
 interface EquipmentOption {
   id: string;
   displayName: string;
+  propertyUnitId: string | null;
 }
 
 interface ComponentOption {
@@ -82,6 +85,9 @@ export function WorkOrderForm({
   const [assetId, setAssetId] = useState(initialAssetId ?? "");
   const [vendorId, setVendorId] = useState("");
   const [equipmentOptions, setEquipmentOptions] = useState<EquipmentOption[]>([]);
+  // UNIT-OPS-1: null = Property-wide / Shared.
+  const [propertyUnitId, setPropertyUnitId] = useState<string | null>(null);
+  const [unitOptions, setUnitOptions] = useState<UnitSelectOptions | null>(null);
   const [componentOptions, setComponentOptions] = useState<ComponentOption[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -93,11 +99,26 @@ export function WorkOrderForm({
         )
       : Promise.resolve(null);
 
-    request.then((data) => {
+    const unitRequest = propertyId
+      ? fetch(`/api/properties/${propertyId}/unit-options`).then((response) =>
+          response.ok ? response.json() : null,
+        )
+      : Promise.resolve(null);
+
+    Promise.all([request, unitRequest]).then(([data, unitData]) => {
       const options: EquipmentOption[] = data?.equipment ?? [];
+      const nextUnitOptions: UnitSelectOptions | null = unitData?.unitOptions ?? null;
       setEquipmentOptions(options);
+      setUnitOptions(nextUnitOptions);
       setPropertyEquipmentId((current) =>
         current && !options.some((option) => option.id === current) ? "" : current,
+      );
+      // Unit-owned Equipment (e.g. an "?equipmentId=" prefill) decides the
+      // Unit; otherwise start on the viewer's default.
+      const prefilled = options.find((option) => option.id === initialEquipmentId);
+      setPropertyUnitId(
+        prefilled?.propertyUnitId ??
+          (nextUnitOptions?.supportsUnits ? defaultNewRecordUnitId(nextUnitOptions) : null),
       );
     });
 
@@ -114,7 +135,20 @@ export function WorkOrderForm({
         current && !options.some((option) => option.id === current) ? "" : current,
       );
     });
-  }, [propertyId]);
+  }, [propertyId, initialEquipmentId]);
+
+  const selectedEquipment = equipmentOptions.find((option) => option.id === propertyEquipmentId) ?? null;
+  // UNIT-OPS-1: Unit-owned Equipment pins the Work Order to its Unit.
+  const unitLockedByEquipment = Boolean(selectedEquipment?.propertyUnitId);
+  const visibleEquipmentOptions = filterEquipmentForUnit(equipmentOptions, propertyUnitId);
+
+  function handleEquipmentChange(equipmentId: string) {
+    setPropertyEquipmentId(equipmentId);
+    const equipment = equipmentOptions.find((option) => option.id === equipmentId);
+    if (equipment?.propertyUnitId) {
+      setPropertyUnitId(equipment.propertyUnitId);
+    }
+  }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -140,6 +174,7 @@ export function WorkOrderForm({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           propertyId,
+          propertyUnitId: unitOptions?.supportsUnits ? propertyUnitId : undefined,
           propertyEquipmentId: propertyEquipmentId || undefined,
           propertyComponentId: propertyComponentId || undefined,
           assetId: assetId || undefined,
@@ -190,6 +225,15 @@ export function WorkOrderForm({
             ))}
           </select>
         </div>
+        <UnitSelect
+          id="wo-unit"
+          value={propertyUnitId}
+          onChange={setPropertyUnitId}
+          options={unitOptions}
+          allowShared
+          disabled={unitLockedByEquipment}
+          hint={unitLockedByEquipment ? "Set by the selected equipment's Unit/Suite." : null}
+        />
         <div>
           <label className="label" htmlFor="wo-category">
             Category
@@ -217,11 +261,11 @@ export function WorkOrderForm({
             id="wo-equipment"
             className="input"
             value={propertyEquipmentId}
-            onChange={(event) => setPropertyEquipmentId(event.target.value)}
-            disabled={!propertyId || equipmentOptions.length === 0}
+            onChange={(event) => handleEquipmentChange(event.target.value)}
+            disabled={!propertyId || visibleEquipmentOptions.length === 0}
           >
             <option value="">None</option>
-            {equipmentOptions.map((option) => (
+            {visibleEquipmentOptions.map((option) => (
               <option key={option.id} value={option.id}>
                 {option.displayName}
               </option>

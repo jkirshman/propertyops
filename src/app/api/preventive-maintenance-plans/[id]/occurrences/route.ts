@@ -6,6 +6,7 @@ import { PREVENTIVE_MAINTENANCE_CAPABILITIES } from "@/lib/preventive-maintenanc
 import { listOccurrencesForPlan } from "@/lib/preventive-maintenance/occurrences";
 import { canAccessPreventiveMaintenancePlan } from "@/lib/preventive-maintenance/plan-access";
 import { getPreventiveMaintenancePlan } from "@/lib/preventive-maintenance/plans";
+import { redactHiddenOccurrenceWorkOrder } from "@/lib/work-orders/work-order-access";
 
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const context = await getCurrentUserWithCapabilities();
@@ -29,6 +30,8 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: "not_found" }, { status: 404 });
   }
 
-  const occurrences = await listOccurrencesForPlan(context.user.organizationId, id);
+  const occurrences = (await listOccurrencesForPlan(context.user.organizationId, id)).map((occurrence) =>
+    redactHiddenOccurrenceWorkOrder(scope, occurrence),
+  );
   return NextResponse.json({ occurrences });
 }

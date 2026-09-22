@@ -2,21 +2,26 @@ import { NextResponse } from "next/server";
 
 import { recordAuditEvent } from "@/db/audit";
 import { getCurrentUserWithCapabilities } from "@/lib/auth/current-user";
-import { canAccessProperty, resolveUserPropertyScope } from "@/lib/auth/property-access";
+import { canUserAccessPropertyUnit, resolveUserPropertyScope } from "@/lib/auth/property-access";
 import { diffFields } from "@/lib/db/diff-fields";
+import { stripUndefined } from "@/lib/db/strip-undefined";
 import {
   isEquipmentLinkHidden,
   redactHiddenEquipmentLink,
   resolveHiddenEquipmentIds,
 } from "@/lib/equipment/equipment-access";
-import { getAccessiblePropertyEquipment } from "@/lib/equipment/property-equipment";
+import { getAccessiblePropertyEquipment, getPropertyEquipment } from "@/lib/equipment/property-equipment";
 import { INSPECTION_CAPABILITIES } from "@/lib/inspections/constants";
+import { getAccessibleInspection } from "@/lib/inspections/inspection-access";
 import { cancelInspection, getInspection, updateInspection } from "@/lib/inspections/inspections";
 import {
   buildInspectionRescheduledNotification,
   buildInspectionScheduledNotification,
 } from "@/lib/inspections/notification-events";
 import { createNotification } from "@/lib/notifications/notifications";
+import { getProperty } from "@/lib/properties/properties";
+import { describeUnitForAudit } from "@/lib/property-units/property-units";
+import { resolveRecordUnit } from "@/lib/property-units/record-units";
 import { updateInspectionSchema } from "@/lib/validation/inspections";
 
 function pick<T extends Record<string, unknown>>(obj: T, keys: string[]): Partial<T> {
@@ -33,17 +38,14 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   }
 
   const { id } = await params;
-  const inspection = await getInspection(context.user.organizationId, id);
-  if (!inspection) {
-    return NextResponse.json({ error: "not_found" }, { status: 404 });
-  }
-
   const scope = await resolveUserPropertyScope(
     context.user.id,
     context.user.organizationId,
     context.capabilityKeys,
   );
-  if (!canAccessProperty(scope, inspection.propertyId)) {
+  // UNIT-OPS-1: another Unit's Inspection is a 404, same as another Property's.
+  const inspection = await getAccessibleInspection(context.user.organizationId, scope, id);
+  if (!inspection) {
     return NextResponse.json({ error: "not_found" }, { status: 404 });
   }
 
@@ -63,13 +65,9 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   const { id } = await params;
   const { user, capabilityKeys } = context;
 
-  const existing = await getInspection(user.organizationId, id);
-  if (!existing) {
-    return NextResponse.json({ error: "not_found" }, { status: 404 });
-  }
-
   const scope = await resolveUserPropertyScope(user.id, user.organizationId, capabilityKeys);
-  if (!canAccessProperty(scope, existing.propertyId)) {
+  const existing = await getAccessibleInspection(user.organizationId, scope, id);
+  if (!existing) {
     return NextResponse.json({ error: "not_found" }, { status: 404 });
   }
 
@@ -99,10 +97,42 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     }
   }
 
-  if (fields.propertyEquipmentId) {
-    const equipment = await getAccessiblePropertyEquipment(user.organizationId, scope, fields.propertyEquipmentId);
-    if (!equipment || equipment.propertyId !== existing.propertyId) {
-      return NextResponse.json({ error: "invalid_equipment" }, { status: 400 });
+  const newEquipment = fields.propertyEquipmentId
+    ? await getAccessiblePropertyEquipment(user.organizationId, scope, fields.propertyEquipmentId)
+    : null;
+  if (fields.propertyEquipmentId && (!newEquipment || newEquipment.propertyId !== existing.propertyId)) {
+    return NextResponse.json({ error: "invalid_equipment" }, { status: 400 });
+  }
+
+  // UNIT-OPS-1: same rule as Work Order PATCH — re-checked whenever the Unit
+  // or Equipment link changes, against the Equipment linked afterwards.
+  let unitChange: { from: string | null; to: string | null } | null = null;
+  if (fields.propertyUnitId !== undefined || fields.propertyEquipmentId !== undefined) {
+    const targetEquipment =
+      fields.propertyEquipmentId !== undefined
+        ? newEquipment
+        : existing.propertyEquipmentId
+          ? await getPropertyEquipment(user.organizationId, existing.propertyEquipmentId)
+          : null;
+    const property = await getProperty(user.organizationId, existing.propertyId);
+    if (!property) {
+      return NextResponse.json({ error: "not_found" }, { status: 404 });
+    }
+    const unit = await resolveRecordUnit({
+      organizationId: user.organizationId,
+      scope,
+      property,
+      mode: "update",
+      requestedUnitId: fields.propertyUnitId,
+      currentUnitId: existing.propertyUnitId,
+      equipmentUnitId: targetEquipment?.propertyUnitId ?? null,
+      recordNoun: "inspections",
+    });
+    if (!unit.ok) {
+      return NextResponse.json(unit.body, { status: unit.status });
+    }
+    if (unit.changed) {
+      unitChange = { from: existing.propertyUnitId, to: unit.propertyUnitId };
     }
   }
 
@@ -113,7 +143,10 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     return NextResponse.json({ error: "forbidden" }, { status: 403 });
   }
 
-  const { status: statusChange, ...updateFields } = fields;
+  // The requested Unit is never written or diffed as-is — only the resolved
+  // move (unitChange), which gets its own audit event below.
+  const { status: statusChange, ...nonStatusFields } = fields;
+  const updateFields = stripUndefined({ ...nonStatusFields, propertyUnitId: undefined });
 
   if (statusChange === "cancelled") {
     const cancelled = await cancelInspection(user.organizationId, id);
@@ -131,7 +164,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     });
   }
 
-  if (Object.keys(updateFields).length === 0) {
+  if (Object.keys(updateFields).length === 0 && !unitChange) {
     const current = await getInspection(user.organizationId, id);
     return NextResponse.json({
       inspection: current
@@ -140,7 +173,11 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     });
   }
 
-  const updated = await updateInspection(user.organizationId, id, updateFields);
+  const updated = await updateInspection(
+    user.organizationId,
+    id,
+    unitChange ? { ...updateFields, propertyUnitId: unitChange.to } : updateFields,
+  );
   if (!updated) {
     return NextResponse.json({ error: "not_found" }, { status: 404 });
   }
@@ -175,7 +212,16 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
         after: pick(diff.after, ["scheduledStartAt", "scheduledEndAt"]),
       });
 
-      if (updated.inspectorUserId && updated.scheduledStartAt) {
+      if (
+        updated.inspectorUserId &&
+        updated.scheduledStartAt &&
+        (await canUserAccessPropertyUnit(
+          user.organizationId,
+          updated.inspectorUserId,
+          updated.propertyId,
+          updated.propertyUnitId,
+        ))
+      ) {
         await createNotification({
           organizationId: user.organizationId,
           recipientUserId: updated.inspectorUserId,
@@ -201,6 +247,24 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
         after: pick(diff.after, remainingKeys),
       });
     }
+  }
+
+  // UNIT-OPS-1: dedicated event for every Unit move; propertyUnitId is kept
+  // out of the generic inspection.update event so nothing is logged twice.
+  if (unitChange) {
+    const [before, after] = await Promise.all([
+      describeUnitForAudit(user.organizationId, existing.propertyId, unitChange.from),
+      describeUnitForAudit(user.organizationId, existing.propertyId, unitChange.to),
+    ]);
+    await recordAuditEvent({
+      organizationId: user.organizationId,
+      actorUserId: user.id,
+      action: "inspection.unit_changed",
+      entityType: "inspection",
+      entityId: id,
+      before,
+      after,
+    });
   }
 
   return NextResponse.json({

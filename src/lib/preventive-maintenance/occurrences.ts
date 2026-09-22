@@ -3,7 +3,10 @@ import { and, desc, eq } from "drizzle-orm";
 import { recordAuditEvent } from "@/db/audit";
 import { db } from "@/db/client";
 import { preventiveMaintenanceOccurrences, preventiveMaintenancePlans, users, workOrders } from "@/db/schema";
+import { canUserAccessPropertyUnit } from "@/lib/auth/property-access";
+import { getPropertyEquipment } from "@/lib/equipment/property-equipment";
 import { createNotification } from "@/lib/notifications/notifications";
+import { deriveGeneratedWorkOrderUnitId } from "@/lib/property-units/unit-assignment";
 import type { WorkOrderPriority, WorkOrderSource, WorkOrderStatus } from "@/lib/work-orders/constants";
 import { createWorkOrder } from "@/lib/work-orders/work-orders";
 
@@ -39,6 +42,10 @@ export async function listOccurrencesForPlan(organizationId: string, planId: str
       workOrderId: preventiveMaintenanceOccurrences.workOrderId,
       workOrderNumber: workOrders.number,
       workOrderStatus: workOrders.status,
+      // UNIT-OPS-1: lets the route redact a linked Work Order the viewer
+      // can't access (see redactHiddenOccurrenceWorkOrder).
+      workOrderPropertyId: workOrders.propertyId,
+      workOrderPropertyUnitId: workOrders.propertyUnitId,
     })
     .from(preventiveMaintenanceOccurrences)
     .leftJoin(workOrders, eq(workOrders.id, preventiveMaintenanceOccurrences.workOrderId))
@@ -229,11 +236,24 @@ export async function generatePreventiveMaintenanceOccurrence(
     occurrence = existing;
   }
 
+  // UNIT-OPS-1: a PM plan has no Unit of its own — the generated Work Order
+  // takes its Equipment's Unit (Shared/no Equipment stays Shared), so it can
+  // never contradict the Equipment it's for. Duplicate protection above is
+  // untouched.
+  const equipment = plan.propertyEquipmentId
+    ? await getPropertyEquipment(organizationId, plan.propertyEquipmentId)
+    : null;
+  const propertyUnitId = deriveGeneratedWorkOrderUnitId({
+    sourceUnitId: null,
+    equipmentUnitId: equipment?.propertyUnitId ?? null,
+  });
+
   const workOrder = await createWorkOrder(
     organizationId,
     options.triggeredByUserId ?? null,
     {
       propertyId: plan.propertyId,
+      propertyUnitId,
       propertyEquipmentId: plan.propertyEquipmentId ?? undefined,
       categoryId: plan.categoryId,
       subject: plan.name,
@@ -276,7 +296,15 @@ export async function generatePreventiveMaintenanceOccurrence(
     },
   });
 
-  if (plan.defaultAssigneeUserId) {
+  if (
+    plan.defaultAssigneeUserId &&
+    (await canUserAccessPropertyUnit(
+      organizationId,
+      plan.defaultAssigneeUserId,
+      workOrder.propertyId,
+      workOrder.propertyUnitId,
+    ))
+  ) {
     await createNotification({
       organizationId,
       recipientUserId: plan.defaultAssigneeUserId,
@@ -294,7 +322,14 @@ export async function generatePreventiveMaintenanceOccurrence(
  */
 export async function syncPreventiveMaintenanceOccurrenceStatus(
   organizationId: string,
-  workOrder: { id: string; number: string; subject: string; status: WorkOrderStatus },
+  workOrder: {
+    id: string;
+    number: string;
+    subject: string;
+    status: WorkOrderStatus;
+    propertyId: string;
+    propertyUnitId: string | null;
+  },
   actorUserId: string | null,
 ): Promise<void> {
   const [occurrence] = await db
@@ -347,7 +382,16 @@ export async function syncPreventiveMaintenanceOccurrenceStatus(
     .where(eq(preventiveMaintenancePlans.id, occurrence.planId))
     .returning();
 
-  if (plan?.defaultAssigneeUserId && plan.defaultAssigneeUserId !== actorUserId) {
+  if (
+    plan?.defaultAssigneeUserId &&
+    plan.defaultAssigneeUserId !== actorUserId &&
+    (await canUserAccessPropertyUnit(
+      organizationId,
+      plan.defaultAssigneeUserId,
+      workOrder.propertyId,
+      workOrder.propertyUnitId,
+    ))
+  ) {
     await createNotification({
       organizationId,
       recipientUserId: plan.defaultAssigneeUserId,

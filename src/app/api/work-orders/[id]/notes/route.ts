@@ -2,11 +2,11 @@ import { NextResponse } from "next/server";
 
 import { recordAuditEvent } from "@/db/audit";
 import { getCurrentUserWithCapabilities } from "@/lib/auth/current-user";
-import { canAccessProperty, resolveUserPropertyScope } from "@/lib/auth/property-access";
+import { resolveUserPropertyScope } from "@/lib/auth/property-access";
 import { createWorkOrderNoteSchema } from "@/lib/validation/work-order-notes";
 import { WORK_ORDER_CAPABILITIES } from "@/lib/work-orders/constants";
 import { createWorkOrderNote, listWorkOrderNotes } from "@/lib/work-orders/notes";
-import { getWorkOrder } from "@/lib/work-orders/work-orders";
+import { getAccessibleWorkOrder } from "@/lib/work-orders/work-order-access";
 
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const context = await getCurrentUserWithCapabilities();
@@ -21,13 +21,10 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   const { id } = await params;
   const { user, capabilityKeys } = context;
 
-  const workOrder = await getWorkOrder(user.organizationId, id);
-  if (!workOrder) {
-    return NextResponse.json({ error: "not_found" }, { status: 404 });
-  }
-
+  // UNIT-OPS-1: another Unit's Work Order (and its notes/activity) is a 404.
   const scope = await resolveUserPropertyScope(user.id, user.organizationId, capabilityKeys);
-  if (!canAccessProperty(scope, workOrder.propertyId)) {
+  const workOrder = await getAccessibleWorkOrder(user.organizationId, scope, id);
+  if (!workOrder) {
     return NextResponse.json({ error: "not_found" }, { status: 404 });
   }
 
@@ -48,13 +45,10 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const { id } = await params;
   const { user, capabilityKeys } = context;
 
-  const workOrder = await getWorkOrder(user.organizationId, id);
-  if (!workOrder) {
-    return NextResponse.json({ error: "not_found" }, { status: 404 });
-  }
-
+  // UNIT-OPS-1: another Unit's Work Order (and its notes/activity) is a 404.
   const scope = await resolveUserPropertyScope(user.id, user.organizationId, capabilityKeys);
-  if (!canAccessProperty(scope, workOrder.propertyId)) {
+  const workOrder = await getAccessibleWorkOrder(user.organizationId, scope, id);
+  if (!workOrder) {
     return NextResponse.json({ error: "not_found" }, { status: 404 });
   }
 

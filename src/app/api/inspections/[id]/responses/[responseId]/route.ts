@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
 
 import { getCurrentUserWithCapabilities } from "@/lib/auth/current-user";
-import { canAccessProperty, resolveUserPropertyScope } from "@/lib/auth/property-access";
+import { resolveUserPropertyScope } from "@/lib/auth/property-access";
 import { INSPECTION_CAPABILITIES } from "@/lib/inspections/constants";
-import { getInspection, startInspectionIfDraft } from "@/lib/inspections/inspections";
+import { startInspectionIfDraft } from "@/lib/inspections/inspections";
+import { getAccessibleInspection } from "@/lib/inspections/inspection-access";
 import { getInspectionResponse, updateInspectionResponse } from "@/lib/inspections/responses";
 import { updateInspectionResponseSchema } from "@/lib/validation/inspections";
 
@@ -22,13 +23,10 @@ export async function PATCH(
   const { id, responseId } = await params;
   const { user, capabilityKeys } = context;
 
-  const inspection = await getInspection(user.organizationId, id);
-  if (!inspection) {
-    return NextResponse.json({ error: "not_found" }, { status: 404 });
-  }
-
+  // UNIT-OPS-1: another Unit's Inspection is a 404, same as another Property's.
   const scope = await resolveUserPropertyScope(user.id, user.organizationId, capabilityKeys);
-  if (!canAccessProperty(scope, inspection.propertyId)) {
+  const inspection = await getAccessibleInspection(user.organizationId, scope, id);
+  if (!inspection) {
     return NextResponse.json({ error: "not_found" }, { status: 404 });
   }
 

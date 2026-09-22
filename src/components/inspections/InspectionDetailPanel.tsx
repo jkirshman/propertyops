@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
+import { UnitSelect, type UnitSelectOptions } from "@/components/shared/UnitSelect";
 import { utcToZonedInputValue, zonedTimeToUtc } from "@/lib/calendar/timezone";
 import {
   INSPECTION_RESULT_LABELS,
@@ -11,11 +12,14 @@ import {
   type InspectionStatus,
 } from "@/lib/inspections/constants";
 import { buildWorkOrderDraftFromFinding } from "@/lib/inspections/finding";
+import { PROPERTY_WIDE_UNIT_LABEL, formatUnitOptionLabel } from "@/lib/property-units/unit-display";
 import { WORK_ORDER_PRIORITIES, WORK_ORDER_PRIORITY_LABELS } from "@/lib/work-orders/constants";
 
 export interface InspectionRecord {
   id: string;
   propertyId: string;
+  // UNIT-OPS-1: null = Property-wide / Shared.
+  propertyUnitId: string | null;
   propertyEquipmentId: string | null;
   status: string;
   overallResult: string | null;
@@ -53,6 +57,9 @@ const isFailed = (response: ResponseRecord) => response.itemResponseType === "pa
 
 export function InspectionDetailPanel({
   initialInspection,
+  unitOptions,
+  initialUnitLabel,
+  unitLockedByEquipment,
   categories,
   users,
   timezone,
@@ -62,6 +69,9 @@ export function InspectionDetailPanel({
   canSchedule,
 }: {
   initialInspection: InspectionRecord;
+  unitOptions: UnitSelectOptions | null;
+  initialUnitLabel: string;
+  unitLockedByEquipment: boolean;
   categories: OptionRecord[];
   users: UserOption[];
   timezone: string;
@@ -87,6 +97,45 @@ export function InspectionDetailPanel({
   const [savingSchedule, setSavingSchedule] = useState(false);
 
   const readOnly = inspection.status === "completed" || inspection.status === "cancelled";
+
+  // UNIT-OPS-1: same editing rule as Work Orders — a Unit-restricted editor
+  // can't move an Inspection into/out of Property-wide, and Unit-owned
+  // Equipment pins the Unit.
+  const canChangeUnit =
+    canEdit &&
+    !unitLockedByEquipment &&
+    Boolean(unitOptions) &&
+    (unitOptions!.wholeProperty || inspection.propertyUnitId !== null);
+  const unitOption = unitOptions?.units.find((unit) => unit.id === inspection.propertyUnitId);
+  const unitLabel =
+    inspection.propertyUnitId === null
+      ? PROPERTY_WIDE_UNIT_LABEL
+      : unitOption
+        ? formatUnitOptionLabel(unitOption)
+        : inspection.propertyUnitId === initialInspection.propertyUnitId
+          ? initialUnitLabel
+          : "Unit/Suite";
+  const showUnit = Boolean(unitOptions?.supportsUnits) || inspection.propertyUnitId !== null;
+
+  async function handleUnitChange(unitId: string | null) {
+    setError(null);
+    setBusy(true);
+    try {
+      const response = await fetch(`/api/inspections/${inspection.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ propertyUnitId: unitId }),
+      });
+      const data = await response.json().catch(() => null);
+      if (!response.ok) {
+        setError(data?.message ?? "Could not change the Unit/Suite.");
+        return;
+      }
+      setInspection(data.inspection);
+    } finally {
+      setBusy(false);
+    }
+  }
 
   useEffect(() => {
     fetch(`/api/inspections/${inspection.id}/responses`)
@@ -209,6 +258,24 @@ export function InspectionDetailPanel({
           <div className="muted" style={{ fontSize: "0.8rem" }}>Status</div>
           <div style={{ fontWeight: 600 }}>{INSPECTION_STATUS_LABELS[inspection.status as InspectionStatus] ?? inspection.status}</div>
         </div>
+        {showUnit ? (
+          canChangeUnit ? (
+            <UnitSelect
+              id="inspection-detail-unit"
+              value={inspection.propertyUnitId}
+              onChange={handleUnitChange}
+              options={unitOptions}
+              allowShared={unitOptions!.wholeProperty}
+              disabled={busy}
+              currentLabel={unitLabel}
+            />
+          ) : (
+            <div>
+              <div className="muted" style={{ fontSize: "0.8rem" }}>Unit / Suite</div>
+              <div style={{ fontWeight: 600 }}>{unitLabel}</div>
+            </div>
+          )
+        ) : null}
         {inspection.overallResult ? (
           <div>
             <div className="muted" style={{ fontSize: "0.8rem" }}>Result</div>

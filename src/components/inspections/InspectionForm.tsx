@@ -3,7 +3,9 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useState, type FormEvent } from "react";
 
+import { UnitSelect, type UnitSelectOptions } from "@/components/shared/UnitSelect";
 import { VALIDATION_BANNER_MESSAGE, describeApiError, invalidFieldProps, mapFieldErrors } from "@/lib/forms/field-errors";
+import { defaultNewRecordUnitId, filterEquipmentForUnit } from "@/lib/property-units/unit-display";
 import { createInspectionSchema } from "@/lib/validation/inspections";
 
 interface OptionRecord {
@@ -20,6 +22,7 @@ interface TemplateOption {
 interface EquipmentOption {
   id: string;
   displayName: string;
+  propertyUnitId: string | null;
 }
 
 interface UserOption {
@@ -45,6 +48,10 @@ export function InspectionForm({
   const [scheduledDate, setScheduledDate] = useState("");
   const [inspectorUserId, setInspectorUserId] = useState("");
   const [equipmentOptions, setEquipmentOptions] = useState<EquipmentOption[]>([]);
+  // UNIT-OPS-1: the Unit belongs to this Inspection instance, never to the
+  // (reusable) template. null = Property-wide / Shared.
+  const [propertyUnitId, setPropertyUnitId] = useState<string | null>(null);
+  const [unitOptions, setUnitOptions] = useState<UnitSelectOptions | null>(null);
   const [templateOptions, setTemplateOptions] = useState<TemplateOption[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
@@ -54,12 +61,35 @@ export function InspectionForm({
     const request = propertyId
       ? fetch(`/api/properties/${propertyId}/equipment?activeOnly=true`).then((r) => (r.ok ? r.json() : null))
       : Promise.resolve(null);
-    request.then((data) => {
+    const unitRequest = propertyId
+      ? fetch(`/api/properties/${propertyId}/unit-options`).then((r) => (r.ok ? r.json() : null))
+      : Promise.resolve(null);
+    Promise.all([request, unitRequest]).then(([data, unitData]) => {
       const options: EquipmentOption[] = data?.equipment ?? [];
+      const nextUnitOptions: UnitSelectOptions | null = unitData?.unitOptions ?? null;
       setEquipmentOptions(options);
+      setUnitOptions(nextUnitOptions);
       setPropertyEquipmentId((current) => (current && !options.some((o) => o.id === current) ? "" : current));
+      const prefilled = options.find((option) => option.id === initialEquipmentId);
+      setPropertyUnitId(
+        prefilled?.propertyUnitId ??
+          (nextUnitOptions?.supportsUnits ? defaultNewRecordUnitId(nextUnitOptions) : null),
+      );
     });
-  }, [propertyId]);
+  }, [propertyId, initialEquipmentId]);
+
+  const selectedEquipment = equipmentOptions.find((option) => option.id === propertyEquipmentId) ?? null;
+  // UNIT-OPS-1: Unit-owned Equipment pins the Inspection to its Unit.
+  const unitLockedByEquipment = Boolean(selectedEquipment?.propertyUnitId);
+  const visibleEquipmentOptions = filterEquipmentForUnit(equipmentOptions, propertyUnitId);
+
+  function handleEquipmentChange(equipmentId: string) {
+    setPropertyEquipmentId(equipmentId);
+    const equipment = equipmentOptions.find((option) => option.id === equipmentId);
+    if (equipment?.propertyUnitId) {
+      setPropertyUnitId(equipment.propertyUnitId);
+    }
+  }
 
   useEffect(() => {
     fetch("/api/inspection-templates?activeOnly=true")
@@ -79,6 +109,7 @@ export function InspectionForm({
 
     const payload = {
       propertyId,
+      propertyUnitId: unitOptions?.supportsUnits ? propertyUnitId : undefined,
       propertyEquipmentId: propertyEquipmentId || undefined,
       templateId,
       scheduledDate: scheduledDate || undefined,
@@ -106,7 +137,7 @@ export function InspectionForm({
           setFieldErrors(mapFieldErrors(serverFieldErrors));
           setError(VALIDATION_BANNER_MESSAGE);
         } else {
-          setError(describeApiError(data?.error));
+          setError(data?.message ?? describeApiError(data?.error));
         }
         return;
       }
@@ -144,6 +175,15 @@ export function InspectionForm({
             ))}
           </select>
         </div>
+        <UnitSelect
+          id="inspection-unit"
+          value={propertyUnitId}
+          onChange={setPropertyUnitId}
+          options={unitOptions}
+          allowShared
+          disabled={unitLockedByEquipment}
+          hint={unitLockedByEquipment ? "Set by the selected equipment's Unit/Suite." : null}
+        />
         <div>
           <label className="label" htmlFor="inspection-equipment">
             Equipment (optional)
@@ -152,11 +192,11 @@ export function InspectionForm({
             id="inspection-equipment"
             className="input"
             value={propertyEquipmentId}
-            onChange={(event) => setPropertyEquipmentId(event.target.value)}
-            disabled={!propertyId || equipmentOptions.length === 0}
+            onChange={(event) => handleEquipmentChange(event.target.value)}
+            disabled={!propertyId || visibleEquipmentOptions.length === 0}
           >
-            <option value="">Whole property</option>
-            {equipmentOptions.map((option) => (
+            <option value="">No specific equipment</option>
+            {visibleEquipmentOptions.map((option) => (
               <option key={option.id} value={option.id}>
                 {option.displayName}
               </option>

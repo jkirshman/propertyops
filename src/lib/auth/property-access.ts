@@ -125,18 +125,158 @@ export function forbiddenResponseBody() {
   return { error: "forbidden" } as const;
 }
 
+export interface RecipientCandidate {
+  id: string;
+  // Holds properties.access.unrestricted via their role.
+  unrestricted: boolean;
+}
+
+export interface RecipientAccessRow extends PropertyAccessRow {
+  userId: string;
+}
+
+/**
+ * UNIT-OPS-1: pure recipient filter — which candidates may see a record at
+ * `propertyId` owned by `propertyUnitId` (null = Property-wide / Shared).
+ * Each non-unrestricted candidate's own access rows are turned into their
+ * PropertyScope and run through canAccessPropertyUnit, so notifications
+ * follow exactly the same rule as the record's list/detail pages.
+ */
+export function selectRecipientsWithPropertyUnitAccess(
+  candidates: RecipientCandidate[],
+  accessRows: RecipientAccessRow[],
+  propertyId: string,
+  propertyUnitId: string | null,
+): string[] {
+  const recipientIds: string[] = [];
+  for (const candidate of candidates) {
+    const scope: PropertyScope = candidate.unrestricted
+      ? { kind: "all" }
+      : {
+          kind: "scoped",
+          access: accessRows
+            .filter((row) => row.userId === candidate.id)
+            .map((row) => ({ propertyId: row.propertyId, propertyUnitId: row.propertyUnitId })),
+        };
+    if (canAccessPropertyUnit(scope, propertyId, propertyUnitId)) {
+      recipientIds.push(candidate.id);
+    }
+  }
+  return Array.from(new Set(recipientIds));
+}
+
+async function listUnrestrictedRoleIds(organizationId: string, roleIds: string[]): Promise<Set<string>> {
+  if (roleIds.length === 0) {
+    return new Set();
+  }
+  const rows = await db
+    .select({ roleId: roles.id })
+    .from(roles)
+    .innerJoin(roleCapabilities, eq(roleCapabilities.roleId, roles.id))
+    .innerJoin(capabilities, eq(capabilities.id, roleCapabilities.capabilityId))
+    .where(
+      and(
+        eq(roles.organizationId, organizationId),
+        eq(capabilities.key, PROPERTY_ACCESS_CAPABILITIES.UNRESTRICTED),
+        inArray(roles.id, roleIds),
+      ),
+    );
+  return new Set(rows.map((row) => row.roleId));
+}
+
+async function resolveRecipients(
+  organizationId: string,
+  candidateUsers: { id: string; roleId: string }[],
+  propertyId: string,
+  propertyUnitId: string | null,
+): Promise<string[]> {
+  if (candidateUsers.length === 0) {
+    return [];
+  }
+  const unrestrictedRoleIds = await listUnrestrictedRoleIds(
+    organizationId,
+    Array.from(new Set(candidateUsers.map((candidate) => candidate.roleId))),
+  );
+  const candidates = candidateUsers.map((candidate) => ({
+    id: candidate.id,
+    unrestricted: unrestrictedRoleIds.has(candidate.roleId),
+  }));
+
+  const restrictedIds = candidates.filter((candidate) => !candidate.unrestricted).map((candidate) => candidate.id);
+  const accessRows =
+    restrictedIds.length > 0
+      ? await db
+          .select({
+            userId: userPropertyAccess.userId,
+            propertyId: userPropertyAccess.propertyId,
+            propertyUnitId: userPropertyAccess.propertyUnitId,
+          })
+          .from(userPropertyAccess)
+          .where(
+            and(
+              eq(userPropertyAccess.organizationId, organizationId),
+              eq(userPropertyAccess.propertyId, propertyId),
+              inArray(userPropertyAccess.userId, restrictedIds),
+            ),
+          )
+      : [];
+
+  return selectRecipientsWithPropertyUnitAccess(candidates, accessRows, propertyId, propertyUnitId);
+}
+
+/**
+ * UNIT-OPS-1: narrows specific would-be recipients (an assignee, requester,
+ * inspector, PM default assignee) to those who can see a record at
+ * `propertyId` / `propertyUnitId` — so a notification never carries another
+ * Unit's (or another Property's) Work Order / Inspection title to someone
+ * who'd get a 404 opening it. Users outside the org are dropped.
+ */
+export async function filterUserIdsWithPropertyUnitAccess(
+  organizationId: string,
+  userIds: (string | null | undefined)[],
+  propertyId: string,
+  propertyUnitId: string | null,
+): Promise<string[]> {
+  const ids = Array.from(new Set(userIds.filter((id): id is string => Boolean(id))));
+  if (ids.length === 0) {
+    return [];
+  }
+  const candidateUsers = await db
+    .select({ id: users.id, roleId: users.roleId })
+    .from(users)
+    .where(and(eq(users.organizationId, organizationId), inArray(users.id, ids)));
+  return resolveRecipients(organizationId, candidateUsers, propertyId, propertyUnitId);
+}
+
+/** Convenience for the single-recipient case: true iff `userId` passes filterUserIdsWithPropertyUnitAccess. */
+export async function canUserAccessPropertyUnit(
+  organizationId: string,
+  userId: string | null | undefined,
+  propertyId: string,
+  propertyUnitId: string | null,
+): Promise<boolean> {
+  if (!userId) {
+    return false;
+  }
+  const allowed = await filterUserIdsWithPropertyUnitAccess(organizationId, [userId], propertyId, propertyUnitId);
+  return allowed.includes(userId);
+}
+
 /**
  * Active users in the org who both hold `requiredCapability` and can access
- * `propertyId` — the shared recipient-resolution used by Property Note and
- * Vendor submission notifications ("notify Managers/Admins with access to
- * this property"). A role granting `requiredCapability` but not
- * `properties.access.unrestricted` only contributes users who additionally
- * have a `user_property_access` row for this property.
+ * `propertyId` — the shared recipient-resolution used by Property Note,
+ * Vendor submission, and (UNIT-OPS-1) Inspection-findings notifications
+ * ("notify Managers/Admins with access to this property"). A role granting
+ * `requiredCapability` but not `properties.access.unrestricted` only
+ * contributes users who additionally have a matching `user_property_access`
+ * row. `propertyUnitId` (default null = a Property-wide record) further
+ * limits Unit-restricted users to records of their own Unit(s).
  */
 export async function listUserIdsWithCapabilityForProperty(
   organizationId: string,
   propertyId: string,
   requiredCapability: string,
+  propertyUnitId: string | null = null,
 ): Promise<string[]> {
   const capableRoleRows = await db
     .select({ roleId: roles.id })
@@ -149,20 +289,6 @@ export async function listUserIdsWithCapabilityForProperty(
     return [];
   }
 
-  const unrestrictedRoleRows = await db
-    .select({ roleId: roles.id })
-    .from(roles)
-    .innerJoin(roleCapabilities, eq(roleCapabilities.roleId, roles.id))
-    .innerJoin(capabilities, eq(capabilities.id, roleCapabilities.capabilityId))
-    .where(
-      and(
-        eq(roles.organizationId, organizationId),
-        eq(capabilities.key, PROPERTY_ACCESS_CAPABILITIES.UNRESTRICTED),
-        inArray(roles.id, capableRoleIds),
-      ),
-    );
-  const unrestrictedRoleIds = new Set(unrestrictedRoleRows.map((row) => row.roleId));
-
   const candidateUsers = await db
     .select({ id: users.id, roleId: users.roleId })
     .from(users)
@@ -174,34 +300,5 @@ export async function listUserIdsWithCapabilityForProperty(
       ),
     );
 
-  const recipientIds: string[] = [];
-  const restrictedUserIds: string[] = [];
-  for (const candidate of candidateUsers) {
-    if (unrestrictedRoleIds.has(candidate.roleId)) {
-      recipientIds.push(candidate.id);
-    } else {
-      restrictedUserIds.push(candidate.id);
-    }
-  }
-
-  if (restrictedUserIds.length > 0) {
-    const accessRows = await db
-      .select({ userId: userPropertyAccess.userId })
-      .from(userPropertyAccess)
-      .where(
-        and(
-          eq(userPropertyAccess.organizationId, organizationId),
-          eq(userPropertyAccess.propertyId, propertyId),
-          inArray(userPropertyAccess.userId, restrictedUserIds),
-        ),
-      );
-    const allowedRestrictedIds = new Set(accessRows.map((row) => row.userId));
-    for (const id of restrictedUserIds) {
-      if (allowedRestrictedIds.has(id)) {
-        recipientIds.push(id);
-      }
-    }
-  }
-
-  return Array.from(new Set(recipientIds));
+  return resolveRecipients(organizationId, candidateUsers, propertyId, propertyUnitId);
 }

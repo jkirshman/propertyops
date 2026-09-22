@@ -8,6 +8,7 @@ const BASE: WorkOrderCalendarRow = {
   number: "WO-000001",
   subject: "Fix leaking faucet",
   propertyId: "prop-1",
+  propertyUnitId: null,
   vendorId: null,
   assignedUserId: "user-1",
   status: "open",

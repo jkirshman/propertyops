@@ -2,10 +2,12 @@ import { NextResponse } from "next/server";
 
 import { recordAuditEvent } from "@/db/audit";
 import { getCurrentUserWithCapabilities } from "@/lib/auth/current-user";
-import { canAccessProperty, resolveUserPropertyScope } from "@/lib/auth/property-access";
+import { canAccessPropertyUnit, resolveUserPropertyScope } from "@/lib/auth/property-access";
+import { getPropertyEquipment } from "@/lib/equipment/property-equipment";
 import { INSPECTION_CAPABILITIES } from "@/lib/inspections/constants";
-import { getInspection } from "@/lib/inspections/inspections";
+import { getAccessibleInspection } from "@/lib/inspections/inspection-access";
 import { getInspectionResponse } from "@/lib/inspections/responses";
+import { deriveGeneratedWorkOrderUnitId } from "@/lib/property-units/unit-assignment";
 import { createWorkOrderSchema } from "@/lib/validation/work-orders";
 import { WORK_ORDER_CAPABILITIES } from "@/lib/work-orders/constants";
 import { createWorkOrder } from "@/lib/work-orders/work-orders";
@@ -15,6 +17,12 @@ import { createWorkOrder } from "@/lib/work-orders/work-orders";
  * Work Order. Never triggered automatically by a failed response. Property/
  * equipment are always taken from the inspection itself, never the client
  * payload, so the Work Order can't end up linked to the wrong place.
+ *
+ * UNIT-OPS-1: the same goes for the Unit — the generated Work Order takes the
+ * linked Equipment's Unit if it has one, otherwise the Inspection's own Unit
+ * (Shared stays Shared). The operator never re-enters it, and a client-sent
+ * propertyUnitId is ignored. Follows the source even if that Unit has since
+ * been deactivated: the finding still happened there.
  */
 export async function POST(
   request: Request,
@@ -34,13 +42,10 @@ export async function POST(
 
   const { id, responseId } = await params;
 
-  const inspection = await getInspection(user.organizationId, id);
-  if (!inspection) {
-    return NextResponse.json({ error: "not_found" }, { status: 404 });
-  }
-
+  // UNIT-OPS-1: another Unit's Inspection is a 404, same as another Property's.
   const scope = await resolveUserPropertyScope(user.id, user.organizationId, capabilityKeys);
-  if (!canAccessProperty(scope, inspection.propertyId)) {
+  const inspection = await getAccessibleInspection(user.organizationId, scope, id);
+  if (!inspection) {
     return NextResponse.json({ error: "not_found" }, { status: 404 });
   }
 
@@ -49,10 +54,30 @@ export async function POST(
     return NextResponse.json({ error: "not_found" }, { status: 404 });
   }
 
+  const equipment = inspection.propertyEquipmentId
+    ? await getPropertyEquipment(user.organizationId, inspection.propertyEquipmentId)
+    : null;
+  const propertyUnitId = deriveGeneratedWorkOrderUnitId({
+    sourceUnitId: inspection.propertyUnitId,
+    equipmentUnitId: equipment?.propertyUnitId ?? null,
+  });
+  // Only reachable for a legacy Shared Inspection linked to another Unit's
+  // Equipment: the Work Order would land in a Unit the caller can't open.
+  if (!canAccessPropertyUnit(scope, inspection.propertyId, propertyUnitId)) {
+    return NextResponse.json(
+      {
+        error: "forbidden",
+        message: "This inspection's equipment belongs to a Unit/Suite you can't access, so you can't create its work order.",
+      },
+      { status: 403 },
+    );
+  }
+
   const body = await request.json().catch(() => null);
   const parsed = createWorkOrderSchema.safeParse({
     ...body,
     propertyId: inspection.propertyId,
+    propertyUnitId,
     propertyEquipmentId: inspection.propertyEquipmentId ?? undefined,
   });
   if (!parsed.success) {

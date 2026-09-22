@@ -9,6 +9,7 @@ const BASE: InspectionCalendarRow = {
   id: "insp-1",
   organizationId: "org-1",
   propertyId: "prop-1",
+  propertyUnitId: null,
   templateName: "Fire / Life Safety",
   status: "draft",
   inspectorUserId: "user-1",

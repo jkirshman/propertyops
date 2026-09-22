@@ -7,6 +7,13 @@ import {
   listAccessibleUnitIdsForProperty,
   type PropertyScope,
 } from "@/lib/auth/property-access";
+import {
+  listAssignableUnits,
+  resolveUnitAssignment,
+  unitAssignmentError,
+  type UnitAssignmentDecision,
+  type UnitCandidate,
+} from "@/lib/property-units/unit-assignment";
 
 /**
  * UNIT-EQUIP-1: the one authoritative Equipment visibility rule, layered on
@@ -102,37 +109,15 @@ export function redactHiddenEquipmentLink<T extends { propertyEquipmentId: strin
   return { ...record, propertyEquipmentRestricted: false };
 }
 
-/** The minimal shape of a Unit lookup result the decision below needs. */
-export interface EquipmentUnitCandidate {
-  id: string;
-  organizationId: string;
-  propertyId: string;
-  isActive: boolean;
-}
-
-export type EquipmentUnitAssignmentDecision =
-  | "unchanged"
-  | "allowed"
-  | "units_not_supported"
-  | "invalid_unit"
-  | "forbidden";
+export type EquipmentUnitCandidate = UnitCandidate;
+export type EquipmentUnitAssignmentDecision = UnitAssignmentDecision;
 
 /**
  * UNIT-EQUIP-1: decides whether a create/update may set Equipment's Unit.
- * Pure — the caller looks the Unit up (`getPropertyUnit`, already scoped to
- * the Equipment's org + Property) and passes the result as `unitCandidate`;
- * the org/Property checks are repeated here so the rule doesn't depend on
- * that lookup's WHERE clause.
- *
- * - `requestedUnitId` undefined on update, or equal to the current Unit, is
- *   "unchanged" — a PATCH that doesn't touch the Unit (including Equipment
- *   left on a since-deactivated Unit) is never blocked by this rule.
- * - A Unit requires a Property type that supports Units, an existing active
- *   Unit of the same org + Property, and access to that Unit.
- * - Property-wide (null) requires whole-Property access, in both directions:
- *   a Unit-restricted editor can't create or move Equipment into the Shared
- *   pool (exposing it to every other Unit), nor claim Shared Equipment for
- *   their own Unit (hiding it from every other Unit).
+ * Delegates to the shared UNIT-OPS-1 rule (lib/property-units/unit-assignment.ts)
+ * with one Equipment-specific policy: creating Property-wide (Shared)
+ * Equipment requires whole-Property access, just like moving Equipment into
+ * or out of the Shared pool.
  */
 export function resolveEquipmentUnitAssignment(params: {
   scope: PropertyScope;
@@ -144,62 +129,14 @@ export function resolveEquipmentUnitAssignment(params: {
   currentUnitId: string | null;
   unitCandidate: EquipmentUnitCandidate | null;
 }): EquipmentUnitAssignmentDecision {
-  const { scope, organizationId, propertyId, supportsUnits, mode, currentUnitId, unitCandidate } = params;
-  const requestedUnitId = params.requestedUnitId === undefined && mode === "create" ? null : params.requestedUnitId;
-
-  if (requestedUnitId === undefined) {
-    return "unchanged";
-  }
-  if (mode === "update" && requestedUnitId === currentUnitId) {
-    return "unchanged";
-  }
-
-  const hasWholePropertyAccess = listAccessibleUnitIdsForProperty(scope, propertyId) === null;
-  if (requestedUnitId === null || (mode === "update" && currentUnitId === null)) {
-    // Into or out of the Shared pool: only whole-Property access decides that.
-    if (!hasWholePropertyAccess) {
-      return "forbidden";
-    }
-    if (requestedUnitId === null) {
-      return "allowed";
-    }
-  }
-
-  if (!supportsUnits) {
-    return "units_not_supported";
-  }
-  if (
-    !unitCandidate ||
-    unitCandidate.id !== requestedUnitId ||
-    unitCandidate.organizationId !== organizationId ||
-    unitCandidate.propertyId !== propertyId ||
-    !unitCandidate.isActive
-  ) {
-    return "invalid_unit";
-  }
-  if (!canAccessPropertyUnit(scope, propertyId, requestedUnitId)) {
-    return "forbidden";
-  }
-  return "allowed";
+  return resolveUnitAssignment({ ...params, sharedCreateRequiresWholeProperty: true });
 }
-
-const UNIT_ASSIGNMENT_ERROR_MESSAGES: Record<
-  Exclude<EquipmentUnitAssignmentDecision, "allowed" | "unchanged">,
-  string
-> = {
-  units_not_supported: "This property type doesn't use Units/Suites, so equipment stays property-wide.",
-  invalid_unit: "Select an active Unit/Suite of this property.",
-  forbidden: "You don't have access to assign equipment to that Unit/Suite.",
-};
 
 /** Response status + body for a non-"allowed"/"unchanged" decision. */
 export function equipmentUnitAssignmentError(
   decision: Exclude<EquipmentUnitAssignmentDecision, "allowed" | "unchanged">,
 ): { status: number; body: { error: string; message: string } } {
-  return {
-    status: decision === "forbidden" ? 403 : 400,
-    body: { error: decision, message: UNIT_ASSIGNMENT_ERROR_MESSAGES[decision] },
-  };
+  return unitAssignmentError(decision, "equipment");
 }
 
 /**
@@ -212,11 +149,6 @@ export function listAssignableEquipmentUnits<T extends { id: string; isActive: b
   propertyId: string,
   units: T[],
 ): { units: T[]; allowPropertyWide: boolean } {
-  const accessibleUnitIds = listAccessibleUnitIdsForProperty(scope, propertyId);
-  return {
-    units: units.filter(
-      (unit) => unit.isActive && (accessibleUnitIds === null || accessibleUnitIds.includes(unit.id)),
-    ),
-    allowPropertyWide: accessibleUnitIds === null,
-  };
+  const { units: assignable, wholeProperty } = listAssignableUnits(scope, propertyId, units);
+  return { units: assignable, allowPropertyWide: wholeProperty };
 }

@@ -3,16 +3,25 @@ import { NextResponse } from "next/server";
 import { recordAuditEvent } from "@/db/audit";
 import { getAsset } from "@/lib/assets/assets";
 import { getCurrentUserWithCapabilities } from "@/lib/auth/current-user";
-import { canAccessProperty, forbiddenResponseBody, listAccessiblePropertyIds, resolveUserPropertyScope } from "@/lib/auth/property-access";
+import {
+  canAccessProperty,
+  canUserAccessPropertyUnit,
+  forbiddenResponseBody,
+  listAccessiblePropertyIds,
+  resolveUserPropertyScope,
+} from "@/lib/auth/property-access";
 import { redactHiddenEquipmentLink, resolveHiddenEquipmentIds } from "@/lib/equipment/equipment-access";
 import { getAccessiblePropertyEquipment } from "@/lib/equipment/property-equipment";
 import { createNotification } from "@/lib/notifications/notifications";
+import { getProperty } from "@/lib/properties/properties";
 import { getPropertyComponent } from "@/lib/property-components/property-components";
+import { resolveRecordUnit } from "@/lib/property-units/record-units";
 import {
   buildWorkOrderAssignedNotification,
   buildWorkOrderScheduledNotification,
 } from "@/lib/work-orders/notification-events";
 import { WORK_ORDER_CAPABILITIES } from "@/lib/work-orders/constants";
+import { filterAccessibleWorkOrders } from "@/lib/work-orders/work-order-access";
 import { createWorkOrder, listWorkOrders } from "@/lib/work-orders/work-orders";
 import { createWorkOrderSchema } from "@/lib/validation/work-orders";
 import { VENDOR_CAPABILITIES } from "@/lib/vendors/constants";
@@ -62,10 +71,13 @@ export async function GET(request: Request) {
     resolveHiddenEquipmentIds(context.user.organizationId, scope),
   ]);
 
-  // Work Orders stay Property-scoped (a Unit-restricted User still sees every
-  // Work Order at their Property, as before); only the hidden Equipment link
-  // itself is stripped.
-  const workOrders = rows.map((row) => redactHiddenEquipmentLink(row, hiddenEquipmentIds));
+  // UNIT-OPS-1: another Unit's Work Orders are dropped entirely (search and
+  // every filter included, since they all narrow this same list). A visible
+  // legacy Shared Work Order that still references another Unit's Equipment
+  // keeps UNIT-EQUIP-1's link redaction.
+  const workOrders = filterAccessibleWorkOrders(scope, rows).map((row) =>
+    redactHiddenEquipmentLink(row, hiddenEquipmentIds),
+  );
   return NextResponse.json({ workOrders });
 }
 
@@ -95,11 +107,32 @@ export async function POST(request: Request) {
     return NextResponse.json(forbiddenResponseBody(), { status: 403 });
   }
 
-  if (parsed.data.propertyEquipmentId) {
-    const equipment = await getAccessiblePropertyEquipment(user.organizationId, scope, parsed.data.propertyEquipmentId);
-    if (!equipment || equipment.propertyId !== parsed.data.propertyId) {
-      return NextResponse.json({ error: "invalid_equipment" }, { status: 400 });
-    }
+  const property = await getProperty(user.organizationId, parsed.data.propertyId);
+  if (!property) {
+    return NextResponse.json({ error: "invalid_property" }, { status: 400 });
+  }
+
+  const equipment = parsed.data.propertyEquipmentId
+    ? await getAccessiblePropertyEquipment(user.organizationId, scope, parsed.data.propertyEquipmentId)
+    : null;
+  if (parsed.data.propertyEquipmentId && (!equipment || equipment.propertyId !== parsed.data.propertyId)) {
+    return NextResponse.json({ error: "invalid_equipment" }, { status: 400 });
+  }
+
+  // UNIT-OPS-1: Unit-owned Equipment fixes the Work Order's Unit (adopted
+  // when the request doesn't name one, rejected when it contradicts).
+  const unit = await resolveRecordUnit({
+    organizationId: user.organizationId,
+    scope,
+    property,
+    mode: "create",
+    requestedUnitId: parsed.data.propertyUnitId,
+    currentUnitId: null,
+    equipmentUnitId: equipment?.propertyUnitId ?? null,
+    recordNoun: "work orders",
+  });
+  if (!unit.ok) {
+    return NextResponse.json(unit.body, { status: unit.status });
   }
 
   if (parsed.data.propertyComponentId) {
@@ -133,7 +166,10 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "forbidden" }, { status: 403 });
   }
 
-  const workOrder = await createWorkOrder(user.organizationId, user.id, parsed.data);
+  const workOrder = await createWorkOrder(user.organizationId, user.id, {
+    ...parsed.data,
+    propertyUnitId: unit.propertyUnitId,
+  });
 
   await recordAuditEvent({
     organizationId: user.organizationId,
@@ -144,7 +180,17 @@ export async function POST(request: Request) {
     after: workOrder,
   });
 
-  if (workOrder.assignedUserId && workOrder.assignedUserId !== user.id) {
+  // UNIT-OPS-1: never send a Work Order's title to an assignee who can't open it.
+  if (
+    workOrder.assignedUserId &&
+    workOrder.assignedUserId !== user.id &&
+    (await canUserAccessPropertyUnit(
+      user.organizationId,
+      workOrder.assignedUserId,
+      workOrder.propertyId,
+      workOrder.propertyUnitId,
+    ))
+  ) {
     const notification = buildWorkOrderAssignedNotification(workOrder);
     await createNotification({
       organizationId: user.organizationId,

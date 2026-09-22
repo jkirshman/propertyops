@@ -33,8 +33,8 @@ describe("getRelatedEntityFileRules", () => {
 describe("canAccessRelatedEntityPropertyContext for Equipment files", () => {
   const UNIT_A_USER: PropertyScope = { kind: "scoped", access: [{ propertyId: "P", propertyUnitId: "unit-a" }] };
   const WHOLE_PROPERTY: PropertyScope = { kind: "scoped", access: [{ propertyId: "P", propertyUnitId: null }] };
-  const unitOwned = (unitId: string) => ({ propertyId: "P", propertyUnitId: unitId, isUnitScopedEntity: true });
-  const shared = { propertyId: "P", propertyUnitId: null, isUnitScopedEntity: false };
+  const unitOwned = (unitId: string) => ({ propertyId: "P", propertyUnitId: unitId });
+  const shared = { propertyId: "P", propertyUnitId: null };
 
   it("hides another Unit's Equipment files from a Unit-restricted user", () => {
     expect(canAccessRelatedEntityPropertyContext(UNIT_A_USER, unitOwned("unit-b"))).toBe(false);

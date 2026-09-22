@@ -25,8 +25,9 @@ export async function listCalendarEvents(
   organizationTimezone: string,
   filters: CalendarFilters = {},
   // ACCESS-1: the resolved requester's Property/Unit scope. Every source is
-  // filtered through it (Leases are Unit-aware via fetchLeaseEvents; manual
-  // events keep org-wide/null-property entries visible to everyone).
+  // filtered through it (Leases, Work Orders, Inspections, and PM are
+  // Unit-aware — UNIT-OPS-1 / UNIT-EQUIP-1; manual events keep
+  // org-wide/null-property entries visible to everyone).
   scope: PropertyScope = { kind: "all" },
 ): Promise<CalendarEvent[]> {
   const now = new Date();
@@ -37,7 +38,7 @@ export async function listCalendarEvents(
 
   const [workOrderEvents, pmEvents, inspectionEvents, complianceEvents, leaseEvents, manualEvents] =
     await Promise.all([
-      wants("work_order") ? fetchWorkOrderEvents(organizationId, now, propertyIds) : Promise.resolve([]),
+      wants("work_order") ? fetchWorkOrderEvents(organizationId, now, scope) : Promise.resolve([]),
       wants("preventive_maintenance")
         ? resolveHiddenEquipmentIds(organizationId, scope).then((hiddenEquipmentIds) =>
             fetchPreventiveMaintenanceEvents(organizationId, now, today, propertyIds, hiddenEquipmentIds),
@@ -49,7 +50,7 @@ export async function listCalendarEvents(
             now,
             today,
             filters.includeCompletedInspections ?? false,
-            propertyIds,
+            scope,
           )
         : Promise.resolve([]),
       wants("compliance") ? fetchComplianceEvents(organizationId, today, propertyIds) : Promise.resolve([]),

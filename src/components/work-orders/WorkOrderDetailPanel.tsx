@@ -3,10 +3,16 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
+import { UnitSelect, type UnitSelectOptions } from "@/components/shared/UnitSelect";
 import { WorkOrderActivityPanel } from "@/components/work-orders/WorkOrderActivityPanel";
 import { WorkOrderAttachmentsPanel } from "@/components/work-orders/WorkOrderAttachmentsPanel";
 import { WorkOrderNotesPanel } from "@/components/work-orders/WorkOrderNotesPanel";
 import { utcToZonedInputValue, zonedTimeToUtc } from "@/lib/calendar/timezone";
+import {
+  PROPERTY_WIDE_UNIT_LABEL,
+  filterEquipmentForUnit,
+  formatUnitOptionLabel,
+} from "@/lib/property-units/unit-display";
 import {
   WORK_ORDER_PRIORITIES,
   WORK_ORDER_PRIORITY_LABELS,
@@ -29,6 +35,7 @@ interface UserOption {
 interface EquipmentOption {
   id: string;
   displayName: string;
+  propertyUnitId: string | null;
 }
 
 interface AssetOption {
@@ -51,6 +58,8 @@ export interface WorkOrderRecord {
   priority: string;
   status: string;
   assignedUserId: string | null;
+  // UNIT-OPS-1: null = Property-wide / Shared.
+  propertyUnitId: string | null;
   propertyEquipmentId: string | null;
   // UNIT-EQUIP-1: linked to Equipment in a Unit this viewer can't access —
   // the server has already nulled propertyEquipmentId.
@@ -77,6 +86,8 @@ const TAB_LABELS: Record<Tab, string> = {
 export function WorkOrderDetailPanel({
   initialWorkOrder,
   propertyId,
+  unitOptions,
+  initialUnitLabel,
   categories,
   users,
   assets,
@@ -92,6 +103,9 @@ export function WorkOrderDetailPanel({
 }: {
   initialWorkOrder: WorkOrderRecord;
   propertyId: string;
+  // The viewer's assignable Units (null if the Property couldn't be loaded).
+  unitOptions: UnitSelectOptions | null;
+  initialUnitLabel: string;
   categories: OptionRecord[];
   users: UserOption[];
   assets: AssetOption[];
@@ -129,6 +143,24 @@ export function WorkOrderDetailPanel({
         if (data) setEquipmentOptions(data.equipment ?? []);
       });
   }, [propertyId]);
+
+  // UNIT-OPS-1: Unit-owned linked Equipment pins the Work Order's Unit, and
+  // a Unit-restricted editor can't move a record into/out of Property-wide.
+  const linkedEquipment = equipmentOptions.find((option) => option.id === workOrder.propertyEquipmentId) ?? null;
+  const unitLockedByEquipment = Boolean(linkedEquipment?.propertyUnitId) || Boolean(workOrder.propertyEquipmentRestricted);
+  const canChangeUnit =
+    canEdit && !unitLockedByEquipment && Boolean(unitOptions) && (unitOptions!.wholeProperty || workOrder.propertyUnitId !== null);
+  const unitOption = unitOptions?.units.find((unit) => unit.id === workOrder.propertyUnitId);
+  const unitLabel =
+    workOrder.propertyUnitId === null
+      ? PROPERTY_WIDE_UNIT_LABEL
+      : unitOption
+        ? formatUnitOptionLabel(unitOption)
+        : workOrder.propertyUnitId === initialWorkOrder.propertyUnitId
+          ? initialUnitLabel
+          : "Unit/Suite";
+  const showUnit = Boolean(unitOptions?.supportsUnits) || workOrder.propertyUnitId !== null;
+  const visibleEquipmentOptions = filterEquipmentForUnit(equipmentOptions, workOrder.propertyUnitId);
 
   async function patch(fields: Record<string, unknown>) {
     setError(null);
@@ -269,6 +301,26 @@ export function WorkOrderDetailPanel({
             </Link>
           ) : null}
         </div>
+        {showUnit ? (
+          canChangeUnit ? (
+            <UnitSelect
+              id="wo-detail-unit"
+              value={workOrder.propertyUnitId}
+              onChange={(unitId) => patch({ propertyUnitId: unitId })}
+              options={unitOptions}
+              allowShared={unitOptions!.wholeProperty}
+              currentLabel={unitLabel}
+            />
+          ) : (
+            <div>
+              <div className="muted" style={{ fontSize: "0.8rem" }}>Unit / Suite</div>
+              <div>{unitLabel}</div>
+              {canEdit && unitLockedByEquipment ? (
+                <div className="muted" style={{ fontSize: "0.8rem" }}>Set by the linked equipment.</div>
+              ) : null}
+            </div>
+          )
+        ) : null}
         <div>
           <div className="muted" style={{ fontSize: "0.8rem" }}>Related equipment</div>
           {workOrder.propertyEquipmentRestricted ? (
@@ -281,7 +333,7 @@ export function WorkOrderDetailPanel({
               onChange={(event) => patch({ propertyEquipmentId: event.target.value || null })}
             >
               <option value="">None</option>
-              {equipmentOptions.map((option) => (
+              {visibleEquipmentOptions.map((option) => (
                 <option key={option.id} value={option.id}>
                   {option.displayName}
                 </option>

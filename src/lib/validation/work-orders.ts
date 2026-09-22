@@ -22,6 +22,10 @@ function checkScheduleOrdering(
 export const createWorkOrderSchema = z
   .object({
     propertyId: z.string().uuid(),
+    // UNIT-OPS-1: null/omitted = Property-wide / Shared. Validated server-side
+    // (resolveRecordUnit) against the Property, its Units, the caller's
+    // access, and the linked Equipment's Unit.
+    propertyUnitId: z.preprocess(emptyToUndefined, z.string().uuid().nullable().optional()),
     propertyEquipmentId: z.preprocess(emptyToUndefined, z.string().uuid().optional()),
     propertyComponentId: z.preprocess(emptyToUndefined, z.string().uuid().optional()),
     assetId: z.preprocess(emptyToUndefined, z.string().uuid().optional()),
@@ -45,6 +49,7 @@ export const updateWorkOrderSchema = z
     priority: z.enum(WORK_ORDER_PRIORITIES).optional(),
     status: z.enum(WORK_ORDER_STATUSES).optional(),
     assignedUserId: z.preprocess(emptyToUndefined, z.string().uuid().optional().nullable()),
+    propertyUnitId: z.preprocess(emptyToUndefined, z.string().uuid().optional().nullable()),
     propertyEquipmentId: z.preprocess(emptyToUndefined, z.string().uuid().optional().nullable()),
     propertyComponentId: z.preprocess(emptyToUndefined, z.string().uuid().optional().nullable()),
     assetId: z.preprocess(emptyToUndefined, z.string().uuid().optional().nullable()),
