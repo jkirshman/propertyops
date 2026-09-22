@@ -9,7 +9,10 @@ export default async function PeoplePage() {
     <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
       <div>
         <h1>People</h1>
-        <p className="muted">People who can be assigned organization assets.</p>
+        <p className="muted">
+          People with organization assets assigned to them, or available for asset assignment. Managed from the
+          Assets section.
+        </p>
       </div>
       <PeopleListPanel canCreate={context.capabilityKeys.includes(PERSON_CAPABILITIES.MANAGE)} />
     </div>

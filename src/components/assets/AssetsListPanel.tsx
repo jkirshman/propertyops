@@ -42,7 +42,13 @@ interface AssetRow {
   isActive: boolean;
 }
 
-export function AssetsListPanel({ canCreate }: { canCreate: boolean }) {
+export function AssetsListPanel({
+  canCreate,
+  canManagePeople,
+}: {
+  canCreate: boolean;
+  canManagePeople: boolean;
+}) {
   const [assets, setAssets] = useState<AssetRow[]>([]);
   const [categories, setCategories] = useState<CategoryOption[]>([]);
   const [people, setPeople] = useState<PersonOption[]>([]);
@@ -163,11 +169,18 @@ export function AssetsListPanel({ canCreate }: { canCreate: boolean }) {
             <option value="unassigned">Unassigned / back stock</option>
           </select>
         </div>
-        {canCreate ? (
-          <Link href="/assets/new" className="button button-primary">
-            Add Asset
-          </Link>
-        ) : null}
+        <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+          {canManagePeople ? (
+            <Link href="/people" className="button" title="Manage people who can be assigned assets">
+              People
+            </Link>
+          ) : null}
+          {canCreate ? (
+            <Link href="/assets/new" className="button button-primary">
+              Add Asset
+            </Link>
+          ) : null}
+        </div>
       </div>
 
       <div className="card">

@@ -6,7 +6,6 @@ import { ASSET_CAPABILITIES } from "@/lib/assets/constants";
 import { getCurrentUserWithCapabilities } from "@/lib/auth/current-user";
 import { CALENDAR_CAPABILITIES } from "@/lib/calendar/constants";
 import { INSPECTION_CAPABILITIES } from "@/lib/inspections/constants";
-import { PERSON_CAPABILITIES } from "@/lib/people/constants";
 import { PREVENTIVE_MAINTENANCE_CAPABILITIES } from "@/lib/preventive-maintenance/constants";
 import { PROPERTY_CAPABILITIES } from "@/lib/properties/constants";
 import { TENANT_CAPABILITIES } from "@/lib/tenants/constants";
@@ -35,7 +34,6 @@ export default async function AppShellLayout({ children }: { children: React.Rea
         showVendorsLink={capabilityKeys.includes(VENDOR_CAPABILITIES.VIEW)}
         showTenantsLink={capabilityKeys.includes(TENANT_CAPABILITIES.VIEW)}
         showAssetsLink={capabilityKeys.includes(ASSET_CAPABILITIES.VIEW)}
-        showPeopleLink={capabilityKeys.includes(PERSON_CAPABILITIES.VIEW)}
       />
       <main className="container" style={{ flex: 1, width: "100%" }}>
         {children}

@@ -1,6 +1,7 @@
 import { AssetsListPanel } from "@/components/assets/AssetsListPanel";
 import { ASSET_CAPABILITIES } from "@/lib/assets/constants";
 import { requireCapability } from "@/lib/auth/require-capability";
+import { PERSON_CAPABILITIES } from "@/lib/people/constants";
 
 export default async function AssetsPage() {
   const context = await requireCapability(ASSET_CAPABILITIES.VIEW, "/");
@@ -11,7 +12,10 @@ export default async function AssetsPage() {
         <h1>Assets</h1>
         <p className="muted">Organization-owned tracked items — where they are and who has them.</p>
       </div>
-      <AssetsListPanel canCreate={context.capabilityKeys.includes(ASSET_CAPABILITIES.CREATE)} />
+      <AssetsListPanel
+        canCreate={context.capabilityKeys.includes(ASSET_CAPABILITIES.CREATE)}
+        canManagePeople={context.capabilityKeys.includes(PERSON_CAPABILITIES.VIEW)}
+      />
     </div>
   );
 }

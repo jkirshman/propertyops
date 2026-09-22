@@ -29,7 +29,6 @@ export function AppHeader({
   showVendorsLink,
   showTenantsLink,
   showAssetsLink,
-  showPeopleLink,
 }: {
   displayName: string;
   email: string;
@@ -42,7 +41,6 @@ export function AppHeader({
   showVendorsLink: boolean;
   showTenantsLink: boolean;
   showAssetsLink: boolean;
-  showPeopleLink: boolean;
 }) {
   return (
     <header style={{ borderBottom: "1px solid var(--border)", background: "var(--surface)" }}>
@@ -75,7 +73,6 @@ export function AppHeader({
             {showVendorsLink ? <NavLink href="/vendors">Vendors</NavLink> : null}
             {showTenantsLink ? <NavLink href="/tenants">Tenants</NavLink> : null}
             {showAssetsLink ? <NavLink href="/assets">Assets</NavLink> : null}
-            {showPeopleLink ? <NavLink href="/people">People</NavLink> : null}
             {showAdminLink ? <NavLink href="/admin">Admin Hub</NavLink> : null}
           </nav>
         </div>
