@@ -100,15 +100,8 @@ export function TenantDetailPanel({
             key={value}
             type="button"
             onClick={() => setTab(value)}
-            style={{
-              padding: "0.6rem 0.9rem",
-              background: "none",
-              border: "none",
-              borderBottom: tab === value ? "2px solid var(--brand)" : "2px solid transparent",
-              fontWeight: tab === value ? 600 : 500,
-              color: tab === value ? "var(--foreground)" : "var(--muted)",
-              cursor: "pointer",
-            }}
+            className="tab-button"
+            aria-current={tab === value ? "true" : undefined}
           >
             {TAB_LABELS[value]}
           </button>

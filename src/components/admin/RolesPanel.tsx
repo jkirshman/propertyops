@@ -43,6 +43,7 @@ export function RolesPanel() {
             <button
               type="button"
               onClick={() => setExpandedRoleId(expanded ? null : role.id)}
+              aria-expanded={expanded}
               style={{
                 display: "flex",
                 justifyContent: "space-between",
@@ -55,7 +56,10 @@ export function RolesPanel() {
               }}
             >
               <strong>{role.name}</strong>
-              <span className="muted">{role.capabilityKeys.length} capabilities</span>
+              <span className="muted">
+                {role.capabilityKeys.length} capabilities{" "}
+                <span aria-hidden="true">{expanded ? "▾" : "▸"}</span>
+              </span>
             </button>
             {expanded ? (
               <div style={{ display: "flex", flexWrap: "wrap", gap: "0.35rem", marginTop: "0.6rem" }}>

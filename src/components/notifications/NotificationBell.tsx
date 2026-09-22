@@ -72,11 +72,12 @@ export function NotificationBell() {
           ) : notifications.length === 0 ? (
             <p className="muted">No notifications yet.</p>
           ) : (
-            <ul style={{ display: "flex", flexDirection: "column", gap: "0.75rem", listStyle: "none" }}>
+            <ul style={{ display: "flex", flexDirection: "column", gap: "0.35rem", listStyle: "none" }}>
               {notifications.map((notification) => (
                 <li key={notification.id} style={{ opacity: notification.readAt ? 0.6 : 1 }}>
                   <Link
                     href={notification.deepLinkUrl ?? "/"}
+                    className="row-link row-link-compact"
                     onClick={() => {
                       if (!notification.readAt) {
                         handleMarkRead(notification.id);
@@ -84,7 +85,7 @@ export function NotificationBell() {
                       setOpen(false);
                     }}
                   >
-                    <div style={{ fontWeight: 600, fontSize: "0.9rem" }}>{notification.title}</div>
+                    <div className="clickable-title" style={{ fontWeight: 600, fontSize: "0.9rem" }}>{notification.title}</div>
                     {notification.body ? (
                       <div className="muted" style={{ fontSize: "0.8rem" }}>
                         {notification.body}

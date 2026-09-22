@@ -120,7 +120,7 @@ export function PropertyVendorsPanel({ propertyId, canManage }: { propertyId: st
             <li key={vendor.id} className="card" style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: "0.75rem" }}>
               <div>
                 <div style={{ fontWeight: 600 }}>
-                  <Link href={`/vendors/${vendor.id}`}>{vendor.name}</Link>
+                  <Link href={`/vendors/${vendor.id}`} className="entity-link">{vendor.name}</Link>
                   {vendor.isPreferred ? " ★" : ""}
                 </div>
                 <div className="muted" style={{ fontSize: "0.85rem" }}>

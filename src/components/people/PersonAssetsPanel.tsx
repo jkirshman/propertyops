@@ -188,7 +188,7 @@ export function PersonAssetsPanel({
                       }
                     />
                   ) : null}
-                  <Link href={`/assets/${asset.id}`} style={{ fontWeight: 600, flex: 1 }}>
+                  <Link href={`/assets/${asset.id}`} className="entity-link" style={{ flex: 1 }}>
                     {asset.assetTag} · {asset.displayName}
                   </Link>
                   {canOffboard ? (
@@ -285,7 +285,7 @@ export function PersonAssetsPanel({
           <ul style={{ listStyle: "none", display: "flex", flexDirection: "column", gap: "0.5rem" }}>
             {history.map((entry) => (
               <li key={entry.id} style={{ display: "flex", justifyContent: "space-between", gap: "1rem", flexWrap: "wrap" }}>
-                <Link href={`/assets/${entry.assetId}`}>{assetLabelById.get(entry.assetId) ?? "Asset"}</Link>
+                <Link href={`/assets/${entry.assetId}`} className="text-link">{assetLabelById.get(entry.assetId) ?? "Asset"}</Link>
                 <span className="muted" style={{ fontSize: "0.8rem" }}>
                   {new Date(entry.assignedAt).toLocaleDateString()}
                   {" – "}

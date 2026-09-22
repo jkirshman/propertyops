@@ -466,7 +466,7 @@ export function EquipmentPanel({
               <li key={item.id} className="card" style={{ opacity: item.isActive ? 1 : 0.55 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", gap: "1rem", flexWrap: "wrap" }}>
                   <div>
-                    <Link href={`/equipment/${item.id}`} style={{ fontWeight: 600 }}>
+                    <Link href={`/equipment/${item.id}`} className="entity-link">
                       {item.displayName}
                     </Link>
                     <div className="muted" style={{ fontSize: "0.85rem" }}>

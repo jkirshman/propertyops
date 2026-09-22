@@ -179,11 +179,11 @@ h2 {
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
-/* Only cards whose entire content is a single link (a full-row/tile link)
-   get a hover treatment — cards that merely contain an incidental link
-   elsewhere in their content are left alone. */
-a.card:hover,
-.card:has(> a):hover {
+/* Only a card that is itself a link (a full-row/tile link) gets a hover
+   treatment — cards that merely contain an incidental link or action
+   buttons are left alone, so only the real interactive element reads as
+   clickable. */
+a.card:hover {
   border-color: var(--brand-silver);
   box-shadow: 0 1px 6px rgba(20, 22, 26, 0.08);
 }
@@ -286,6 +286,168 @@ a.card:hover,
   font-size: 0.65rem;
   font-weight: 700;
   line-height: 1;
+}
+
+/* --- Interaction affordances ---------------------------------------------
+   A small shared vocabulary so anything that navigates reads as navigable
+   (on touch as well as hover), and anything that only displays data stays
+   neutral:
+
+   .entity-link       primary entity name in a table/list (bold, underlined)
+   .text-link         secondary/in-prose navigation link (underlined)
+   .row-link          a whole list row that is one link (hover bg + chevron)
+   .interactive-card  a .card that is itself one link (hover border + chevron)
+   .interactive-row   a table row whose primary cell holds the real link
+                      (see InteractiveRow) — hover bg + trailing chevron
+   .clickable-title   title inside a row-link/card; underlines on hover
+   .tab-button        in-page tab; aria-current="true" marks the active tab
+   .calendar-event    calendar chip/agenda item button
+
+   The chevron is always visible so touch users get a cue without hover. */
+
+:where(a, button, summary, [tabindex]):focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+a.muted:hover {
+  color: var(--foreground);
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+
+.entity-link,
+.text-link {
+  color: var(--foreground);
+  text-decoration: underline;
+  text-decoration-color: var(--brand-silver);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.2em;
+  transition: color 0.15s ease, text-decoration-color 0.15s ease;
+}
+
+.entity-link {
+  font-weight: 600;
+}
+
+.entity-link:hover,
+.text-link:hover {
+  color: var(--brand-strong);
+  text-decoration-color: currentColor;
+}
+
+.row-link,
+.interactive-card {
+  position: relative;
+  display: block;
+  color: inherit;
+}
+
+.row-link {
+  margin: 0 -0.5rem;
+  padding: 0.45rem 1.9rem 0.45rem 0.5rem;
+  border-radius: 8px;
+  transition: background-color 0.15s ease;
+}
+
+.row-link-compact {
+  padding-top: 0.3rem;
+  padding-bottom: 0.3rem;
+  padding-right: 1.5rem;
+}
+
+.row-link:hover {
+  background: var(--background);
+}
+
+.interactive-card {
+  padding-right: 2.4rem;
+}
+
+.row-link::after,
+.interactive-card::after,
+.row-chevron {
+  color: var(--brand-silver);
+  font-size: 1.25rem;
+  line-height: 1;
+  transition: color 0.15s ease;
+}
+
+.row-link::after,
+.interactive-card::after {
+  content: "›";
+  position: absolute;
+  top: 50%;
+  right: 0.6rem;
+  transform: translateY(-55%);
+}
+
+.interactive-card::after {
+  right: 1rem;
+}
+
+.row-link:hover::after,
+.row-link:focus-visible::after,
+.interactive-card:hover::after,
+.interactive-card:focus-visible::after,
+.interactive-row:hover .row-chevron,
+.interactive-row:focus-within .row-chevron {
+  color: var(--brand);
+}
+
+.row-link:hover .clickable-title,
+.interactive-card:hover .clickable-title,
+.calendar-event:hover .clickable-title {
+  text-decoration: underline;
+  text-decoration-color: var(--brand-silver);
+  text-underline-offset: 0.2em;
+}
+
+.interactive-row {
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.interactive-row:hover,
+.interactive-row:focus-within {
+  background: var(--background);
+}
+
+.row-chevron {
+  width: 1.75rem;
+  padding: 0 0.5rem;
+  text-align: right;
+  vertical-align: middle;
+}
+
+.tab-button {
+  padding: 0.6rem 0.9rem;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  font-weight: 500;
+  color: var(--muted);
+  cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+
+.tab-button:hover {
+  color: var(--foreground);
+  border-bottom-color: var(--border);
+}
+
+.tab-button[aria-current="true"] {
+  color: var(--foreground);
+  font-weight: 600;
+  border-bottom-color: var(--brand);
+}
+
+.calendar-event {
+  transition: box-shadow 0.15s ease;
+}
+
+.calendar-event:hover {
+  box-shadow: inset 0 0 0 1px currentColor;
 }
 
 /* --- App shell branding -------------------------------------------------- */

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
+import { InteractiveRow } from "@/components/shared/InteractiveRow";
 import {
   WORK_ORDER_PRIORITY_LABELS,
   WORK_ORDER_SOURCE_LABELS,
@@ -204,7 +205,7 @@ export function WorkOrdersListPanel({
         ) : workOrders.length === 0 ? (
           <p className="muted">
             No work orders match your filters yet.{" "}
-            {canCreate ? <Link href="/work-orders/new">Create the first one.</Link> : null}
+            {canCreate ? <Link href="/work-orders/new" className="text-link">Create the first one.</Link> : null}
           </p>
         ) : (
           <div style={{ overflowX: "auto" }}>
@@ -221,16 +222,17 @@ export function WorkOrdersListPanel({
                   <th style={{ padding: "0.5rem" }}>Assigned</th>
                   <th style={{ padding: "0.5rem" }}>Vendor</th>
                   <th style={{ padding: "0.5rem" }}>Updated</th>
+                  <th aria-hidden="true" />
                 </tr>
               </thead>
               <tbody>
                 {workOrders.map((wo) => (
-                  <tr key={wo.id} style={{ borderBottom: "1px solid var(--border)" }}>
+                  <InteractiveRow key={wo.id} href={`/work-orders/${wo.id}`} style={{ borderBottom: "1px solid var(--border)" }}>
                     <td style={{ padding: "0.5rem" }}>
-                      <Link href={`/work-orders/${wo.id}`}>{wo.number}</Link>
+                      <Link href={`/work-orders/${wo.id}`} className="entity-link">{wo.number}</Link>
                     </td>
                     <td style={{ padding: "0.5rem" }}>
-                      <Link href={`/work-orders/${wo.id}`}>{wo.subject}</Link>
+                      <Link href={`/work-orders/${wo.id}`} className="entity-link">{wo.subject}</Link>
                     </td>
                     <td style={{ padding: "0.5rem" }}>{propertyNameById.get(wo.propertyId) ?? "—"}</td>
                     <td style={{ padding: "0.5rem" }}>{categoryNameById.get(wo.categoryId) ?? "—"}</td>
@@ -252,7 +254,7 @@ export function WorkOrdersListPanel({
                     <td className="muted" style={{ padding: "0.5rem" }}>
                       {new Date(wo.updatedAt).toLocaleString()}
                     </td>
-                  </tr>
+                  </InteractiveRow>
                 ))}
               </tbody>
             </table>

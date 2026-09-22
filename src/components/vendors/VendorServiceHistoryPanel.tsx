@@ -43,7 +43,7 @@ export function VendorServiceHistoryPanel({ vendorId }: { vendorId: string }) {
                     {EQUIPMENT_SERVICE_TYPE_LABELS[record.serviceType as EquipmentServiceType] ?? record.serviceType}
                   </div>
                   <div className="muted" style={{ fontSize: "0.85rem" }}>{record.summary}</div>
-                  <Link href={`/equipment/${record.propertyEquipmentId}`} style={{ fontSize: "0.8rem" }}>
+                  <Link href={`/equipment/${record.propertyEquipmentId}`} className="text-link" style={{ fontSize: "0.8rem" }}>
                     View equipment
                   </Link>
                 </div>

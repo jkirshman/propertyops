@@ -52,10 +52,10 @@ export function PropertyPreventiveMaintenancePanel({
       ) : (
         <ul style={{ listStyle: "none", display: "flex", flexDirection: "column", gap: "0.6rem" }}>
           {plans.map((plan) => (
-            <li key={plan.id} className="card">
-              <Link href={`/preventive-maintenance/${plan.id}`} style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: "0.75rem" }}>
+            <li key={plan.id}>
+              <Link href={`/preventive-maintenance/${plan.id}`} className="card interactive-card" style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: "0.75rem" }}>
                 <div>
-                  <div style={{ fontWeight: 600 }}>{plan.name}</div>
+                  <div className="clickable-title" style={{ fontWeight: 600 }}>{plan.name}</div>
                   <div className="muted" style={{ fontSize: "0.85rem" }}>
                     {plan.propertyEquipmentId ? "Equipment-specific" : "Whole property"}
                     {!plan.isActive ? " · Inactive" : ""}

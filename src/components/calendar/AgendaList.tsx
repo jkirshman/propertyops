@@ -50,6 +50,7 @@ export function AgendaList({
                 <button
                   key={event.id}
                   type="button"
+                  className="calendar-event"
                   onClick={() => onSelectEvent(event)}
                   style={{
                     display: "flex",
@@ -67,12 +68,15 @@ export function AgendaList({
                   <span style={{ fontSize: "0.75rem", minWidth: 72 }}>
                     {event.allDay ? "All day" : formatTimestampInTimezone(event.startAt, timezone, { hour: "numeric", minute: "2-digit" })}
                   </span>
-                  <span style={{ flex: 1, fontWeight: 500 }}>
+                  <span className="clickable-title" style={{ flex: 1, fontWeight: 500 }}>
                     {event.overdue ? "⚠ " : ""}
                     {event.title}
                   </span>
                   <span className="muted" style={{ fontSize: "0.72rem" }}>
                     {CALENDAR_SOURCE_TYPE_LABELS[event.sourceType]} · {CALENDAR_CATEGORY_LABELS[event.category]}
+                  </span>
+                  <span aria-hidden="true" style={{ fontSize: "1.15rem", lineHeight: 1, opacity: 0.7 }}>
+                    ›
                   </span>
                 </button>
               );

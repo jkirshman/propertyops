@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
+import { InteractiveRow } from "@/components/shared/InteractiveRow";
 import {
   INSPECTION_RESULT_LABELS,
   INSPECTION_STATUSES,
@@ -120,7 +121,7 @@ export function InspectionsListPanel({
         ) : inspections.length === 0 ? (
           <p className="muted">
             No inspections match your filters yet.{" "}
-            {canCreate ? <Link href="/inspections/new">Start one.</Link> : null}
+            {canCreate ? <Link href="/inspections/new" className="text-link">Start one.</Link> : null}
           </p>
         ) : (
           <div style={{ overflowX: "auto" }}>
@@ -133,13 +134,14 @@ export function InspectionsListPanel({
                   <th style={{ padding: "0.5rem" }}>Result</th>
                   <th style={{ padding: "0.5rem" }}>Inspector</th>
                   <th style={{ padding: "0.5rem" }}>Updated</th>
+                  <th aria-hidden="true" />
                 </tr>
               </thead>
               <tbody>
                 {inspections.map((inspection) => (
-                  <tr key={inspection.id} style={{ borderBottom: "1px solid var(--border)" }}>
+                  <InteractiveRow key={inspection.id} href={`/inspections/${inspection.id}`} style={{ borderBottom: "1px solid var(--border)" }}>
                     <td style={{ padding: "0.5rem" }}>
-                      <Link href={`/inspections/${inspection.id}`}>{inspection.templateName}</Link>
+                      <Link href={`/inspections/${inspection.id}`} className="entity-link">{inspection.templateName}</Link>
                     </td>
                     <td style={{ padding: "0.5rem" }}>{propertyNameById.get(inspection.propertyId) ?? "—"}</td>
                     <td style={{ padding: "0.5rem" }}>
@@ -156,7 +158,7 @@ export function InspectionsListPanel({
                     <td className="muted" style={{ padding: "0.5rem" }}>
                       {new Date(inspection.updatedAt).toLocaleDateString()}
                     </td>
-                  </tr>
+                  </InteractiveRow>
                 ))}
               </tbody>
             </table>

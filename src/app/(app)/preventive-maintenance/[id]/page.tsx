@@ -56,7 +56,7 @@ export default async function PreventiveMaintenancePlanDetailPage({
       <div className="card" style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: "1rem" }}>
         <div>
           <div className="muted" style={{ fontSize: "0.85rem" }}>
-            {property ? <Link href={`/properties/${property.id}`}>{property.name}</Link> : "Unknown property"}
+            {property ? <Link href={`/properties/${property.id}`} className="text-link">{property.name}</Link> : "Unknown property"}
             {!plan.isActive ? " · Inactive" : ""}
           </div>
           <h1 style={{ marginBottom: "0.3rem" }}>{plan.name}</h1>

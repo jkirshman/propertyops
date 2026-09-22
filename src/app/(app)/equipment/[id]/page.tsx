@@ -56,7 +56,7 @@ export default async function PropertyEquipmentDetailPage({
           </div>
           <h1 style={{ marginBottom: "0.3rem" }}>{equipment.displayName}</h1>
           <div className="muted" style={{ fontSize: "0.9rem" }}>
-            {property ? <Link href={`/properties/${property.id}`}>{property.name}</Link> : "Unknown property"}
+            {property ? <Link href={`/properties/${property.id}`} className="text-link">{property.name}</Link> : "Unknown property"}
             {" · "}
             {EQUIPMENT_STATUS_LABELS[equipment.status as EquipmentStatus] ?? equipment.status}
             {" · "}

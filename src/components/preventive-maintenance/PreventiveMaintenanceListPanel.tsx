@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
+import { InteractiveRow } from "@/components/shared/InteractiveRow";
 import {
   PM_DUE_STATES,
   PM_DUE_STATE_LABELS,
@@ -178,7 +179,7 @@ export function PreventiveMaintenanceListPanel({
         ) : plans.length === 0 ? (
           <p className="muted">
             No preventive maintenance plans match your filters yet.{" "}
-            {canCreate ? <Link href="/preventive-maintenance/new">Create the first one.</Link> : null}
+            {canCreate ? <Link href="/preventive-maintenance/new" className="text-link">Create the first one.</Link> : null}
           </p>
         ) : (
           <div style={{ overflowX: "auto" }}>
@@ -191,13 +192,14 @@ export function PreventiveMaintenanceListPanel({
                   <th style={{ padding: "0.5rem" }}>Due state</th>
                   <th style={{ padding: "0.5rem" }}>Status</th>
                   <th style={{ padding: "0.5rem" }}>Assignee</th>
+                  <th aria-hidden="true" />
                 </tr>
               </thead>
               <tbody>
                 {plans.map((plan) => (
-                  <tr key={plan.id} style={{ borderBottom: "1px solid var(--border)" }}>
+                  <InteractiveRow key={plan.id} href={`/preventive-maintenance/${plan.id}`} style={{ borderBottom: "1px solid var(--border)" }}>
                     <td style={{ padding: "0.5rem" }}>
-                      <Link href={`/preventive-maintenance/${plan.id}`}>{plan.name}</Link>
+                      <Link href={`/preventive-maintenance/${plan.id}`} className="entity-link">{plan.name}</Link>
                     </td>
                     <td style={{ padding: "0.5rem" }}>{propertyNameById.get(plan.propertyId) ?? "—"}</td>
                     <td style={{ padding: "0.5rem" }}>{plan.nextDueAt}</td>
@@ -208,7 +210,7 @@ export function PreventiveMaintenanceListPanel({
                     <td style={{ padding: "0.5rem" }}>
                       {plan.defaultAssigneeUserId ? (assigneeNameById.get(plan.defaultAssigneeUserId) ?? "—") : "Unassigned"}
                     </td>
-                  </tr>
+                  </InteractiveRow>
                 ))}
               </tbody>
             </table>

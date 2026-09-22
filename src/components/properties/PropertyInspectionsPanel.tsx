@@ -47,10 +47,10 @@ export function PropertyInspectionsPanel({ propertyId, canCreate }: { propertyId
       ) : (
         <ul style={{ listStyle: "none", display: "flex", flexDirection: "column", gap: "0.6rem" }}>
           {inspections.map((inspection) => (
-            <li key={inspection.id} className="card">
-              <Link href={`/inspections/${inspection.id}`} style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: "0.75rem" }}>
+            <li key={inspection.id}>
+              <Link href={`/inspections/${inspection.id}`} className="card interactive-card" style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: "0.75rem" }}>
                 <div>
-                  <div style={{ fontWeight: 600 }}>{inspection.templateName}</div>
+                  <div className="clickable-title" style={{ fontWeight: 600 }}>{inspection.templateName}</div>
                   <div className="muted" style={{ fontSize: "0.85rem" }}>
                     {INSPECTION_STATUS_LABELS[inspection.status as InspectionStatus] ?? inspection.status}
                     {inspection.overallResult

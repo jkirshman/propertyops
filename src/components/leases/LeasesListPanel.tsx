@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
+import { InteractiveRow } from "@/components/shared/InteractiveRow";
 import {
   LEASE_EFFECTIVE_STATUSES,
   LEASE_EFFECTIVE_STATUS_LABELS,
@@ -137,7 +138,7 @@ export function LeasesListPanel({
           <p className="muted">Loading…</p>
         ) : visibleLeases.length === 0 ? (
           <p className="muted">
-            No leases match your filters yet. {canCreate ? <Link href="/leases/new">Create one.</Link> : null}
+            No leases match your filters yet. {canCreate ? <Link href="/leases/new" className="text-link">Create one.</Link> : null}
           </p>
         ) : (
           <div style={{ overflowX: "auto" }}>
@@ -151,6 +152,7 @@ export function LeasesListPanel({
                   <th style={{ padding: "0.5rem" }}>Start</th>
                   <th style={{ padding: "0.5rem" }}>End</th>
                   <th style={{ padding: "0.5rem" }}>Status</th>
+                  <th aria-hidden="true" />
                 </tr>
               </thead>
               <tbody>
@@ -161,9 +163,9 @@ export function LeasesListPanel({
                     lease.endDate,
                   );
                   return (
-                    <tr key={lease.id} style={{ borderBottom: "1px solid var(--border)" }}>
+                    <InteractiveRow key={lease.id} href={`/leases/${lease.id}`} style={{ borderBottom: "1px solid var(--border)" }}>
                       <td style={{ padding: "0.5rem" }}>
-                        <Link href={`/leases/${lease.id}`}>{lease.label}</Link>
+                        <Link href={`/leases/${lease.id}`} className="entity-link">{lease.label}</Link>
                       </td>
                       <td style={{ padding: "0.5rem" }}>{tenantNameById.get(lease.tenantId) ?? "—"}</td>
                       <td style={{ padding: "0.5rem" }}>{propertyNameById.get(lease.propertyId) ?? "—"}</td>
@@ -171,7 +173,7 @@ export function LeasesListPanel({
                       <td style={{ padding: "0.5rem" }}>{lease.startDate}</td>
                       <td style={{ padding: "0.5rem" }}>{lease.endDate ?? "Open"}</td>
                       <td style={{ padding: "0.5rem" }}>{LEASE_EFFECTIVE_STATUS_LABELS[effectiveStatus]}</td>
-                    </tr>
+                    </InteractiveRow>
                   );
                 })}
               </tbody>

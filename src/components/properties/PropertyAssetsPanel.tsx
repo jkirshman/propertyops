@@ -116,7 +116,7 @@ export function PropertyAssetsPanel({ propertyId, canAssign }: { propertyId: str
         <ul style={{ listStyle: "none", display: "flex", flexDirection: "column", gap: "0.6rem" }}>
           {assets.map((asset) => (
             <li key={asset.id} className="card" style={{ display: "flex", justifyContent: "space-between", gap: "1rem", flexWrap: "wrap" }}>
-              <Link href={`/assets/${asset.id}`} style={{ fontWeight: 600 }}>
+              <Link href={`/assets/${asset.id}`} className="entity-link">
                 {asset.assetTag} · {asset.displayName}
               </Link>
               {canAssign ? (

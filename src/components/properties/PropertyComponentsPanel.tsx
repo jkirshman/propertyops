@@ -211,15 +211,16 @@ export function PropertyComponentsPanel({
         ) : components.length === 0 ? (
           <p className="muted">No components recorded yet.</p>
         ) : (
-          <ul style={{ listStyle: "none", display: "flex", flexDirection: "column", gap: "0.6rem" }}>
+          <ul style={{ listStyle: "none", display: "flex", flexDirection: "column", gap: "0.2rem" }}>
             {components.map((component) => (
               <li key={component.id} style={{ opacity: component.isActive ? 1 : 0.6 }}>
                 <Link
                   href={`/property-components/${component.id}`}
+                  className="row-link"
                   style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: "0.75rem" }}
                 >
                   <div>
-                    <div style={{ fontWeight: 600 }}>
+                    <div className="clickable-title" style={{ fontWeight: 600 }}>
                       {typeLabel(component)}
                       {component.name ? ` — ${component.name}` : ""}
                     </div>

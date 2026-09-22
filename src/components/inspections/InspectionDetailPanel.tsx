@@ -544,7 +544,7 @@ function CreateWorkOrderFromFinding({
     return (
       <p className="muted" style={{ fontSize: "0.85rem" }}>
         Work order created:{" "}
-        <Link href={`/work-orders/${createdWorkOrderId}`}>Open it</Link>
+        <Link href={`/work-orders/${createdWorkOrderId}`} className="text-link">Open it</Link>
       </p>
     );
   }

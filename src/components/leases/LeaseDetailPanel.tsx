@@ -181,15 +181,8 @@ export function LeaseDetailPanel({
             key={value}
             type="button"
             onClick={() => setTab(value)}
-            style={{
-              padding: "0.6rem 0.9rem",
-              background: "none",
-              border: "none",
-              borderBottom: tab === value ? "2px solid var(--brand)" : "2px solid transparent",
-              fontWeight: tab === value ? 600 : 500,
-              color: tab === value ? "var(--foreground)" : "var(--muted)",
-              cursor: "pointer",
-            }}
+            className="tab-button"
+            aria-current={tab === value ? "true" : undefined}
           >
             {TAB_LABELS[value]}
           </button>
@@ -200,11 +193,11 @@ export function LeaseDetailPanel({
         <div className="card" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "0.9rem" }}>
           <div>
             <div className="muted" style={{ fontSize: "0.8rem" }}>Property</div>
-            <div><Link href={`/properties/${lease.propertyId}`}>{propertyName}</Link></div>
+            <div><Link href={`/properties/${lease.propertyId}`} className="text-link">{propertyName}</Link></div>
           </div>
           <div>
             <div className="muted" style={{ fontSize: "0.8rem" }}>Tenant</div>
-            <div><Link href={`/tenants/${lease.tenantId}`}>{tenantName}</Link></div>
+            <div><Link href={`/tenants/${lease.tenantId}`} className="text-link">{tenantName}</Link></div>
           </div>
           <div>
             <div className="muted" style={{ fontSize: "0.8rem" }}>Unit / suite</div>
@@ -267,8 +260,8 @@ export function LeaseDetailPanel({
             <ul style={{ listStyle: "none", display: "flex", flexDirection: "column", gap: "0.5rem" }}>
               {workOrders.map((wo) => (
                 <li key={wo.id}>
-                  <Link href={`/work-orders/${wo.id}`} style={{ display: "flex", justifyContent: "space-between" }}>
-                    <span>{wo.number} · {wo.subject}</span>
+                  <Link href={`/work-orders/${wo.id}`} className="row-link row-link-compact" style={{ display: "flex", justifyContent: "space-between", gap: "0.75rem" }}>
+                    <span className="clickable-title">{wo.number} · {wo.subject}</span>
                     <span className="muted">{wo.status}</span>
                   </Link>
                 </li>

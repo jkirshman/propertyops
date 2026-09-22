@@ -131,7 +131,7 @@ export function VendorCoveragePanel({
             <ul style={{ listStyle: "none", display: "flex", flexDirection: "column", gap: "0.5rem" }}>
               {coverage.map((row) => (
                 <li key={row.id} className="card" style={{ display: "flex", justifyContent: "space-between", gap: "1rem" }}>
-                  <Link href={`/properties/${row.propertyId}`}>{row.propertyName}</Link>
+                  <Link href={`/properties/${row.propertyId}`} className="entity-link">{row.propertyName}</Link>
                   {canManage ? (
                     <button type="button" className="button" onClick={() => removeCoverage(row.propertyId)}>
                       Remove

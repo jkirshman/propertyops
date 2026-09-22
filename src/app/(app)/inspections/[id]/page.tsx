@@ -56,11 +56,11 @@ export default async function InspectionDetailPage({
       <div className="card" style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: "1rem" }}>
         <div>
           <div className="muted" style={{ fontSize: "0.85rem" }}>
-            {property ? <Link href={`/properties/${property.id}`}>{property.name}</Link> : "Unknown property"}
+            {property ? <Link href={`/properties/${property.id}`} className="text-link">{property.name}</Link> : "Unknown property"}
             {equipment ? (
               <>
                 {" · "}
-                <Link href={`/equipment/${equipment.id}`}>{equipment.displayName}</Link>
+                <Link href={`/equipment/${equipment.id}`} className="text-link">{equipment.displayName}</Link>
               </>
             ) : ""}
           </div>

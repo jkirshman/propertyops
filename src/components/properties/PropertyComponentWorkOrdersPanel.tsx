@@ -57,10 +57,10 @@ export function PropertyComponentWorkOrdersPanel({
       ) : (
         <ul style={{ listStyle: "none", display: "flex", flexDirection: "column", gap: "0.6rem" }}>
           {workOrders.map((wo) => (
-            <li key={wo.id} className="card">
-              <Link href={`/work-orders/${wo.id}`} style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: "0.75rem" }}>
+            <li key={wo.id}>
+              <Link href={`/work-orders/${wo.id}`} className="card interactive-card" style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: "0.75rem" }}>
                 <div>
-                  <div style={{ fontWeight: 600 }}>{wo.number} · {wo.subject}</div>
+                  <div className="clickable-title" style={{ fontWeight: 600 }}>{wo.number} · {wo.subject}</div>
                   <div className="muted" style={{ fontSize: "0.85rem" }}>
                     {WORK_ORDER_STATUS_LABELS[wo.status as WorkOrderStatus] ?? wo.status}
                     {" · "}

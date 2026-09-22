@@ -81,10 +81,10 @@ export function TenantLeasesPanel({ tenantId, canCreate }: { tenantId: string; c
               lease.endDate,
             );
             return (
-              <li key={lease.id} className="card">
-                <Link href={`/leases/${lease.id}`} style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: "0.75rem" }}>
+              <li key={lease.id}>
+                <Link href={`/leases/${lease.id}`} className="card interactive-card" style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: "0.75rem" }}>
                   <div>
-                    <div style={{ fontWeight: 600 }}>{lease.label}</div>
+                    <div className="clickable-title" style={{ fontWeight: 600 }}>{lease.label}</div>
                     <div className="muted" style={{ fontSize: "0.85rem" }}>
                       {propertyNameById.get(lease.propertyId) ?? "Unknown property"}
                       {(() => {

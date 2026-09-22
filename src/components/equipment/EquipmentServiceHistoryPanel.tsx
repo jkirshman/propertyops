@@ -256,7 +256,7 @@ export function EquipmentServiceHistoryPanel({
                   {record.vendorId || record.vendorName || record.cost != null ? (
                     <div className="muted" style={{ fontSize: "0.85rem" }}>
                       {record.vendorId ? (
-                        <Link href={`/vendors/${record.vendorId}`}>{vendorNameById.get(record.vendorId) ?? "Vendor"}</Link>
+                        <Link href={`/vendors/${record.vendorId}`} className="text-link">{vendorNameById.get(record.vendorId) ?? "Vendor"}</Link>
                       ) : (
                         record.vendorName
                       )}

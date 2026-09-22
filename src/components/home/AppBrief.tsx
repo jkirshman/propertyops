@@ -32,7 +32,7 @@ function BriefSection({
       {totalCount === 0 ? (
         <p className="muted" style={{ fontSize: "0.9rem" }}>{emptyMessage}</p>
       ) : (
-        <ul style={{ listStyle: "none", display: "flex", flexDirection: "column", gap: "0.5rem" }}>{children}</ul>
+        <ul style={{ listStyle: "none", display: "flex", flexDirection: "column", gap: "0.1rem" }}>{children}</ul>
       )}
     </div>
   );
@@ -40,9 +40,17 @@ function BriefSection({
 
 function BriefRow({ primary, secondary, href }: { primary: React.ReactNode; secondary: React.ReactNode; href: string }) {
   return (
-    <li style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: "0.5rem", fontSize: "0.9rem" }}>
-      <Link href={href}>{primary}</Link>
-      <span className="muted">{secondary}</span>
+    <li>
+      <Link
+        href={href}
+        className="row-link row-link-compact"
+        style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: "0.25rem 0.5rem", fontSize: "0.9rem" }}
+      >
+        <span className="clickable-title" style={{ fontWeight: 600 }}>
+          {primary}
+        </span>
+        <span className="muted">{secondary}</span>
+      </Link>
     </li>
   );
 }
@@ -216,7 +224,7 @@ export function AppBrief({ brief }: { brief: AppBriefData }) {
       return (
         <p className="muted">
           Your App Brief is clear. You can choose what appears here from{" "}
-          <Link href="/profile">Profile</Link>.
+          <Link href="/profile" className="text-link">Profile</Link>.
         </p>
       );
     }

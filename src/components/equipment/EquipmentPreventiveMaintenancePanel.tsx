@@ -69,9 +69,9 @@ export function EquipmentPreventiveMaintenancePanel({
         ) : (
           <ul style={{ listStyle: "none", display: "flex", flexDirection: "column", gap: "0.6rem" }}>
             {plans.map((plan) => (
-              <li key={plan.id} className="card">
-                <Link href={`/preventive-maintenance/${plan.id}`} style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: "0.75rem" }}>
-                  <div>{plan.name}{!plan.isActive ? " · Inactive" : ""}</div>
+              <li key={plan.id}>
+                <Link href={`/preventive-maintenance/${plan.id}`} className="card interactive-card" style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: "0.75rem" }}>
+                  <div className="clickable-title">{plan.name}{!plan.isActive ? " · Inactive" : ""}</div>
                   <div className="muted" style={{ fontSize: "0.85rem" }}>
                     Next due {plan.nextDueAt}
                     {plan.isActive ? ` · ${PM_DUE_STATE_LABELS[classifyDueState(plan.nextDueAt)]}` : ""}
@@ -92,9 +92,9 @@ export function EquipmentPreventiveMaintenancePanel({
         ) : (
           <ul style={{ listStyle: "none", display: "flex", flexDirection: "column", gap: "0.6rem" }}>
             {generatedWorkOrders.map((wo) => (
-              <li key={wo.id} className="card">
-                <Link href={`/work-orders/${wo.id}`} style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: "0.75rem" }}>
-                  <div>{wo.number} · {wo.subject}</div>
+              <li key={wo.id}>
+                <Link href={`/work-orders/${wo.id}`} className="card interactive-card" style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: "0.75rem" }}>
+                  <div className="clickable-title">{wo.number} · {wo.subject}</div>
                   <div className="muted" style={{ fontSize: "0.85rem" }}>{wo.status}</div>
                 </Link>
               </li>

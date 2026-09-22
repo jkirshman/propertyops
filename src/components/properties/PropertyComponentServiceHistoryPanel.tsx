@@ -186,7 +186,7 @@ export function PropertyComponentServiceHistoryPanel({
                   {record.vendorId || record.cost != null ? (
                     <div className="muted" style={{ fontSize: "0.85rem" }}>
                       {record.vendorId ? (
-                        <Link href={`/vendors/${record.vendorId}`}>{vendorNameById.get(record.vendorId) ?? "Vendor"}</Link>
+                        <Link href={`/vendors/${record.vendorId}`} className="text-link">{vendorNameById.get(record.vendorId) ?? "Vendor"}</Link>
                       ) : null}
                       {record.cost != null ? ` · $${record.cost}` : ""}
                     </div>

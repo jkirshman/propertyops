@@ -128,14 +128,16 @@ export function EquipmentTemplatesPanel() {
                 key={template.id}
                 style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "1rem" }}
               >
-                <Link href={`/admin/equipment-templates/${template.id}`} style={{ opacity: template.isActive ? 1 : 0.55 }}>
-                  <div style={{ fontWeight: 600 }}>{template.name}</div>
+                <div style={{ opacity: template.isActive ? 1 : 0.55 }}>
+                  <Link href={`/admin/equipment-templates/${template.id}`} className="entity-link">
+                    {template.name}
+                  </Link>
                   {template.description ? (
                     <div className="muted" style={{ fontSize: "0.85rem" }}>
                       {template.description}
                     </div>
                   ) : null}
-                </Link>
+                </div>
                 <div style={{ display: "flex", gap: "0.5rem" }}>
                   <Link href={`/admin/equipment-templates/${template.id}`} className="button">
                     Manage items

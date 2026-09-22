@@ -101,9 +101,9 @@ export function AssetAssignmentPanel({
           <div className="muted" style={{ fontSize: "0.8rem" }}>Currently held by</div>
           <div style={{ fontWeight: 600 }}>
             {assignment.assignmentType === "person" && assignment.assignedPersonId ? (
-              <Link href={`/people/${assignment.assignedPersonId}`}>Person detail</Link>
+              <Link href={`/people/${assignment.assignedPersonId}`} className="text-link">Person detail</Link>
             ) : assignment.assignmentType === "property" && assignment.assignedPropertyId ? (
-              <Link href={`/properties/${assignment.assignedPropertyId}`}>Property detail</Link>
+              <Link href={`/properties/${assignment.assignedPropertyId}`} className="text-link">Property detail</Link>
             ) : (
               "Unassigned / back stock"
             )}

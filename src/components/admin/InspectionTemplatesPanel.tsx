@@ -193,12 +193,14 @@ export function InspectionTemplatesPanel() {
                 key={template.id}
                 style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "1rem", flexWrap: "wrap" }}
               >
-                <Link href={`/admin/inspection-templates/${template.id}`} style={{ opacity: template.isActive ? 1 : 0.55 }}>
-                  <div style={{ fontWeight: 600 }}>{template.name}</div>
+                <div style={{ opacity: template.isActive ? 1 : 0.55 }}>
+                  <Link href={`/admin/inspection-templates/${template.id}`} className="entity-link">
+                    {template.name}
+                  </Link>
                   <div className="muted" style={{ fontSize: "0.85rem" }}>
                     {categoryNameById.get(template.categoryId) ?? "Unknown category"}
                   </div>
-                </Link>
+                </div>
                 <div style={{ display: "flex", gap: "0.5rem" }}>
                   <Link href={`/admin/inspection-templates/${template.id}`} className="button">
                     Manage checklist

@@ -69,14 +69,14 @@ export function PeopleListPanel({ canCreate }: { canCreate: boolean }) {
           <p className="muted">Loading…</p>
         ) : people.length === 0 ? (
           <p className="muted">
-            No people match your filters yet. {canCreate ? <Link href="/people/new">Add the first one.</Link> : null}
+            No people match your filters yet. {canCreate ? <Link href="/people/new" className="text-link">Add the first one.</Link> : null}
           </p>
         ) : (
-          <ul style={{ listStyle: "none", display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+          <ul style={{ listStyle: "none", display: "flex", flexDirection: "column", gap: "0.2rem" }}>
             {people.map((person) => (
               <li key={person.id} style={{ opacity: person.isActive ? 1 : 0.6 }}>
-                <Link href={`/people/${person.id}`} style={{ display: "flex", justifyContent: "space-between", gap: "1rem", flexWrap: "wrap" }}>
-                  <div style={{ fontWeight: 600 }}>{person.displayName}</div>
+                <Link href={`/people/${person.id}`} className="row-link" style={{ display: "flex", justifyContent: "space-between", gap: "1rem", flexWrap: "wrap" }}>
+                  <div className="clickable-title" style={{ fontWeight: 600 }}>{person.displayName}</div>
                   <div className="muted" style={{ fontSize: "0.85rem" }}>
                     {[person.email, person.phone].filter(Boolean).join(" · ") || "No contact info"}
                     {!person.isActive ? " · Inactive" : ""}

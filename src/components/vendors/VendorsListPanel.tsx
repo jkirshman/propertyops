@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 
+import { InteractiveRow } from "@/components/shared/InteractiveRow";
+
 interface OptionRecord {
   id: string;
   name: string;
@@ -111,7 +113,7 @@ export function VendorsListPanel({ canCreate }: { canCreate: boolean }) {
         ) : vendors.length === 0 ? (
           <p className="muted">
             No vendors match your filters yet.{" "}
-            {canCreate ? <Link href="/vendors/new">Add the first one.</Link> : null}
+            {canCreate ? <Link href="/vendors/new" className="text-link">Add the first one.</Link> : null}
           </p>
         ) : (
           <div style={{ overflowX: "auto" }}>
@@ -123,13 +125,14 @@ export function VendorsListPanel({ canCreate }: { canCreate: boolean }) {
                   <th style={{ padding: "0.5rem" }}>Phone / Email</th>
                   <th style={{ padding: "0.5rem" }}>Preferred</th>
                   <th style={{ padding: "0.5rem" }}>Status</th>
+                  <th aria-hidden="true" />
                 </tr>
               </thead>
               <tbody>
                 {vendors.map((vendor) => (
-                  <tr key={vendor.id} style={{ borderBottom: "1px solid var(--border)" }}>
+                  <InteractiveRow key={vendor.id} href={`/vendors/${vendor.id}`} style={{ borderBottom: "1px solid var(--border)" }}>
                     <td style={{ padding: "0.5rem" }}>
-                      <Link href={`/vendors/${vendor.id}`}>{vendor.name}</Link>
+                      <Link href={`/vendors/${vendor.id}`} className="entity-link">{vendor.name}</Link>
                     </td>
                     <td style={{ padding: "0.5rem" }}>
                       {vendor.categories.length > 0
@@ -141,7 +144,7 @@ export function VendorsListPanel({ canCreate }: { canCreate: boolean }) {
                     </td>
                     <td style={{ padding: "0.5rem" }}>{vendor.isPreferred ? "★ Preferred" : ""}</td>
                     <td style={{ padding: "0.5rem" }}>{vendor.isActive ? "Active" : "Inactive"}</td>
-                  </tr>
+                  </InteractiveRow>
                 ))}
               </tbody>
             </table>

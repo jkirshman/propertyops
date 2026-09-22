@@ -304,7 +304,7 @@ export function PreventiveMaintenanceDetailPanel({
                   {occurrence.workOrderId ? (
                     <>
                       {" · "}
-                      <Link href={`/work-orders/${occurrence.workOrderId}`}>{occurrence.workOrderNumber}</Link>
+                      <Link href={`/work-orders/${occurrence.workOrderId}`} className="text-link">{occurrence.workOrderNumber}</Link>
                     </>
                   ) : null}
                 </div>

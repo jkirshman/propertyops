@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 
+import { InteractiveRow } from "@/components/shared/InteractiveRow";
+
 interface UserRow {
   id: string;
   email: string;
@@ -231,13 +233,14 @@ export function UsersPanel() {
                   <th style={{ padding: "0.5rem 0" }}>Email</th>
                   <th style={{ padding: "0.5rem 0" }}>Role</th>
                   <th style={{ padding: "0.5rem 0" }}>Status</th>
+                  <th aria-hidden="true" />
                 </tr>
               </thead>
               <tbody>
                 {users.map((user) => (
-                  <tr key={user.id} style={{ borderBottom: "1px solid var(--border)" }}>
+                  <InteractiveRow key={user.id} href={`/admin/users/${user.id}`} style={{ borderBottom: "1px solid var(--border)" }}>
                     <td style={{ padding: "0.5rem 0" }}>
-                      <Link href={`/admin/users/${user.id}`}>{user.displayName}</Link>
+                      <Link href={`/admin/users/${user.id}`} className="entity-link">{user.displayName}</Link>
                     </td>
                     <td style={{ padding: "0.5rem 0" }}>{user.email}</td>
                     <td style={{ padding: "0.5rem 0" }}>
@@ -246,7 +249,7 @@ export function UsersPanel() {
                     <td style={{ padding: "0.5rem 0" }}>
                       {!user.isActive ? "Inactive" : user.isPending ? "Pending activation" : "Active"}
                     </td>
-                  </tr>
+                  </InteractiveRow>
                 ))}
               </tbody>
             </table>

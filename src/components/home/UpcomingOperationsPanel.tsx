@@ -12,9 +12,10 @@ function EventRow({ event, timezone }: { event: CalendarEvent; timezone: string 
   return (
     <Link
       href={event.deepLinkUrl}
-      style={{ display: "flex", flexDirection: "column", padding: "0.4rem 0", borderBottom: "1px solid var(--border)" }}
+      className="row-link row-link-compact"
+      style={{ display: "flex", flexDirection: "column", borderBottom: "1px solid var(--border)", borderRadius: 0 }}
     >
-      <span style={{ fontSize: "0.85rem", fontWeight: 500 }}>
+      <span className="clickable-title" style={{ fontSize: "0.85rem", fontWeight: 500 }}>
         {event.overdue ? "⚠ " : ""}
         {event.title}
       </span>

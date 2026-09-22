@@ -57,9 +57,9 @@ export function AssetAssignmentHistoryPanel({ assetId }: { assetId: string }) {
             <div>
               <div style={{ fontWeight: 600 }}>
                 {entry.assignmentType === "person" && entry.personId ? (
-                  <Link href={`/people/${entry.personId}`}>{personNameById.get(entry.personId) ?? "Person"}</Link>
+                  <Link href={`/people/${entry.personId}`} className="text-link">{personNameById.get(entry.personId) ?? "Person"}</Link>
                 ) : entry.assignmentType === "property" && entry.propertyId ? (
-                  <Link href={`/properties/${entry.propertyId}`}>
+                  <Link href={`/properties/${entry.propertyId}`} className="text-link">
                     {propertyNameById.get(entry.propertyId) ?? "Property"}
                   </Link>
                 ) : (

@@ -261,7 +261,7 @@ export function WorkOrderDetailPanel({
             ))}
           </select>
           {workOrder.vendorId ? (
-            <Link href={`/vendors/${workOrder.vendorId}`} style={{ fontSize: "0.8rem" }}>
+            <Link href={`/vendors/${workOrder.vendorId}`} className="text-link" style={{ fontSize: "0.8rem" }}>
               Open vendor
             </Link>
           ) : null}
@@ -282,7 +282,7 @@ export function WorkOrderDetailPanel({
             ))}
           </select>
           {workOrder.propertyEquipmentId ? (
-            <Link href={`/equipment/${workOrder.propertyEquipmentId}`} style={{ fontSize: "0.8rem" }}>
+            <Link href={`/equipment/${workOrder.propertyEquipmentId}`} className="text-link" style={{ fontSize: "0.8rem" }}>
               Open equipment
             </Link>
           ) : null}
@@ -303,7 +303,7 @@ export function WorkOrderDetailPanel({
             ))}
           </select>
           {workOrder.assetId ? (
-            <Link href={`/assets/${workOrder.assetId}`} style={{ fontSize: "0.8rem" }}>
+            <Link href={`/assets/${workOrder.assetId}`} className="text-link" style={{ fontSize: "0.8rem" }}>
               Open asset
             </Link>
           ) : null}
@@ -354,15 +354,8 @@ export function WorkOrderDetailPanel({
             key={value}
             type="button"
             onClick={() => setTab(value)}
-            style={{
-              padding: "0.6rem 0.9rem",
-              background: "none",
-              border: "none",
-              borderBottom: tab === value ? "2px solid var(--brand)" : "2px solid transparent",
-              fontWeight: tab === value ? 600 : 500,
-              color: tab === value ? "var(--foreground)" : "var(--muted)",
-              cursor: "pointer",
-            }}
+            className="tab-button"
+            aria-current={tab === value ? "true" : undefined}
           >
             {TAB_LABELS[value]}
           </button>

@@ -47,7 +47,7 @@ export default async function PropertyComponentDetailPage({
     <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
       <div className="card">
         <div className="muted" style={{ fontSize: "0.85rem" }}>
-          {property ? <Link href={`/properties/${property.id}?tab=components`}>{property.name}</Link> : "Unknown property"}
+          {property ? <Link href={`/properties/${property.id}?tab=components`} className="text-link">{property.name}</Link> : "Unknown property"}
         </div>
         <h1 style={{ marginBottom: "0.3rem" }}>
           {typeLabel}

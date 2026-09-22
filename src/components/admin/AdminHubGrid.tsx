@@ -60,8 +60,8 @@ export function AdminHubGrid({
               }}
             >
               {groupTiles.map((tile) => (
-                <Link key={tile.id} href={tile.href} className="card">
-                  <div style={{ fontWeight: 600 }}>{tile.title}</div>
+                <Link key={tile.id} href={tile.href} className="card interactive-card">
+                  <div className="clickable-title" style={{ fontWeight: 600 }}>{tile.title}</div>
                   <div className="muted" style={{ fontSize: "0.85rem" }}>
                     {tile.description}
                   </div>

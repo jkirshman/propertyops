@@ -181,14 +181,15 @@ export function PropertiesListPanel({ canCreate }: { canCreate: boolean }) {
         ) : properties.length === 0 ? (
           <p className="muted">
             No properties match your filters yet.{" "}
-            {canCreate ? <Link href="/properties/new">Add the first one.</Link> : null}
+            {canCreate ? <Link href="/properties/new" className="text-link">Add the first one.</Link> : null}
           </p>
         ) : (
-          <ul style={{ listStyle: "none", display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+          <ul style={{ listStyle: "none", display: "flex", flexDirection: "column", gap: "0.2rem" }}>
             {properties.map((property) => (
               <li key={property.id} style={{ opacity: property.isActive ? 1 : 0.6 }}>
                 <Link
                   href={`/properties/${property.id}`}
+                  className="row-link"
                   style={{ display: "flex", justifyContent: "space-between", gap: "1rem", flexWrap: "wrap", alignItems: "center" }}
                 >
                   <div style={{ display: "flex", gap: "0.75rem", alignItems: "center" }}>
@@ -201,7 +202,7 @@ export function PropertiesListPanel({ canCreate }: { canCreate: boolean }) {
                       />
                     ) : null}
                     <div>
-                      <div style={{ fontWeight: 600 }}>{property.name}</div>
+                      <div className="clickable-title" style={{ fontWeight: 600 }}>{property.name}</div>
                       <div className="muted" style={{ fontSize: "0.85rem" }}>
                         {[property.addressLine1, property.city, property.state].filter(Boolean).join(", ") ||
                           "No address on file"}

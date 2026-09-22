@@ -189,18 +189,19 @@ export function AssetsListPanel({
         ) : assets.length === 0 ? (
           <p className="muted">
             No assets match your filters yet.{" "}
-            {canCreate ? <Link href="/assets/new">Add the first one.</Link> : null}
+            {canCreate ? <Link href="/assets/new" className="text-link">Add the first one.</Link> : null}
           </p>
         ) : (
-          <ul style={{ listStyle: "none", display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+          <ul style={{ listStyle: "none", display: "flex", flexDirection: "column", gap: "0.2rem" }}>
             {assets.map((asset) => (
               <li key={asset.id} style={{ opacity: asset.isActive ? 1 : 0.6 }}>
                 <Link
                   href={`/assets/${asset.id}`}
+                  className="row-link"
                   style={{ display: "flex", justifyContent: "space-between", gap: "1rem", flexWrap: "wrap" }}
                 >
                   <div>
-                    <div style={{ fontWeight: 600 }}>
+                    <div className="clickable-title" style={{ fontWeight: 600 }}>
                       {asset.assetTag} · {asset.displayName}
                     </div>
                     <div className="muted" style={{ fontSize: "0.85rem" }}>

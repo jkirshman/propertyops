@@ -44,7 +44,7 @@ export default async function ManualEventDetailPage({
       <div className="card" style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: "1rem" }}>
         <div>
           <div className="muted" style={{ fontSize: "0.85rem" }}>
-            <Link href="/calendar">← Back to calendar</Link>
+            <Link href="/calendar" className="text-link">← Back to calendar</Link>
           </div>
           <h1 style={{ marginBottom: "0.3rem" }}>{event.title}</h1>
         </div>

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 
+import { InteractiveRow } from "@/components/shared/InteractiveRow";
 import { TENANT_TYPES, TENANT_TYPE_LABELS, type TenantType } from "@/lib/tenants/constants";
 
 interface TenantRow {
@@ -107,7 +108,7 @@ export function TenantsListPanel({ canCreate }: { canCreate: boolean }) {
         ) : tenants.length === 0 ? (
           <p className="muted">
             No tenants match your filters yet.{" "}
-            {canCreate ? <Link href="/tenants/new">Add the first one.</Link> : null}
+            {canCreate ? <Link href="/tenants/new" className="text-link">Add the first one.</Link> : null}
           </p>
         ) : (
           <div style={{ overflowX: "auto" }}>
@@ -118,13 +119,14 @@ export function TenantsListPanel({ canCreate }: { canCreate: boolean }) {
                   <th style={{ padding: "0.5rem" }}>Type</th>
                   <th style={{ padding: "0.5rem" }}>Phone / Email</th>
                   <th style={{ padding: "0.5rem" }}>Status</th>
+                  <th aria-hidden="true" />
                 </tr>
               </thead>
               <tbody>
                 {tenants.map((tenant) => (
-                  <tr key={tenant.id} style={{ borderBottom: "1px solid var(--border)" }}>
+                  <InteractiveRow key={tenant.id} href={`/tenants/${tenant.id}`} style={{ borderBottom: "1px solid var(--border)" }}>
                     <td style={{ padding: "0.5rem" }}>
-                      <Link href={`/tenants/${tenant.id}`}>{tenant.name}</Link>
+                      <Link href={`/tenants/${tenant.id}`} className="entity-link">{tenant.name}</Link>
                     </td>
                     <td style={{ padding: "0.5rem" }}>
                       {TENANT_TYPE_LABELS[tenant.tenantType as TenantType] ?? tenant.tenantType}
@@ -133,7 +135,7 @@ export function TenantsListPanel({ canCreate }: { canCreate: boolean }) {
                       {[tenant.primaryPhone, tenant.primaryEmail].filter(Boolean).join(" · ") || "—"}
                     </td>
                     <td style={{ padding: "0.5rem" }}>{tenant.isActive ? "Active" : "Inactive"}</td>
-                  </tr>
+                  </InteractiveRow>
                 ))}
               </tbody>
             </table>

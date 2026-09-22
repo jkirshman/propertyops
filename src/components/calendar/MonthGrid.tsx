@@ -94,6 +94,7 @@ export function MonthGrid({
                   <button
                     key={event.id}
                     type="button"
+                    className="calendar-event"
                     onClick={() => onSelectEvent(event)}
                     title={event.title}
                     style={{

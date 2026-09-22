@@ -60,7 +60,7 @@ export default async function WorkOrderDetailPage({
           <div className="muted" style={{ fontSize: "0.85rem" }}>{workOrder.number}</div>
           <h1 style={{ marginBottom: "0.3rem" }}>{workOrder.subject}</h1>
           <div className="muted" style={{ fontSize: "0.9rem" }}>
-            {property ? <Link href={`/properties/${property.id}`}>{property.name}</Link> : "Unknown property"}
+            {property ? <Link href={`/properties/${property.id}`} className="text-link">{property.name}</Link> : "Unknown property"}
             {" · "}
             {WORK_ORDER_STATUS_LABELS[workOrder.status as WorkOrderStatus] ?? workOrder.status}
             {workOrder.source && workOrder.source !== "staff" ? (

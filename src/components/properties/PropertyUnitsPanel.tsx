@@ -254,7 +254,7 @@ export function PropertyUnitsPanel({
                           {occupancy.leaseId ? (
                             <>
                               {" "}
-                              (<Link href={`/leases/${occupancy.leaseId}`}>lease</Link>)
+                              (<Link href={`/leases/${occupancy.leaseId}`} className="text-link">lease</Link>)
                             </>
                           ) : null}
                         </>
