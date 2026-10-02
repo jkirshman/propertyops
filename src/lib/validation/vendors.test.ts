@@ -68,6 +68,36 @@ describe("createVendorSchema", () => {
     }
   });
 
+  // BUGFIX-OPS-1 regression: VendorForm sends null (not "") for a blank date.
+  it("accepts all compliance dates blank in the exact payload VendorForm sends", () => {
+    const result = createVendorSchema.safeParse({
+      ...VALID,
+      insuranceExpiresAt: null,
+      licenseExpiresAt: null,
+      contractExpiresAt: null,
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.insuranceExpiresAt).toBeUndefined();
+      expect(result.data.licenseExpiresAt).toBeUndefined();
+      expect(result.data.contractExpiresAt).toBeUndefined();
+    }
+  });
+
+  it("accepts one populated compliance date with the others blank", () => {
+    const result = createVendorSchema.safeParse({
+      ...VALID,
+      insuranceExpiresAt: "2027-06-30",
+      licenseExpiresAt: null,
+      contractExpiresAt: "",
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.insuranceExpiresAt).toBe("2027-06-30");
+      expect(result.data.licenseExpiresAt).toBeUndefined();
+    }
+  });
+
   it("treats a blank email as absent", () => {
     const result = createVendorSchema.parse({ ...VALID, primaryEmail: "" });
     expect(result.primaryEmail).toBeUndefined();
@@ -150,6 +180,20 @@ describe("updateVendorSchema", () => {
   it("accepts an explicit null to clear legal name", () => {
     const result = updateVendorSchema.parse({ legalName: null });
     expect(result.legalName).toBeNull();
+  });
+
+  it("accepts a cleared date in the exact payload VendorForm sends on edit", () => {
+    const result = updateVendorSchema.safeParse({
+      insuranceExpiresAt: null,
+      licenseExpiresAt: "2027-03-01",
+      contractExpiresAt: null,
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.insuranceExpiresAt).toBeNull();
+      expect(result.data.licenseExpiresAt).toBe("2027-03-01");
+      expect(result.data.contractExpiresAt).toBeNull();
+    }
   });
 
   it("accepts an explicit null to clear a compliance date", () => {

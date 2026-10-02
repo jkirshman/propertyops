@@ -675,6 +675,23 @@ a.muted:hover {
   }
 }
 
+/* --- Label/value detail grid (BUGFIX-OPS-1) --------------------------------
+   Grid items default to min-width: auto, so one long unbroken value (a URL,
+   an email) widened its cell past its 1fr track and ran into the next
+   column. Cells may now shrink, and only their values wrap mid-word —
+   scoped here rather than app-wide. */
+
+.detail-field-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(200px, 100%), 1fr));
+  gap: 0.9rem;
+}
+
+.detail-field-grid > * {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
 /* --- Photos (PHOTO-1) ----------------------------------------------------- */
 
 .photo-upload-fields {

@@ -182,6 +182,28 @@ describe("selectLeaseMilestones", () => {
   it("includes a lease with an approaching renewal option date", () => {
     expect(selectLeaseMilestones([lease({ renewalOptionDate: "2026-09-25" })], TODAY).items).toHaveLength(1);
   });
+
+  // BUGFIX-OPS-1 regressions — this section is about expiration risk.
+  it("never surfaces a lease just because its start date is long past", () => {
+    expect(selectLeaseMilestones([lease({ startDate: "2010-10-19" })], TODAY).items).toHaveLength(0);
+    expect(
+      selectLeaseMilestones([lease({ startDate: "2010-10-19", endDate: "2030-10-18" })], TODAY).items,
+    ).toHaveLength(0);
+  });
+
+  it("includes an active lease expiring within the look-ahead window even if it started years ago", () => {
+    expect(
+      selectLeaseMilestones([lease({ startDate: "2015-03-13", endDate: "2026-11-30" })], TODAY).items,
+    ).toHaveLength(1);
+  });
+
+  it("leaves an already-expired active lease to the Operations Overdue column", () => {
+    expect(selectLeaseMilestones([lease({ endDate: "2026-08-31" })], TODAY).items).toHaveLength(0);
+  });
+
+  it("does not invent an expiration for a month-to-month lease with no end date", () => {
+    expect(selectLeaseMilestones([lease({ status: "month_to_month" })], TODAY).items).toHaveLength(0);
+  });
 });
 
 describe("isAppBriefSectionVisible", () => {

@@ -159,7 +159,7 @@ export function VendorDetailPanel({
 
       {tab === "overview" ? (
         <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
-          <div className="card" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "0.9rem" }}>
+          <div className="card detail-field-grid">
             <div>
               <div className="muted" style={{ fontSize: "0.8rem" }}>Legal / business name</div>
               <div>{vendor.legalName ?? "Not set"}</div>
@@ -186,7 +186,7 @@ export function VendorDetailPanel({
             </div>
           </div>
 
-          <div className="card" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "0.9rem" }}>
+          <div className="card detail-field-grid">
             <ComplianceBadge label="Insurance expiration" expiresAt={vendor.insuranceExpiresAt} />
             <ComplianceBadge label="License expiration" expiresAt={vendor.licenseExpiresAt} />
             <ComplianceBadge label="Contract expiration" expiresAt={vendor.contractExpiresAt} />

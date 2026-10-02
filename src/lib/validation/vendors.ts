@@ -7,8 +7,12 @@ const emptyToUndefined = (value: unknown) =>
 
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const DATE_MESSAGE = "Enter a valid date.";
+// BUGFIX-OPS-1: on create, null means "unset" too — VendorForm sends null for
+// a blank date input (the same payload it sends on edit, where null clears).
+// Without this the create schema rejected every blank Optional Compliance
+// date with "expected string, received null", client- and server-side.
 const dateOnly = z.preprocess(
-  emptyToUndefined,
+  (value) => (value === null ? undefined : emptyToUndefined(value)),
   z.string().regex(DATE_PATTERN, DATE_MESSAGE).optional(),
 );
 // Same rule as dateOnly, but nullable — used on update schemas where an
