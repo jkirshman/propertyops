@@ -37,7 +37,7 @@ export function PropertiesListPanel({ canCreate }: { canCreate: boolean }) {
   const [search, setSearch] = useState("");
   const [propertyTypeId, setPropertyTypeId] = useState("");
   const [propertyCompanyId, setPropertyCompanyId] = useState("");
-  const [statusFilter, setStatusFilter] = useState<"active" | "inactive" | "all">("active");
+  const [statusFilter, setStatusFilter] = useState<"active" | "archived" | "all">("active");
 
   useEffect(() => {
     fetch("/api/property-types")
@@ -164,8 +164,8 @@ export function PropertiesListPanel({ canCreate }: { canCreate: boolean }) {
             onChange={(event) => setStatusFilter(event.target.value as typeof statusFilter)}
           >
             <option value="active">Active</option>
-            <option value="inactive">Inactive</option>
-            <option value="all">All statuses</option>
+            <option value="archived">Archived</option>
+            <option value="all">All</option>
           </select>
         </div>
         {canCreate ? (
@@ -202,7 +202,15 @@ export function PropertiesListPanel({ canCreate }: { canCreate: boolean }) {
                       />
                     ) : null}
                     <div>
-                      <div className="clickable-title" style={{ fontWeight: 600 }}>{property.name}</div>
+                      <div className="clickable-title" style={{ fontWeight: 600 }}>
+                        {property.name}
+                        {!property.isActive ? (
+                          <>
+                            {" "}
+                            <span className="lifecycle-tag">Archived</span>
+                          </>
+                        ) : null}
+                      </div>
                       <div className="muted" style={{ fontSize: "0.85rem" }}>
                         {[property.addressLine1, property.city, property.state].filter(Boolean).join(", ") ||
                           "No address on file"}
@@ -217,7 +225,6 @@ export function PropertiesListPanel({ canCreate }: { canCreate: boolean }) {
                     <div>
                       {OCCUPANCY_MODEL_LABELS[property.occupancyModel as OccupancyModel] ??
                         property.occupancyModel}
-                      {!property.isActive ? " · Inactive" : ""}
                     </div>
                   </div>
                 </Link>

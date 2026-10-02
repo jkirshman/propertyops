@@ -23,6 +23,7 @@ import { canUploadEntityPhoto } from "@/lib/property-photos/photo-rules";
 import { getPropertyUnit } from "@/lib/property-units/property-units";
 import { WORK_ORDER_CAPABILITIES } from "@/lib/work-orders/constants";
 import { propertyOwnedBackTarget } from "@/lib/navigation/back-links";
+import { isPropertyArchived } from "@/lib/properties/archive-rules";
 
 export default async function PropertyEquipmentDetailPage({
   params,
@@ -60,6 +61,8 @@ export default async function PropertyEquipmentDetailPage({
   ]);
   const unitOptions =
     canEdit && property ? await getEquipmentUnitOptions(context.user.organizationId, property, scope) : null;
+  // LIFECYCLE-1: no new records off an archived Property (history stays viewable).
+  const operational = property ? !isPropertyArchived(property) : false;
   const unitFields = {
     propertyUnitId: equipment.propertyUnitId,
     unitLabel: unit?.unitLabel ?? null,
@@ -111,9 +114,9 @@ export default async function PropertyEquipmentDetailPage({
         canManageService={capabilityKeys.includes(EQUIPMENT_CAPABILITIES.MANAGE_SERVICE)}
         canManageDocuments={capabilityKeys.includes(EQUIPMENT_CAPABILITIES.MANAGE_DOCUMENTS)}
         canUploadPhotos={canUploadEntityPhoto(capabilityKeys, "equipment")}
-        canCreateWorkOrders={capabilityKeys.includes(WORK_ORDER_CAPABILITIES.CREATE)}
-        canCreatePreventiveMaintenance={capabilityKeys.includes(PREVENTIVE_MAINTENANCE_CAPABILITIES.CREATE)}
-        canCreateInspections={capabilityKeys.includes(INSPECTION_CAPABILITIES.CREATE)}
+        canCreateWorkOrders={operational && capabilityKeys.includes(WORK_ORDER_CAPABILITIES.CREATE)}
+        canCreatePreventiveMaintenance={operational && capabilityKeys.includes(PREVENTIVE_MAINTENANCE_CAPABILITIES.CREATE)}
+        canCreateInspections={operational && capabilityKeys.includes(INSPECTION_CAPABILITIES.CREATE)}
       />
     </div>
   );

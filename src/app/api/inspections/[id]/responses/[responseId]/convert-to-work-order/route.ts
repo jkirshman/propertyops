@@ -11,6 +11,7 @@ import { deriveGeneratedWorkOrderUnitId } from "@/lib/property-units/unit-assign
 import { createWorkOrderSchema } from "@/lib/validation/work-orders";
 import { WORK_ORDER_CAPABILITIES } from "@/lib/work-orders/constants";
 import { createWorkOrder } from "@/lib/work-orders/work-orders";
+import { isPropertyOperational, propertyArchivedResponse } from "@/lib/properties/archive";
 
 /**
  * Explicit, user-initiated conversion of a single inspection finding into a
@@ -52,6 +53,10 @@ export async function POST(
   const response = await getInspectionResponse(user.organizationId, id, responseId);
   if (!response) {
     return NextResponse.json({ error: "not_found" }, { status: 404 });
+  }
+  // LIFECYCLE-1: no new Work Orders for an archived Property.
+  if (!(await isPropertyOperational(user.organizationId, inspection.propertyId))) {
+    return propertyArchivedResponse();
   }
 
   const equipment = inspection.propertyEquipmentId

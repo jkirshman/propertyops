@@ -17,6 +17,7 @@ import { listOrganizationUsers } from "@/lib/users/users";
 import { WORK_ORDER_CAPABILITIES } from "@/lib/work-orders/constants";
 import { listWorkOrderCategories } from "@/lib/work-orders/categories";
 import { parseFromProperty, propertyRecordBackTarget } from "@/lib/navigation/back-links";
+import { isPropertyArchived } from "@/lib/properties/archive-rules";
 
 export default async function InspectionDetailPage({
   params,
@@ -59,6 +60,8 @@ export default async function InspectionDetailPage({
     : null;
 
   const { capabilityKeys } = context;
+  // LIFECYCLE-1: no new records off an archived Property (history stays viewable).
+  const operational = property ? !isPropertyArchived(property) : false;
   // Only ever the viewer's own accessible Units — safe for view-only users too.
   const unitOptions = property ? await getRecordUnitOptions(context.user.organizationId, property, scope) : null;
   const unitLabel = formatRecordUnitLabel({
@@ -114,7 +117,7 @@ export default async function InspectionDetailPage({
         timezone={timezone}
         canEdit={capabilityKeys.includes(INSPECTION_CAPABILITIES.EDIT)}
         canComplete={capabilityKeys.includes(INSPECTION_CAPABILITIES.COMPLETE)}
-        canCreateWorkOrder={capabilityKeys.includes(WORK_ORDER_CAPABILITIES.CREATE)}
+        canCreateWorkOrder={operational && capabilityKeys.includes(WORK_ORDER_CAPABILITIES.CREATE)}
         canSchedule={capabilityKeys.includes(INSPECTION_CAPABILITIES.SCHEDULE)}
       />
     </div>

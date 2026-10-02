@@ -179,6 +179,9 @@ export const notifications = pgTable(
     metadata: jsonb("metadata"),
     dedupeKey: text("dedupe_key"),
     readAt: timestamp("read_at", { withTimezone: true }),
+    // LIFECYCLE-1: set when the recipient clears it from their inbox. Hidden
+    // from the list and the unread badge, never deleted — a soft dismiss.
+    dismissedAt: timestamp("dismissed_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [

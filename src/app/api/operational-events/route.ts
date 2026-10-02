@@ -7,6 +7,9 @@ import { CALENDAR_CAPABILITIES } from "@/lib/calendar/constants";
 import { createOperationalEvent, listOperationalEvents } from "@/lib/calendar/operational-events";
 import { getProperty } from "@/lib/properties/properties";
 import { createOperationalEventSchema } from "@/lib/validation/operational-events";
+import { propertyArchivedResponse } from "@/lib/properties/archive";
+import { isPropertyArchived } from "@/lib/properties/archive-rules";
+import { resolveListPropertyScope } from "@/lib/properties/archive";
 
 export async function GET(request: Request) {
   const context = await getCurrentUserWithCapabilities();
@@ -24,10 +27,13 @@ export async function GET(request: Request) {
   );
 
   const { searchParams } = new URL(request.url);
+  // LIFECYCLE-1: global lists skip archived Properties; record-history
+  // requests (a Property tab, an Equipment/Asset panel) keep them.
+  const listScope = await resolveListPropertyScope(context.user.organizationId, scope, searchParams);
   const events = await listOperationalEvents(context.user.organizationId, {
     propertyId: searchParams.get("propertyId") ?? undefined,
     status: searchParams.get("status") ?? undefined,
-    propertyIds: listAccessiblePropertyIds(scope),
+    propertyIds: listAccessiblePropertyIds(listScope),
   });
 
   return NextResponse.json({ events });
@@ -62,6 +68,10 @@ export async function POST(request: Request) {
     const scope = await resolveUserPropertyScope(user.id, user.organizationId, context.capabilityKeys);
     if (!canAccessProperty(scope, parsed.data.propertyId)) {
       return NextResponse.json({ error: "forbidden" }, { status: 403 });
+    }
+    // LIFECYCLE-1: an archived Property is read-only — no new events on it.
+    if (isPropertyArchived(property)) {
+      return propertyArchivedResponse();
     }
   }
 

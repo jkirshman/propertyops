@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { PropertyProfileTabs } from "@/components/properties/PropertyProfileTabs";
+import { PropertyArchiveControl } from "@/components/properties/PropertyArchiveControl";
 import { BackLink } from "@/components/shared/BackLink";
 import { ASSET_CAPABILITIES } from "@/lib/assets/constants";
 import { requireCapability } from "@/lib/auth/require-capability";
@@ -13,6 +14,7 @@ import { LEASE_CAPABILITIES } from "@/lib/leases/constants";
 import { GLOBAL_BACK_TARGETS } from "@/lib/navigation/back-links";
 import { resolveNavVariant } from "@/lib/navigation/nav-visibility";
 import { PREVENTIVE_MAINTENANCE_CAPABILITIES } from "@/lib/preventive-maintenance/constants";
+import { canArchiveProperty, isPropertyArchived } from "@/lib/properties/archive-rules";
 import { PROPERTY_CAPABILITIES } from "@/lib/properties/constants";
 import { parseTab } from "@/lib/properties/property-profile-tabs";
 import { getPropertyCompany } from "@/lib/property-companies/property-companies";
@@ -61,6 +63,14 @@ export default async function PropertyDetailPage({
   const canEdit = context.capabilityKeys.includes(PROPERTY_CAPABILITIES.EDIT);
   // NAV-1: a User's nav has no Properties list — this page is their "My Property".
   const showBackLink = resolveNavVariant(context.capabilityKeys) !== "user";
+  // LIFECYCLE-1: an archived Property stays viewable but is operationally
+  // read-only — every "create a new record" entry point is hidden (and the
+  // APIs refuse with property_archived). History, photos, documents, notes
+  // and contacts stay available; Property details remain editable via Edit.
+  const archived = isPropertyArchived(property);
+  const operational = !archived;
+  const canCreateOperational = (capability: string) => operational && context.capabilityKeys.includes(capability);
+  const canArchive = canArchiveProperty(context.capabilityKeys);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
@@ -79,13 +89,20 @@ export default async function PropertyDetailPage({
         <div style={{ flex: 1 }}>
           <div className="page-title-row">
             {showBackLink ? <BackLink {...GLOBAL_BACK_TARGETS.properties} /> : null}
-            <h1 style={{ marginBottom: "0.3rem" }}>{property.name}</h1>
+            <h1 style={{ marginBottom: "0.3rem" }}>
+              {property.name}
+              {archived ? (
+                <>
+                  {" "}
+                  <span className="lifecycle-tag">Archived</span>
+                </>
+              ) : null}
+            </h1>
           </div>
           <div className="muted" style={{ fontSize: "0.9rem" }}>
             {propertyType?.name ?? "Unknown type"}
             {propertyCompany ? ` · ${propertyCompany.name}` : ""}
             {property.city ? ` · ${property.city}${property.state ? `, ${property.state}` : ""}` : ""}
-            {!property.isActive ? " · Inactive" : ""}
           </div>
         </div>
         {canEdit ? (
@@ -95,6 +112,16 @@ export default async function PropertyDetailPage({
         ) : null}
       </div>
 
+      {archived ? (
+        <div className="card" style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: "0.75rem", alignItems: "center" }}>
+          <p style={{ fontSize: "0.9rem", flex: "1 1 280px" }}>
+            This property is archived. It is hidden from normal operational views and no new records can be added to
+            it. Its records and history are kept.
+          </p>
+          {canArchive ? <PropertyArchiveControl propertyId={property.id} isArchived /> : null}
+        </div>
+      ) : null}
+
       <PropertyProfileTabs
         propertyId={property.id}
         overview={property}
@@ -102,20 +129,20 @@ export default async function PropertyDetailPage({
         canManageContacts={context.capabilityKeys.includes(PROPERTY_CAPABILITIES.MANAGE_CONTACTS)}
         canManageNotes={context.capabilityKeys.includes(PROPERTY_CAPABILITIES.MANAGE_NOTES)}
         canManageDocuments={context.capabilityKeys.includes(PROPERTY_CAPABILITIES.MANAGE_DOCUMENTS)}
-        canCreateWorkOrders={context.capabilityKeys.includes(WORK_ORDER_CAPABILITIES.CREATE)}
-        canCreateEquipment={context.capabilityKeys.includes(EQUIPMENT_CAPABILITIES.CREATE)}
+        canCreateWorkOrders={canCreateOperational(WORK_ORDER_CAPABILITIES.CREATE)}
+        canCreateEquipment={canCreateOperational(EQUIPMENT_CAPABILITIES.CREATE)}
         canEditEquipment={context.capabilityKeys.includes(EQUIPMENT_CAPABILITIES.EDIT)}
         canManageEquipmentTemplate={context.capabilityKeys.includes(PROPERTY_CAPABILITIES.EDIT)}
         canAssignAssets={context.capabilityKeys.includes(ASSET_CAPABILITIES.ASSIGN)}
-        canCreatePreventiveMaintenance={context.capabilityKeys.includes(PREVENTIVE_MAINTENANCE_CAPABILITIES.CREATE)}
+        canCreatePreventiveMaintenance={canCreateOperational(PREVENTIVE_MAINTENANCE_CAPABILITIES.CREATE)}
         canManageVendorCoverage={context.capabilityKeys.includes(VENDOR_CAPABILITIES.MANAGE_COVERAGE)}
-        canCreateInspections={context.capabilityKeys.includes(INSPECTION_CAPABILITIES.CREATE)}
-        canManageCompliance={context.capabilityKeys.includes(COMPLIANCE_CAPABILITIES.EDIT)}
-        canCreateLeases={context.capabilityKeys.includes(LEASE_CAPABILITIES.CREATE)}
+        canCreateInspections={canCreateOperational(INSPECTION_CAPABILITIES.CREATE)}
+        canManageCompliance={canCreateOperational(COMPLIANCE_CAPABILITIES.EDIT)}
+        canCreateLeases={canCreateOperational(LEASE_CAPABILITIES.CREATE)}
         supportsUnits={Boolean(propertyType?.supportsUnits)}
-        canCreateUnits={context.capabilityKeys.includes(PROPERTY_UNIT_CAPABILITIES.CREATE)}
+        canCreateUnits={canCreateOperational(PROPERTY_UNIT_CAPABILITIES.CREATE)}
         canEditUnits={context.capabilityKeys.includes(PROPERTY_UNIT_CAPABILITIES.EDIT)}
-        canCreateComponents={context.capabilityKeys.includes(PROPERTY_COMPONENT_CAPABILITIES.CREATE)}
+        canCreateComponents={canCreateOperational(PROPERTY_COMPONENT_CAPABILITIES.CREATE)}
         canManagePhotos={context.capabilityKeys.includes(PROPERTY_CAPABILITIES.MANAGE_DOCUMENTS)}
         canUploadEntityPhotos={
           canUploadEntityPhoto(context.capabilityKeys, "component") ||
@@ -124,6 +151,12 @@ export default async function PropertyDetailPage({
         canCreateContacts={context.capabilityKeys.includes(PROPERTY_CAPABILITIES.CREATE_CONTACT)}
         currentUserId={context.user.id}
       />
+
+      {canArchive && operational ? (
+        <div className="card">
+          <PropertyArchiveControl propertyId={property.id} isArchived={false} />
+        </div>
+      ) : null}
     </div>
   );
 }

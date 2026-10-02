@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { buildNavItems, isNavItemActive, type NavItemsInput } from "./nav-items";
+import { buildNavItems, isNavItemActive, resolveMyPropertyHref, type NavItemsInput } from "./nav-items";
 
 const ALL_LINKS: NavItemsInput = {
   navVariant: "admin",
@@ -85,5 +85,20 @@ describe("isNavItemActive", () => {
   it("marks a section active on its nested pages", () => {
     expect(isNavItemActive("/work-orders/123", "/work-orders")).toBe(true);
     expect(isNavItemActive("/vendors", "/work-orders")).toBe(false);
+  });
+});
+
+describe("resolveMyPropertyHref", () => {
+  it("links straight to a User's single (active) Property", () => {
+    expect(resolveMyPropertyHref(["abc"])).toBe("/properties/abc");
+  });
+
+  it("falls back to the list when the User's only Property is archived (no active ids left)", () => {
+    expect(resolveMyPropertyHref([])).toBe("/properties");
+  });
+
+  it("falls back to the list for several Properties or unrestricted access", () => {
+    expect(resolveMyPropertyHref(["a", "b"])).toBe("/properties");
+    expect(resolveMyPropertyHref(null)).toBe("/properties");
   });
 });

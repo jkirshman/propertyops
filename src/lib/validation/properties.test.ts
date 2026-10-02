@@ -60,7 +60,15 @@ describe("createPropertySchema", () => {
 
 describe("updatePropertySchema", () => {
   it("accepts a partial update", () => {
-    expect(updatePropertySchema.safeParse({ isActive: false }).success).toBe(true);
+    expect(updatePropertySchema.safeParse({ name: "Renamed Plaza" }).success).toBe(true);
+  });
+
+  it("drops isActive — archiving is only possible through the archive endpoint", () => {
+    const result = updatePropertySchema.safeParse({ isActive: false });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect("isActive" in result.data).toBe(false);
+    }
   });
 
   it("accepts an empty update", () => {

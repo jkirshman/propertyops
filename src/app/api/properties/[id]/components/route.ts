@@ -7,6 +7,8 @@ import { PROPERTY_COMPONENT_CAPABILITIES } from "@/lib/property-components/const
 import { createPropertyComponent, listPropertyComponents } from "@/lib/property-components/property-components";
 import { getProperty } from "@/lib/properties/properties";
 import { createPropertyComponentSchema } from "@/lib/validation/property-components";
+import { propertyArchivedResponse } from "@/lib/properties/archive";
+import { isPropertyArchived } from "@/lib/properties/archive-rules";
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const context = await getCurrentUserWithCapabilities();
@@ -53,6 +55,10 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const property = await getProperty(user.organizationId, id);
   if (!property) {
     return NextResponse.json({ error: "not_found" }, { status: 404 });
+  }
+  // LIFECYCLE-1: an archived Property is read-only — no new records.
+  if (isPropertyArchived(property)) {
+    return propertyArchivedResponse();
   }
 
   const body = await request.json().catch(() => null);

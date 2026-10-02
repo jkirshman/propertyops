@@ -8,6 +8,7 @@ import { buildPmPlanOverdueNotification } from "@/lib/preventive-maintenance/not
 import { generatePreventiveMaintenanceOccurrence } from "@/lib/preventive-maintenance/occurrences";
 import { listPreventiveMaintenancePlans } from "@/lib/preventive-maintenance/plans";
 import { todayDateString } from "@/lib/preventive-maintenance/recurrence";
+import { listActivePropertyIds } from "@/lib/properties/archive";
 
 /**
  * Daily preventive-maintenance job: generates due occurrences org by org and
@@ -31,7 +32,12 @@ export async function GET(request: Request) {
   let errors = 0;
 
   for (const org of orgs) {
-    const plans = await listPreventiveMaintenancePlans(org.id, { isActive: true });
+    // LIFECYCLE-1: an archived Property's plans are kept (not deactivated) but
+    // generate no Work Orders or overdue alerts until it is restored.
+    const plans = await listPreventiveMaintenancePlans(org.id, {
+      isActive: true,
+      propertyIds: await listActivePropertyIds(org.id),
+    });
 
     for (const plan of plans) {
       try {

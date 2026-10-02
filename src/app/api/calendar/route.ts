@@ -5,6 +5,7 @@ import { CALENDAR_CAPABILITIES, CALENDAR_SOURCE_TYPES, type CalendarSourceType }
 import { getCurrentUserWithCapabilities } from "@/lib/auth/current-user";
 import { resolveUserPropertyScope } from "@/lib/auth/property-access";
 import { getOrganizationTimezone } from "@/lib/organizations/organizations";
+import { resolveListPropertyScope } from "@/lib/properties/archive";
 
 export async function GET(request: Request) {
   const context = await getCurrentUserWithCapabilities();
@@ -29,6 +30,9 @@ export async function GET(request: Request) {
     context.capabilityKeys,
   );
 
+  // LIFECYCLE-1: global lists skip archived Properties; record-history
+  // requests (a Property tab, an Equipment/Asset panel) keep them.
+  const listScope = await resolveListPropertyScope(context.user.organizationId, scope, searchParams);
   const events = await listCalendarEvents(
     context.user.organizationId,
     timezone,
@@ -44,7 +48,7 @@ export async function GET(request: Request) {
       rangeEnd: searchParams.get("rangeEnd") ?? undefined,
       includeCompletedInspections: searchParams.get("includeCompletedInspections") === "true",
     },
-    scope,
+    listScope,
   );
 
   return NextResponse.json({ events, timezone });

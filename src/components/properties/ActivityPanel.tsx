@@ -13,6 +13,8 @@ const ACTION_LABELS: Record<string, string> = {
   "property.update": "Property updated",
   "property.activate": "Property activated",
   "property.deactivate": "Property deactivated",
+  "property.archived": "Property archived",
+  "property.restored": "Property restored",
   "property.contact_create": "Contact added",
   "property.contact_update": "Contact updated",
   "property.contact_activate": "Contact reactivated",

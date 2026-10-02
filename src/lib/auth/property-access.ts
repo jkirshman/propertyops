@@ -116,6 +116,22 @@ export function listAccessibleUnitIdsForProperty(
   return rowsForProperty.map((row) => row.propertyUnitId as string);
 }
 
+/**
+ * LIFECYCLE-1: narrows a scope to the given (active, non-archived) Property
+ * ids — for operational lists and dashboards only, never for authorization:
+ * an archived Property's detail and history stay reachable via the full
+ * scope. An unrestricted scope becomes whole-property access to exactly
+ * those ids; a scoped one keeps only its rows for those Properties (Unit
+ * restrictions intact). user_property_access rows themselves are untouched.
+ */
+export function narrowScopeToPropertyIds(scope: PropertyScope, propertyIds: readonly string[]): PropertyScope {
+  if (scope.kind === "all") {
+    return { kind: "scoped", access: propertyIds.map((propertyId) => ({ propertyId, propertyUnitId: null })) };
+  }
+  const allowed = new Set(propertyIds);
+  return { kind: "scoped", access: scope.access.filter((row) => allowed.has(row.propertyId)) };
+}
+
 export function isPropertyScopeUnrestricted(scope: PropertyScope): boolean {
   return scope.kind === "all";
 }

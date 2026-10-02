@@ -12,6 +12,7 @@ import { canUploadEntityPhoto } from "@/lib/property-photos/photo-rules";
 import { WORK_ORDER_CAPABILITIES } from "@/lib/work-orders/constants";
 import { getVendor } from "@/lib/vendors/vendors";
 import { propertyOwnedBackTarget } from "@/lib/navigation/back-links";
+import { isPropertyArchived } from "@/lib/properties/archive-rules";
 
 export default async function PropertyComponentDetailPage({
   params,
@@ -41,6 +42,8 @@ export default async function PropertyComponentDetailPage({
   ]);
 
   const { capabilityKeys } = context;
+  // LIFECYCLE-1: no new records off an archived Property (history stays viewable).
+  const operational = property ? !isPropertyArchived(property) : false;
   const typeLabel =
     component.componentType === "other" && component.otherTypeLabel
       ? component.otherTypeLabel
@@ -80,7 +83,7 @@ export default async function PropertyComponentDetailPage({
         canManageService={capabilityKeys.includes(PROPERTY_COMPONENT_CAPABILITIES.MANAGE_SERVICE)}
         canManageDocuments={capabilityKeys.includes(PROPERTY_COMPONENT_CAPABILITIES.MANAGE_DOCUMENTS)}
         canUploadPhotos={canUploadEntityPhoto(capabilityKeys, "component")}
-        canCreateWorkOrders={capabilityKeys.includes(WORK_ORDER_CAPABILITIES.CREATE)}
+        canCreateWorkOrders={operational && capabilityKeys.includes(WORK_ORDER_CAPABILITIES.CREATE)}
       />
     </div>
   );

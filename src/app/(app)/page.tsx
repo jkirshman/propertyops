@@ -5,13 +5,19 @@ import { resolveUserPropertyScope } from "@/lib/auth/property-access";
 import { CALENDAR_CAPABILITIES } from "@/lib/calendar/constants";
 import { getAppBrief } from "@/lib/home/app-brief";
 import { getOrganizationTimezone } from "@/lib/organizations/organizations";
+import { resolveOperationalPropertyScope } from "@/lib/properties/archive";
 
 export default async function DashboardHomePage() {
   const context = await getCurrentUserWithCapabilities();
   const canViewCalendar = Boolean(context?.capabilityKeys.includes(CALENDAR_CAPABILITIES.VIEW));
 
+  // LIFECYCLE-1: Home is an operational view — archived Properties never
+  // contribute (their records stay reachable from the Property itself).
   const scope = context
-    ? await resolveUserPropertyScope(context.user.id, context.user.organizationId, context.capabilityKeys)
+    ? await resolveOperationalPropertyScope(
+        context.user.organizationId,
+        await resolveUserPropertyScope(context.user.id, context.user.organizationId, context.capabilityKeys),
+      )
     : null;
 
   const brief =

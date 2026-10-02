@@ -224,6 +224,33 @@ a.card:hover {
   border-color: var(--brand-strong);
 }
 
+/* Secondary destructive-ish action (e.g. Archive property): danger-tinted
+   text and border, never a filled red button (LIFECYCLE-1). */
+.button-danger-quiet {
+  color: var(--danger);
+  border-color: var(--danger);
+}
+
+.button-danger-quiet:hover {
+  background: var(--danger-bg);
+}
+
+/* Neutral lifecycle tag, e.g. [Archived] beside a Property name. */
+.lifecycle-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  border: 1px solid var(--brand-silver);
+  color: var(--brand-silver-strong);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
 .button:disabled {
   opacity: 0.6;
   cursor: not-allowed;
@@ -560,6 +587,105 @@ a.muted:hover {
   position: relative;
 }
 
+/* --- Notification panel (LIFECYCLE-1) ------------------------------------ */
+
+.notification-panel {
+  position: absolute;
+  right: 0;
+  top: 2.75rem;
+  width: min(340px, calc(100vw - 2rem));
+  max-height: min(420px, calc(100dvh - 5rem));
+  overflow-y: auto;
+  overflow-x: hidden;
+  z-index: 20;
+  padding: 0.75rem;
+}
+
+.notification-panel-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.25rem;
+  margin-bottom: 0.4rem;
+  padding-bottom: 0.4rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.notification-text-action {
+  background: none;
+  border: none;
+  border-radius: 6px;
+  padding: 0.35rem 0.5rem;
+  color: var(--muted);
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.notification-text-action:hover {
+  color: var(--foreground);
+  background: var(--background);
+}
+
+.notification-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.notification-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.25rem;
+  min-width: 0;
+}
+
+.notification-unread-dot {
+  flex-shrink: 0;
+  width: 8px;
+  height: 8px;
+  margin-top: 0.85rem;
+  border-radius: 999px;
+  background: transparent;
+}
+
+.notification-row[data-unread="true"] .notification-unread-dot {
+  background: var(--brand);
+}
+
+.notification-row-link {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.notification-row:not([data-unread="true"]) .notification-row-link {
+  opacity: 0.7;
+}
+
+.notification-row-actions {
+  display: flex;
+  flex-shrink: 0;
+}
+
+.notification-icon-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  background: none;
+  border: none;
+  border-radius: 6px;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.notification-icon-action:hover {
+  color: var(--foreground);
+  background: var(--background);
+}
+
 .app-mobile-only,
 .notification-bell-icon {
   display: none;
@@ -672,6 +798,17 @@ a.muted:hover {
     min-width: 44px;
     min-height: 44px;
     padding: 0.5rem;
+  }
+
+  /* Touch: row actions and panel controls get full-size tap targets. */
+  .notification-icon-action {
+    width: 44px;
+    height: 44px;
+  }
+
+  .notification-text-action {
+    min-height: 44px;
+    padding: 0.5rem 0.75rem;
   }
 }
 

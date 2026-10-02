@@ -19,6 +19,9 @@ import { createNotification } from "@/lib/notifications/notifications";
 import { getProperty } from "@/lib/properties/properties";
 import { resolveRecordUnit } from "@/lib/property-units/record-units";
 import { createInspectionSchema } from "@/lib/validation/inspections";
+import { propertyArchivedResponse } from "@/lib/properties/archive";
+import { isPropertyArchived } from "@/lib/properties/archive-rules";
+import { resolveListPropertyScope } from "@/lib/properties/archive";
 
 export async function GET(request: Request) {
   const context = await getCurrentUserWithCapabilities();
@@ -46,13 +49,16 @@ export async function GET(request: Request) {
     return NextResponse.json({ inspections: [] });
   }
 
+  // LIFECYCLE-1: global lists skip archived Properties; record-history
+  // requests (a Property tab, an Equipment/Asset panel) keep them.
+  const listScope = await resolveListPropertyScope(context.user.organizationId, scope, searchParams);
   const rows = await listInspections(context.user.organizationId, {
     propertyId: searchParams.get("propertyId") ?? undefined,
     propertyEquipmentId,
     templateId: searchParams.get("templateId") ?? undefined,
     status: searchParams.get("status") ?? undefined,
     inspectorUserId: searchParams.get("inspectorUserId") ?? undefined,
-    propertyIds: listAccessiblePropertyIds(scope),
+    propertyIds: listAccessiblePropertyIds(listScope),
   });
   // UNIT-OPS-1: another Unit's Inspections are dropped entirely; a visible
   // legacy Shared Inspection on another Unit's Equipment keeps UNIT-EQUIP-1's
@@ -94,6 +100,10 @@ export async function POST(request: Request) {
   const property = await getProperty(user.organizationId, parsed.data.propertyId);
   if (!property) {
     return NextResponse.json({ error: "invalid_property" }, { status: 400 });
+  }
+  // LIFECYCLE-1: an archived Property is read-only — no new records.
+  if (isPropertyArchived(property)) {
+    return propertyArchivedResponse();
   }
 
   const equipment = parsed.data.propertyEquipmentId

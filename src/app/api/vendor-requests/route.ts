@@ -18,6 +18,8 @@ import {
   listPendingVendorSubmissions,
 } from "@/lib/vendors/vendors";
 import { buildVendorSubmittedNotification } from "@/lib/vendors/notification-events";
+import { propertyArchivedResponse } from "@/lib/properties/archive";
+import { isPropertyArchived } from "@/lib/properties/archive-rules";
 
 export async function GET() {
   const context = await getCurrentUserWithCapabilities();
@@ -70,6 +72,10 @@ export async function POST(request: Request) {
   const property = await getProperty(user.organizationId, parsed.data.propertyId);
   if (!property) {
     return NextResponse.json({ error: "invalid_property" }, { status: 400 });
+  }
+  // LIFECYCLE-1: an archived Property is read-only — no new submissions for it.
+  if (isPropertyArchived(property)) {
+    return propertyArchivedResponse();
   }
 
   const duplicate = await findVendorByExactName(user.organizationId, parsed.data.name);

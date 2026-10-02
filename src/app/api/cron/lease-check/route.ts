@@ -18,6 +18,8 @@ import {
 import { verifyCronRequest } from "@/lib/cron/verify-cron-request";
 import { createNotification } from "@/lib/notifications/notifications";
 import { listUsersWithCapability } from "@/lib/users/users";
+import { listActivePropertyIds } from "@/lib/properties/archive";
+import { narrowScopeToPropertyIds } from "@/lib/auth/property-access";
 
 /**
  * Daily lease-date job: flags leases approaching expiration (90/60/30-day
@@ -45,8 +47,11 @@ export async function GET(request: Request) {
       const recipients = await listUsersWithCapability(org.id, LEASE_CAPABILITIES.EDIT);
       if (recipients.length === 0) continue;
 
-      const activeLeases = await listLeases(org.id, { status: "active" });
-      const monthToMonthLeases = await listLeases(org.id, { status: "month_to_month" });
+      // LIFECYCLE-1: no lease alerts for an archived Property's Leases (kept,
+      // not terminated) — the same exclusion as Home and the Calendar.
+      const activePropertyScope = narrowScopeToPropertyIds({ kind: "all" }, await listActivePropertyIds(org.id));
+      const activeLeases = await listLeases(org.id, { status: "active", scope: activePropertyScope });
+      const monthToMonthLeases = await listLeases(org.id, { status: "month_to_month", scope: activePropertyScope });
 
       for (const lease of [...activeLeases, ...monthToMonthLeases]) {
         if (lease.endDate && isLeaseExpired(lease.endDate)) {

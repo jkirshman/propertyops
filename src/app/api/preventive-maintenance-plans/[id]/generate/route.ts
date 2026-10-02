@@ -8,6 +8,7 @@ import { generatePreventiveMaintenanceOccurrence } from "@/lib/preventive-mainte
 import { canAccessPreventiveMaintenancePlan } from "@/lib/preventive-maintenance/plan-access";
 import { getPreventiveMaintenancePlan } from "@/lib/preventive-maintenance/plans";
 import { generatePreventiveMaintenanceOccurrenceSchema } from "@/lib/validation/preventive-maintenance";
+import { isPropertyOperational, propertyArchivedResponse } from "@/lib/properties/archive";
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const context = await getCurrentUserWithCapabilities();
@@ -29,6 +30,10 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const scope = await resolveUserPropertyScope(user.id, user.organizationId, capabilityKeys);
   if (!(await canAccessPreventiveMaintenancePlan(user.organizationId, scope, plan))) {
     return NextResponse.json({ error: "not_found" }, { status: 404 });
+  }
+  // LIFECYCLE-1: no new Work Orders for an archived Property.
+  if (!(await isPropertyOperational(user.organizationId, plan.propertyId))) {
+    return propertyArchivedResponse();
   }
 
   // An empty/absent body means "normal generation" — confirmDuplicate is only

@@ -9,6 +9,9 @@ import { getProperty } from "@/lib/properties/properties";
 import { getPropertyUnit } from "@/lib/property-units/property-units";
 import { getTenant } from "@/lib/tenants/tenants";
 import { createLeaseSchema } from "@/lib/validation/leases";
+import { propertyArchivedResponse } from "@/lib/properties/archive";
+import { isPropertyArchived } from "@/lib/properties/archive-rules";
+import { resolveListPropertyScope } from "@/lib/properties/archive";
 
 export async function GET(request: Request) {
   const context = await getCurrentUserWithCapabilities();
@@ -26,11 +29,14 @@ export async function GET(request: Request) {
   );
 
   const { searchParams } = new URL(request.url);
+  // LIFECYCLE-1: global lists skip archived Properties; record-history
+  // requests (a Property tab, an Equipment/Asset panel) keep them.
+  const listScope = await resolveListPropertyScope(context.user.organizationId, scope, searchParams);
   const leases = await listLeases(context.user.organizationId, {
     propertyId: searchParams.get("propertyId") ?? undefined,
     tenantId: searchParams.get("tenantId") ?? undefined,
     status: searchParams.get("status") ?? undefined,
-    scope,
+    scope: listScope,
   });
 
   return NextResponse.json({ leases });
@@ -67,6 +73,10 @@ export async function POST(request: Request) {
   ]);
   if (!property) {
     return NextResponse.json({ error: "invalid_property" }, { status: 400 });
+  }
+  // LIFECYCLE-1: an archived Property is read-only — no new records.
+  if (isPropertyArchived(property)) {
+    return propertyArchivedResponse();
   }
   if (!tenant) {
     return NextResponse.json({ error: "invalid_tenant" }, { status: 400 });

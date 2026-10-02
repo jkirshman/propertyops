@@ -9,6 +9,7 @@ import { classifyComplianceRecordStatus } from "@/lib/compliance/status";
 import { verifyCronRequest } from "@/lib/cron/verify-cron-request";
 import { createNotification } from "@/lib/notifications/notifications";
 import { listUsersWithCapability } from "@/lib/users/users";
+import { listActivePropertyIds } from "@/lib/properties/archive";
 
 /**
  * Daily compliance-expiration job: flags active compliance records that are
@@ -31,7 +32,11 @@ export async function GET(request: Request) {
 
   for (const org of orgs) {
     try {
-      const records = await listComplianceRecords(org.id, { isActive: true });
+      // LIFECYCLE-1: no expiry alerts for an archived Property's records.
+      const records = await listComplianceRecords(org.id, {
+        isActive: true,
+        propertyIds: await listActivePropertyIds(org.id),
+      });
       const recipients = await listUsersWithCapability(org.id, COMPLIANCE_CAPABILITIES.EDIT);
       if (recipients.length === 0) continue;
 

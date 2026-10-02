@@ -2,5 +2,5 @@ import { handleInboxAction } from "@/lib/notifications/inbox-route";
 
 export async function POST(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  return handleInboxAction({ type: "read", id });
+  return handleInboxAction({ type: "dismiss", id });
 }

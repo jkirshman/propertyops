@@ -15,6 +15,7 @@ import { getVendor } from "@/lib/vendors/vendors";
 import { getWorkOrderCategory } from "@/lib/work-orders/categories";
 import { WORK_ORDER_CAPABILITIES } from "@/lib/work-orders/constants";
 import { parseFromProperty, propertyRecordBackTarget } from "@/lib/navigation/back-links";
+import { isPropertyArchived } from "@/lib/properties/archive-rules";
 
 export default async function PreventiveMaintenancePlanDetailPage({
   params,
@@ -56,6 +57,8 @@ export default async function PreventiveMaintenancePlanDetailPage({
     : null;
 
   const { capabilityKeys } = context;
+  // LIFECYCLE-1: no new records off an archived Property (history stays viewable).
+  const operational = property ? !isPropertyArchived(property) : false;
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
@@ -93,7 +96,7 @@ export default async function PreventiveMaintenancePlanDetailPage({
         vendorName={vendor?.name ?? null}
         canEdit={capabilityKeys.includes(PREVENTIVE_MAINTENANCE_CAPABILITIES.EDIT)}
         canManageStatus={capabilityKeys.includes(PREVENTIVE_MAINTENANCE_CAPABILITIES.MANAGE_STATUS)}
-        canGenerate={capabilityKeys.includes(PREVENTIVE_MAINTENANCE_CAPABILITIES.GENERATE)}
+        canGenerate={operational && capabilityKeys.includes(PREVENTIVE_MAINTENANCE_CAPABILITIES.GENERATE)}
         canViewWorkOrders={capabilityKeys.includes(WORK_ORDER_CAPABILITIES.VIEW)}
       />
     </div>

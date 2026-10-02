@@ -24,7 +24,7 @@ export function VendorWorkOrdersPanel({ vendorId }: { vendorId: string }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch(`/api/work-orders?vendorId=${vendorId}`)
+    fetch(`/api/work-orders?vendorId=${vendorId}&includeArchived=true`)
       .then((response) => (response.ok ? response.json() : null))
       .then((data) => {
         if (data) setWorkOrders(data.workOrders ?? []);

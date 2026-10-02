@@ -29,8 +29,10 @@ export const createPropertySchema = z.object({
   ),
 });
 
+// LIFECYCLE-1: no isActive here — archive/restore go only through
+// /api/properties/[id]/archive and /restore, so every lifecycle change gets
+// the property.archived / property.restored audit (an unknown key is stripped).
 export const updatePropertySchema = createPropertySchema.partial().extend({
-  isActive: z.boolean().optional(),
   // Overrides the partial'd (non-nullable) create-schema field so an explicit
   // "Unassigned" selection can clear it, distinct from "left untouched".
   propertyCompanyId: z.preprocess(emptyToUndefined, z.string().uuid().optional().nullable()),

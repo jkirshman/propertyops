@@ -26,6 +26,9 @@ import { createWorkOrder, listWorkOrders } from "@/lib/work-orders/work-orders";
 import { createWorkOrderSchema } from "@/lib/validation/work-orders";
 import { VENDOR_CAPABILITIES } from "@/lib/vendors/constants";
 import { getVendor } from "@/lib/vendors/vendors";
+import { propertyArchivedResponse } from "@/lib/properties/archive";
+import { isPropertyArchived } from "@/lib/properties/archive-rules";
+import { resolveListPropertyScope } from "@/lib/properties/archive";
 
 export async function GET(request: Request) {
   const context = await getCurrentUserWithCapabilities();
@@ -54,6 +57,9 @@ export async function GET(request: Request) {
     return NextResponse.json({ workOrders: [] });
   }
 
+  // LIFECYCLE-1: global lists skip archived Properties; record-history
+  // requests (a Property tab, an Equipment/Asset panel) keep them.
+  const listScope = await resolveListPropertyScope(context.user.organizationId, scope, searchParams);
   const [rows, hiddenEquipmentIds] = await Promise.all([
     listWorkOrders(context.user.organizationId, {
       search: searchParams.get("search") ?? undefined,
@@ -66,7 +72,7 @@ export async function GET(request: Request) {
       categoryId: searchParams.get("categoryId") ?? undefined,
       assignedUserId: searchParams.get("assignedUserId") ?? undefined,
       vendorId: searchParams.get("vendorId") ?? undefined,
-      propertyIds: listAccessiblePropertyIds(scope),
+      propertyIds: listAccessiblePropertyIds(listScope),
     }),
     resolveHiddenEquipmentIds(context.user.organizationId, scope),
   ]);
@@ -110,6 +116,10 @@ export async function POST(request: Request) {
   const property = await getProperty(user.organizationId, parsed.data.propertyId);
   if (!property) {
     return NextResponse.json({ error: "invalid_property" }, { status: 400 });
+  }
+  // LIFECYCLE-1: an archived Property is read-only — no new records.
+  if (isPropertyArchived(property)) {
+    return propertyArchivedResponse();
   }
 
   const equipment = parsed.data.propertyEquipmentId

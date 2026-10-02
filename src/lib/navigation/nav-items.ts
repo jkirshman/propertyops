@@ -56,3 +56,13 @@ export function buildNavItems(input: NavItemsInput): NavItem[] {
 export function isNavItemActive(pathname: string, href: string): boolean {
   return href === "/" ? pathname === "/" : pathname.startsWith(href);
 }
+
+/**
+ * A User's "My Property" link: straight to their one Property, else the
+ * Properties list. Callers pass the ids from the operational scope (archived
+ * Properties removed — LIFECYCLE-1), so an archived Property is never the
+ * target. Takes plain ids so this client-shared module stays DB-free.
+ */
+export function resolveMyPropertyHref(propertyIds: readonly string[] | null): string {
+  return propertyIds !== null && propertyIds.length === 1 ? `/properties/${propertyIds[0]}` : "/properties";
+}

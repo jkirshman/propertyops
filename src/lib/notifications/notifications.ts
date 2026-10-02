@@ -1,8 +1,9 @@
-import { and, desc, eq, isNull } from "drizzle-orm";
+import { and, desc, eq, isNotNull, isNull, type SQL } from "drizzle-orm";
 
 import { db } from "@/db/client";
 import { notifications, users } from "@/db/schema";
 import { categoryForNotificationType } from "@/lib/notifications/categories";
+import { inboxRuleFor, type InboxAction } from "@/lib/notifications/inbox";
 import { getNotificationPreference } from "@/lib/notifications/preferences";
 import { sendTrackedEmail } from "@/lib/email/email";
 import {
@@ -115,11 +116,15 @@ export async function createNotification(input: CreateNotificationInput) {
   return record ?? null;
 }
 
+// LIFECYCLE-1: every read/write below is keyed on the session user's own id
+// (recipientUserId) — a caller can never touch someone else's notifications,
+// and a dismissed row is hidden but kept.
+
 export async function listNotificationsForUser(recipientUserId: string, limit = 20) {
   return db
     .select()
     .from(notifications)
-    .where(eq(notifications.recipientUserId, recipientUserId))
+    .where(and(eq(notifications.recipientUserId, recipientUserId), isNull(notifications.dismissedAt)))
     .orderBy(desc(notifications.createdAt))
     .limit(limit);
 }
@@ -128,16 +133,42 @@ export async function getUnreadNotificationCount(recipientUserId: string): Promi
   const rows = await db
     .select({ id: notifications.id })
     .from(notifications)
-    .where(and(eq(notifications.recipientUserId, recipientUserId), isNull(notifications.readAt)));
+    .where(
+      and(
+        eq(notifications.recipientUserId, recipientUserId),
+        isNull(notifications.readAt),
+        isNull(notifications.dismissedAt),
+      ),
+    );
 
   return rows.length;
 }
 
-export async function markNotificationRead(recipientUserId: string, notificationId: string) {
-  await db
+/**
+ * Applies one inbox action (see lib/notifications/inbox.ts) to the
+ * recipient's own notifications. Returns how many rows changed; 0 (someone
+ * else's id, already in that state, or dismissed) is not an error — the
+ * actions are idempotent and never reveal whether another user's id exists.
+ */
+export async function applyNotificationAction(recipientUserId: string, action: InboxAction): Promise<number> {
+  const rule = inboxRuleFor(action);
+  const conditions: SQL[] = [eq(notifications.recipientUserId, recipientUserId), isNull(notifications.dismissedAt)];
+  if (rule.single && "id" in action) conditions.push(eq(notifications.id, action.id));
+  if (rule.onlyRead) conditions.push(isNotNull(notifications.readAt));
+  if (rule.onlyUnread) conditions.push(isNull(notifications.readAt));
+
+  const now = new Date();
+  const set =
+    rule.effect === "set_read"
+      ? { readAt: now }
+      : rule.effect === "clear_read"
+        ? { readAt: null }
+        : { dismissedAt: now };
+
+  const rows = await db
     .update(notifications)
-    .set({ readAt: new Date() })
-    .where(
-      and(eq(notifications.id, notificationId), eq(notifications.recipientUserId, recipientUserId)),
-    );
+    .set(set)
+    .where(and(...conditions))
+    .returning({ id: notifications.id });
+  return rows.length;
 }

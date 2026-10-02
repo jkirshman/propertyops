@@ -29,7 +29,7 @@ export function TenantLeasesPanel({ tenantId, canCreate }: { tenantId: string; c
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch(`/api/leases?tenantId=${tenantId}`)
+    fetch(`/api/leases?tenantId=${tenantId}&includeArchived=true`)
       .then((response) => (response.ok ? response.json() : null))
       .then((data) => {
         if (data) setLeases(data.leases ?? []);

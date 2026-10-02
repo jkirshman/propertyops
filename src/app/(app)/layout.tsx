@@ -7,8 +7,10 @@ import { getCurrentUserWithCapabilities } from "@/lib/auth/current-user";
 import { listAccessiblePropertyIds, resolveUserPropertyScope } from "@/lib/auth/property-access";
 import { CALENDAR_CAPABILITIES } from "@/lib/calendar/constants";
 import { INSPECTION_CAPABILITIES } from "@/lib/inspections/constants";
+import { resolveMyPropertyHref } from "@/lib/navigation/nav-items";
 import { resolveNavVariant } from "@/lib/navigation/nav-visibility";
 import { PREVENTIVE_MAINTENANCE_CAPABILITIES } from "@/lib/preventive-maintenance/constants";
+import { resolveOperationalPropertyScope } from "@/lib/properties/archive";
 import { PROPERTY_CAPABILITIES } from "@/lib/properties/constants";
 import { TENANT_CAPABILITIES } from "@/lib/tenants/constants";
 import { VENDOR_CAPABILITIES } from "@/lib/vendors/constants";
@@ -26,12 +28,14 @@ export default async function AppShellLayout({ children }: { children: React.Rea
   // Only needed for the User variant's "My Property" link, but resolving
   // scope is cheap (a single indexed query) and harmless for the other
   // variants, so it's simplest to always compute it here rather than branch.
-  const scope = await resolveUserPropertyScope(user.id, user.organizationId, capabilityKeys);
-  const accessiblePropertyIds = listAccessiblePropertyIds(scope);
-  const myPropertyHref =
-    accessiblePropertyIds !== null && accessiblePropertyIds.length === 1
-      ? `/properties/${accessiblePropertyIds[0]}`
-      : "/properties";
+  // LIFECYCLE-1: an archived Property is never "My Property" — a User whose
+  // only Property is archived falls back to the (empty-by-default) list
+  // instead of being deep-linked into a read-only archive.
+  const scope = await resolveOperationalPropertyScope(
+    user.organizationId,
+    await resolveUserPropertyScope(user.id, user.organizationId, capabilityKeys),
+  );
+  const myPropertyHref = resolveMyPropertyHref(listAccessiblePropertyIds(scope));
 
   return (
     <div style={{ display: "flex", flexDirection: "column", minHeight: "100%", flex: 1 }}>

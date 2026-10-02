@@ -16,6 +16,8 @@ import { getPropertyComponent } from "@/lib/property-components/property-compone
 import { createPreventiveMaintenancePlanSchema } from "@/lib/validation/preventive-maintenance";
 import { vendorCoversProperty } from "@/lib/vendors/coverage";
 import { getVendor } from "@/lib/vendors/vendors";
+import { isPropertyOperational, propertyArchivedResponse } from "@/lib/properties/archive";
+import { resolveListPropertyScope } from "@/lib/properties/archive";
 
 export async function GET(request: Request) {
   const context = await getCurrentUserWithCapabilities();
@@ -45,6 +47,9 @@ export async function GET(request: Request) {
     return NextResponse.json({ plans: [] });
   }
 
+  // LIFECYCLE-1: global lists skip archived Properties; record-history
+  // requests (a Property tab, an Equipment/Asset panel) keep them.
+  const listScope = await resolveListPropertyScope(context.user.organizationId, scope, searchParams);
   const rows = await listPreventiveMaintenancePlans(context.user.organizationId, {
     search: searchParams.get("search") ?? undefined,
     propertyId: searchParams.get("propertyId") ?? undefined,
@@ -52,7 +57,7 @@ export async function GET(request: Request) {
     isActive: activeParam === "true" ? true : activeParam === "false" ? false : undefined,
     defaultAssigneeUserId: searchParams.get("assignedUserId") ?? undefined,
     dueState: (searchParams.get("dueState") as PmDueState | null) ?? undefined,
-    propertyIds: listAccessiblePropertyIds(scope),
+    propertyIds: listAccessiblePropertyIds(listScope),
   });
   const plans = excludePlansForHiddenEquipment(
     rows,
@@ -86,6 +91,10 @@ export async function POST(request: Request) {
   const scope = await resolveUserPropertyScope(user.id, user.organizationId, context.capabilityKeys);
   if (!canAccessProperty(scope, parsed.data.propertyId)) {
     return NextResponse.json(forbiddenResponseBody(), { status: 403 });
+  }
+  // LIFECYCLE-1: an archived Property is read-only — no new records.
+  if (!(await isPropertyOperational(user.organizationId, parsed.data.propertyId))) {
+    return propertyArchivedResponse();
   }
 
   const category = await getWorkOrderCategory(user.organizationId, parsed.data.categoryId);

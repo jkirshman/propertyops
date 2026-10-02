@@ -75,18 +75,10 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
   const diff = diffFields(existing, parsed.data);
   if (diff) {
-    const changedKeys = Object.keys(diff.after);
-    const isActivationOnly = changedKeys.length === 1 && changedKeys[0] === "isActive";
-    const action = isActivationOnly
-      ? diff.after.isActive
-        ? "property.activate"
-        : "property.deactivate"
-      : "property.update";
-
     await recordAuditEvent({
       organizationId: user.organizationId,
       actorUserId: user.id,
-      action,
+      action: "property.update",
       entityType: "property",
       entityId: id,
       before: diff.before,
