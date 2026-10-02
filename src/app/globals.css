@@ -302,6 +302,8 @@ a.card:hover {
    .clickable-title   title inside a row-link/card; underlines on hover
    .tab-button        in-page tab; aria-current="true" marks the active tab
    .calendar-event    calendar chip/agenda item button
+   .back-link         icon-only "up one level" arrow beside a page title
+                      (BackLink, NAV-1) — sits in a .page-title-row
 
    The chevron is always visible so touch users get a cue without hover. */
 
@@ -334,6 +336,43 @@ a.muted:hover {
 .text-link:hover {
   color: var(--brand-strong);
   text-decoration-color: currentColor;
+}
+
+.page-title-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.page-title-row > h1 {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/* 44px touch target around a 20px glyph; the negative margins keep the
+   visible arrow tight to the title instead of pushing it right/down. */
+.back-link {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  margin: -0.45rem 0 -0.45rem -0.75rem;
+  border-radius: 8px;
+  color: var(--muted);
+  transition: color 0.15s ease, background-color 0.15s ease;
+}
+
+.back-link:hover {
+  color: var(--foreground);
+  background: var(--background);
+}
+
+.back-link:focus-visible {
+  color: var(--foreground);
+  outline-offset: -2px;
 }
 
 .row-link,

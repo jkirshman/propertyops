@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 
 import { PM_DUE_STATE_LABELS } from "@/lib/preventive-maintenance/constants";
 import { classifyDueState } from "@/lib/preventive-maintenance/recurrence";
+import { withFromProperty } from "@/lib/navigation/back-links";
 
 interface PlanRow {
   id: string;
@@ -53,7 +54,7 @@ export function PropertyPreventiveMaintenancePanel({
         <ul style={{ listStyle: "none", display: "flex", flexDirection: "column", gap: "0.6rem" }}>
           {plans.map((plan) => (
             <li key={plan.id}>
-              <Link href={`/preventive-maintenance/${plan.id}`} className="card interactive-card" style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: "0.75rem" }}>
+              <Link href={withFromProperty(`/preventive-maintenance/${plan.id}`, propertyId)} className="card interactive-card" style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: "0.75rem" }}>
                 <div>
                   <div className="clickable-title" style={{ fontWeight: 600 }}>{plan.name}</div>
                   <div className="muted" style={{ fontSize: "0.85rem" }}>

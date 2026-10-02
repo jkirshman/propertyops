@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 
 import { LeaseDetailPanel } from "@/components/leases/LeaseDetailPanel";
+import { BackLink } from "@/components/shared/BackLink";
 import { requireCapability } from "@/lib/auth/require-capability";
 import { canAccessPropertyUnit, resolveUserPropertyScope } from "@/lib/auth/property-access";
 import { LEASE_CAPABILITIES } from "@/lib/leases/constants";
@@ -8,6 +9,7 @@ import { getLease } from "@/lib/leases/leases";
 import { getProperty } from "@/lib/properties/properties";
 import { getPropertyUnit } from "@/lib/property-units/property-units";
 import { getTenant } from "@/lib/tenants/tenants";
+import { propertyOwnedBackTarget } from "@/lib/navigation/back-links";
 
 export default async function LeaseDetailPage({
   params,
@@ -44,7 +46,10 @@ export default async function LeaseDetailPage({
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
       <div className="card">
-        <h1 style={{ marginBottom: "0.3rem" }}>{lease.label}</h1>
+        <div className="page-title-row">
+          <BackLink {...propertyOwnedBackTarget(lease, "leases")} />
+          <h1 style={{ marginBottom: "0.3rem" }}>{lease.label}</h1>
+        </div>
         <div className="muted" style={{ fontSize: "0.9rem" }}>
           {property?.name ?? "Unknown property"} · {tenant?.name ?? "Unknown tenant"}
         </div>

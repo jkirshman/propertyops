@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { PreventiveMaintenanceDetailPanel } from "@/components/preventive-maintenance/PreventiveMaintenanceDetailPanel";
+import { BackLink } from "@/components/shared/BackLink";
 import { requireCapability } from "@/lib/auth/require-capability";
 import { resolveUserPropertyScope } from "@/lib/auth/property-access";
 import { getPropertyEquipment } from "@/lib/equipment/property-equipment";
@@ -13,13 +14,17 @@ import { listOrganizationUsers } from "@/lib/users/users";
 import { getVendor } from "@/lib/vendors/vendors";
 import { getWorkOrderCategory } from "@/lib/work-orders/categories";
 import { WORK_ORDER_CAPABILITIES } from "@/lib/work-orders/constants";
+import { parseFromProperty, propertyRecordBackTarget } from "@/lib/navigation/back-links";
 
 export default async function PreventiveMaintenancePlanDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ fromProperty?: string | string[] }>;
 }) {
   const { id } = await params;
+  const { fromProperty } = await searchParams;
   const context = await requireCapability(PREVENTIVE_MAINTENANCE_CAPABILITIES.VIEW, "/preventive-maintenance");
 
   const plan = await getPreventiveMaintenancePlan(context.user.organizationId, id);
@@ -60,7 +65,10 @@ export default async function PreventiveMaintenancePlanDetailPage({
             {property ? <Link href={`/properties/${property.id}`} className="text-link">{property.name}</Link> : "Unknown property"}
             {!plan.isActive ? " · Inactive" : ""}
           </div>
-          <h1 style={{ marginBottom: "0.3rem" }}>{plan.name}</h1>
+          <div className="page-title-row">
+            <BackLink {...propertyRecordBackTarget("preventiveMaintenance", plan, parseFromProperty(fromProperty))} />
+            <h1 style={{ marginBottom: "0.3rem" }}>{plan.name}</h1>
+          </div>
         </div>
       </div>
 

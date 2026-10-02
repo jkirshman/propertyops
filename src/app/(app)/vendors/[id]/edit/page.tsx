@@ -1,9 +1,11 @@
 import { notFound } from "next/navigation";
 
 import { VendorForm, type VendorFormValues } from "@/components/vendors/VendorForm";
+import { BackLink } from "@/components/shared/BackLink";
 import { requireCapability } from "@/lib/auth/require-capability";
 import { VENDOR_CAPABILITIES } from "@/lib/vendors/constants";
 import { getVendorWithCategories } from "@/lib/vendors/vendors";
+import { editPageBackTarget } from "@/lib/navigation/back-links";
 
 export default async function EditVendorPage({
   params,
@@ -43,7 +45,10 @@ export default async function EditVendorPage({
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem", maxWidth: 800 }}>
       <div>
-        <h1>Edit {vendor.name}</h1>
+        <div className="page-title-row">
+          <BackLink {...editPageBackTarget(`/vendors/${id}`)} />
+          <h1>Edit {vendor.name}</h1>
+        </div>
       </div>
       <VendorForm mode="edit" vendorId={vendor.id} initialValues={initialValues} />
     </div>

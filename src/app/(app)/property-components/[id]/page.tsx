@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { PropertyComponentDetailPanel } from "@/components/properties/PropertyComponentDetailPanel";
+import { BackLink } from "@/components/shared/BackLink";
 import { canAccessProperty, resolveUserPropertyScope } from "@/lib/auth/property-access";
 import { requireCapability } from "@/lib/auth/require-capability";
 import { COMPONENT_TYPE_LABELS, PROPERTY_COMPONENT_CAPABILITIES, type ComponentType } from "@/lib/property-components/constants";
@@ -10,6 +11,7 @@ import { getProperty } from "@/lib/properties/properties";
 import { canUploadEntityPhoto } from "@/lib/property-photos/photo-rules";
 import { WORK_ORDER_CAPABILITIES } from "@/lib/work-orders/constants";
 import { getVendor } from "@/lib/vendors/vendors";
+import { propertyOwnedBackTarget } from "@/lib/navigation/back-links";
 
 export default async function PropertyComponentDetailPage({
   params,
@@ -50,10 +52,13 @@ export default async function PropertyComponentDetailPage({
         <div className="muted" style={{ fontSize: "0.85rem" }}>
           {property ? <Link href={`/properties/${property.id}?tab=components`} className="text-link">{property.name}</Link> : "Unknown property"}
         </div>
-        <h1 style={{ marginBottom: "0.3rem" }}>
-          {typeLabel}
-          {component.name ? ` — ${component.name}` : ""}
-        </h1>
+        <div className="page-title-row">
+          <BackLink {...propertyOwnedBackTarget(component, "components")} />
+          <h1 style={{ marginBottom: "0.3rem" }}>
+            {typeLabel}
+            {component.name ? ` — ${component.name}` : ""}
+          </h1>
+        </div>
       </div>
 
       <PropertyComponentDetailPanel

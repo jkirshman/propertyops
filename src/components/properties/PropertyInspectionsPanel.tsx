@@ -16,6 +16,7 @@ import {
   type InspectionResult,
   type InspectionStatus,
 } from "@/lib/inspections/constants";
+import { withFromProperty } from "@/lib/navigation/back-links";
 
 interface InspectionRow {
   id: string;
@@ -66,7 +67,7 @@ export function PropertyInspectionsPanel({ propertyId, canCreate }: { propertyId
         <ul style={{ listStyle: "none", display: "flex", flexDirection: "column", gap: "0.6rem" }}>
           {visibleInspections.map((inspection) => (
             <li key={inspection.id}>
-              <Link href={`/inspections/${inspection.id}`} className="card interactive-card" style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: "0.75rem" }}>
+              <Link href={withFromProperty(`/inspections/${inspection.id}`, propertyId)} className="card interactive-card" style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: "0.75rem" }}>
                 <div>
                   <div className="clickable-title" style={{ fontWeight: 600 }}>{inspection.templateName}</div>
                   <div className="muted" style={{ fontSize: "0.85rem" }}>

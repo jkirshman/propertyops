@@ -2,10 +2,12 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { PersonDetailPanel } from "@/components/people/PersonDetailPanel";
+import { BackLink } from "@/components/shared/BackLink";
 import { ASSET_CAPABILITIES } from "@/lib/assets/constants";
 import { requireCapability } from "@/lib/auth/require-capability";
 import { PERSON_CAPABILITIES } from "@/lib/people/constants";
 import { getPerson } from "@/lib/people/people";
+import { GLOBAL_BACK_TARGETS } from "@/lib/navigation/back-links";
 
 export default async function PersonDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -22,7 +24,10 @@ export default async function PersonDetailPage({ params }: { params: Promise<{ i
     <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
       <div className="card" style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: "1rem" }}>
         <div>
-          <h1 style={{ marginBottom: "0.3rem" }}>{person.displayName}</h1>
+          <div className="page-title-row">
+            <BackLink {...GLOBAL_BACK_TARGETS.people} />
+            <h1 style={{ marginBottom: "0.3rem" }}>{person.displayName}</h1>
+          </div>
           <div className="muted" style={{ fontSize: "0.9rem" }}>
             {!person.isActive ? "Inactive" : "Active"}
           </div>

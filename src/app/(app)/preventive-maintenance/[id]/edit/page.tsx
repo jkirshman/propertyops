@@ -4,6 +4,7 @@ import {
   PreventiveMaintenanceForm,
   type PreventiveMaintenanceFormValues,
 } from "@/components/preventive-maintenance/PreventiveMaintenanceForm";
+import { BackLink } from "@/components/shared/BackLink";
 import { requireCapability } from "@/lib/auth/require-capability";
 import { resolveUserPropertyScope } from "@/lib/auth/property-access";
 import { PREVENTIVE_MAINTENANCE_CAPABILITIES } from "@/lib/preventive-maintenance/constants";
@@ -13,6 +14,7 @@ import { getProperty } from "@/lib/properties/properties";
 import { listOrganizationUsers } from "@/lib/users/users";
 import { listVendors } from "@/lib/vendors/vendors";
 import { listWorkOrderCategories } from "@/lib/work-orders/categories";
+import { editPageBackTarget } from "@/lib/navigation/back-links";
 
 export default async function EditPreventiveMaintenancePlanPage({
   params,
@@ -66,7 +68,10 @@ export default async function EditPreventiveMaintenancePlanPage({
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem", maxWidth: 800 }}>
       <div>
-        <h1>Edit {plan.name}</h1>
+        <div className="page-title-row">
+          <BackLink {...editPageBackTarget(`/preventive-maintenance/${id}`)} />
+          <h1>Edit {plan.name}</h1>
+        </div>
       </div>
       <PreventiveMaintenanceForm
         mode="edit"

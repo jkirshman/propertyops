@@ -2,12 +2,14 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { AssetDetailPanel } from "@/components/assets/AssetDetailPanel";
+import { BackLink } from "@/components/shared/BackLink";
 import { getAsset, isAssetVisibleForScope } from "@/lib/assets/assets";
 import { getAssetCategory } from "@/lib/assets/categories";
 import { ASSET_CAPABILITIES, ASSET_STATUS_LABELS, type AssetStatus } from "@/lib/assets/constants";
 import { requireCapability } from "@/lib/auth/require-capability";
 import { resolveUserPropertyScope } from "@/lib/auth/property-access";
 import { WORK_ORDER_CAPABILITIES } from "@/lib/work-orders/constants";
+import { GLOBAL_BACK_TARGETS } from "@/lib/navigation/back-links";
 
 export default async function AssetDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -35,7 +37,10 @@ export default async function AssetDetailPage({ params }: { params: Promise<{ id
       <div className="card" style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: "1rem" }}>
         <div>
           <div className="muted" style={{ fontSize: "0.85rem" }}>{asset.assetTag}</div>
-          <h1 style={{ marginBottom: "0.3rem" }}>{asset.displayName}</h1>
+          <div className="page-title-row">
+            <BackLink {...GLOBAL_BACK_TARGETS.assets} />
+            <h1 style={{ marginBottom: "0.3rem" }}>{asset.displayName}</h1>
+          </div>
           <div className="muted" style={{ fontSize: "0.9rem" }}>
             {category?.name ?? "Unknown category"}
             {" · "}

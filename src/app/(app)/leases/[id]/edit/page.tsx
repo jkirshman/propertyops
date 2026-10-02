@@ -1,12 +1,14 @@
 import { notFound } from "next/navigation";
 
 import { LeaseForm, type LeaseFormValues } from "@/components/leases/LeaseForm";
+import { BackLink } from "@/components/shared/BackLink";
 import { requireCapability } from "@/lib/auth/require-capability";
 import { canAccessPropertyUnit, resolveUserPropertyScope } from "@/lib/auth/property-access";
 import { LEASE_CAPABILITIES } from "@/lib/leases/constants";
 import { getLease } from "@/lib/leases/leases";
 import { getProperty } from "@/lib/properties/properties";
 import { getTenant } from "@/lib/tenants/tenants";
+import { editPageBackTarget } from "@/lib/navigation/back-links";
 
 export default async function EditLeasePage({
   params,
@@ -59,7 +61,10 @@ export default async function EditLeasePage({
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem", maxWidth: 900 }}>
       <div>
-        <h1>Edit {lease.label}</h1>
+        <div className="page-title-row">
+          <BackLink {...editPageBackTarget(`/leases/${id}`)} />
+          <h1>Edit {lease.label}</h1>
+        </div>
       </div>
       <LeaseForm
         mode="edit"

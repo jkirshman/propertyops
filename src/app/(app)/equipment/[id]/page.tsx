@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { EquipmentDetailPanel } from "@/components/equipment/EquipmentDetailPanel";
+import { BackLink } from "@/components/shared/BackLink";
 import { requireCapability } from "@/lib/auth/require-capability";
 import { resolveUserPropertyScope } from "@/lib/auth/property-access";
 import { getEquipmentCatalogItem } from "@/lib/equipment/catalog";
@@ -21,6 +22,7 @@ import { getProperty } from "@/lib/properties/properties";
 import { canUploadEntityPhoto } from "@/lib/property-photos/photo-rules";
 import { getPropertyUnit } from "@/lib/property-units/property-units";
 import { WORK_ORDER_CAPABILITIES } from "@/lib/work-orders/constants";
+import { propertyOwnedBackTarget } from "@/lib/navigation/back-links";
 
 export default async function PropertyEquipmentDetailPage({
   params,
@@ -71,7 +73,10 @@ export default async function PropertyEquipmentDetailPage({
           <div className="muted" style={{ fontSize: "0.85rem" }}>
             {catalogItem?.name ?? "Unknown equipment type"}
           </div>
-          <h1 style={{ marginBottom: "0.3rem" }}>{equipment.displayName}</h1>
+          <div className="page-title-row">
+            <BackLink {...propertyOwnedBackTarget(equipment, "equipment")} />
+            <h1 style={{ marginBottom: "0.3rem" }}>{equipment.displayName}</h1>
+          </div>
           <div className="muted" style={{ fontSize: "0.9rem" }}>
             {property ? <Link href={`/properties/${property.id}`} className="text-link">{property.name}</Link> : "Unknown property"}
             {" · "}

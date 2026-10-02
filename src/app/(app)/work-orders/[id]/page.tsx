@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { WorkOrderDetailPanel } from "@/components/work-orders/WorkOrderDetailPanel";
+import { BackLink } from "@/components/shared/BackLink";
 import { listAssets } from "@/lib/assets/assets";
 import { requireCapability } from "@/lib/auth/require-capability";
 import { resolveUserPropertyScope } from "@/lib/auth/property-access";
@@ -23,13 +24,17 @@ import {
 } from "@/lib/work-orders/constants";
 import { listWorkOrderCategories } from "@/lib/work-orders/categories";
 import { getAccessibleWorkOrder } from "@/lib/work-orders/work-order-access";
+import { parseFromProperty, propertyRecordBackTarget } from "@/lib/navigation/back-links";
 
 export default async function WorkOrderDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ fromProperty?: string | string[] }>;
 }) {
   const { id } = await params;
+  const { fromProperty } = await searchParams;
   const context = await requireCapability(WORK_ORDER_CAPABILITIES.VIEW, "/work-orders");
 
   const scope = await resolveUserPropertyScope(
@@ -76,7 +81,10 @@ export default async function WorkOrderDetailPage({
       <div className="card" style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: "1rem" }}>
         <div>
           <div className="muted" style={{ fontSize: "0.85rem" }}>{workOrder.number}</div>
-          <h1 style={{ marginBottom: "0.3rem" }}>{workOrder.subject}</h1>
+          <div className="page-title-row">
+            <BackLink {...propertyRecordBackTarget("workOrder", workOrder, parseFromProperty(fromProperty))} />
+            <h1 style={{ marginBottom: "0.3rem" }}>{workOrder.subject}</h1>
+          </div>
           <div className="muted" style={{ fontSize: "0.9rem" }}>
             {property ? <Link href={`/properties/${property.id}`} className="text-link">{property.name}</Link> : "Unknown property"}
             {workOrder.propertyUnitId ? ` · ${unitLabel}` : ""}

@@ -16,6 +16,7 @@ import {
   type WorkOrderPriority,
   type WorkOrderStatus,
 } from "@/lib/work-orders/constants";
+import { withFromProperty } from "@/lib/navigation/back-links";
 
 interface WorkOrderRow {
   id: string;
@@ -73,7 +74,7 @@ export function PropertyWorkOrdersPanel({
         <ul style={{ listStyle: "none", display: "flex", flexDirection: "column", gap: "0.6rem" }}>
           {visibleWorkOrders.map((wo) => (
             <li key={wo.id}>
-              <Link href={`/work-orders/${wo.id}`} className="card interactive-card" style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: "0.75rem" }}>
+              <Link href={withFromProperty(`/work-orders/${wo.id}`, propertyId)} className="card interactive-card" style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: "0.75rem" }}>
                 <div>
                   <div className="clickable-title" style={{ fontWeight: 600 }}>{wo.number} · {wo.subject}</div>
                   <div className="muted" style={{ fontSize: "0.85rem" }}>

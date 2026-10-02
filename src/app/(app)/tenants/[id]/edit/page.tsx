@@ -1,10 +1,12 @@
 import { notFound } from "next/navigation";
 
 import { TenantForm, type TenantFormValues } from "@/components/tenants/TenantForm";
+import { BackLink } from "@/components/shared/BackLink";
 import { requireCapability } from "@/lib/auth/require-capability";
 import { resolveUserPropertyScope } from "@/lib/auth/property-access";
 import { TENANT_CAPABILITIES } from "@/lib/tenants/constants";
 import { getTenant, tenantHasAccessibleLease } from "@/lib/tenants/tenants";
+import { editPageBackTarget } from "@/lib/navigation/back-links";
 
 export default async function EditTenantPage({
   params,
@@ -47,7 +49,10 @@ export default async function EditTenantPage({
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem", maxWidth: 800 }}>
       <div>
-        <h1>Edit {tenant.name}</h1>
+        <div className="page-title-row">
+          <BackLink {...editPageBackTarget(`/tenants/${id}`)} />
+          <h1>Edit {tenant.name}</h1>
+        </div>
       </div>
       <TenantForm mode="edit" tenantId={tenant.id} initialValues={initialValues} />
     </div>

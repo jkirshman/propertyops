@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { InspectionDetailPanel } from "@/components/inspections/InspectionDetailPanel";
+import { BackLink } from "@/components/shared/BackLink";
 import { requireCapability } from "@/lib/auth/require-capability";
 import { resolveUserPropertyScope } from "@/lib/auth/property-access";
 import { getAccessiblePropertyEquipment } from "@/lib/equipment/property-equipment";
@@ -15,13 +16,17 @@ import { formatRecordUnitLabel } from "@/lib/property-units/unit-display";
 import { listOrganizationUsers } from "@/lib/users/users";
 import { WORK_ORDER_CAPABILITIES } from "@/lib/work-orders/constants";
 import { listWorkOrderCategories } from "@/lib/work-orders/categories";
+import { parseFromProperty, propertyRecordBackTarget } from "@/lib/navigation/back-links";
 
 export default async function InspectionDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ fromProperty?: string | string[] }>;
 }) {
   const { id } = await params;
+  const { fromProperty } = await searchParams;
   const context = await requireCapability(INSPECTION_CAPABILITIES.VIEW, "/inspections");
 
   const scope = await resolveUserPropertyScope(
@@ -76,7 +81,10 @@ export default async function InspectionDetailPage({
               </>
             ) : ""}
           </div>
-          <h1 style={{ marginBottom: "0.3rem" }}>{inspection.templateName}</h1>
+          <div className="page-title-row">
+            <BackLink {...propertyRecordBackTarget("inspection", inspection, parseFromProperty(fromProperty))} />
+            <h1 style={{ marginBottom: "0.3rem" }}>{inspection.templateName}</h1>
+          </div>
           <div className="muted" style={{ fontSize: "0.9rem" }}>
             {INSPECTION_STATUS_LABELS[inspection.status as InspectionStatus] ?? inspection.status}
             {inspector ? ` · Inspector: ${inspector.displayName}` : ""}

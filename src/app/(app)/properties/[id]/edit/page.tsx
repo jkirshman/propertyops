@@ -1,12 +1,14 @@
 import { notFound } from "next/navigation";
 
 import { PropertyForm, type PropertyFormValues } from "@/components/properties/PropertyForm";
+import { BackLink } from "@/components/shared/BackLink";
 import { requireCapability } from "@/lib/auth/require-capability";
 import { canAccessProperty, resolveUserPropertyScope } from "@/lib/auth/property-access";
 import { PROPERTY_CAPABILITIES } from "@/lib/properties/constants";
 import { getProperty } from "@/lib/properties/properties";
 import { listPropertyTypes } from "@/lib/properties/property-types";
 import { listPropertyCompanies } from "@/lib/property-companies/property-companies";
+import { editPageBackTarget } from "@/lib/navigation/back-links";
 
 export default async function EditPropertyPage({
   params,
@@ -59,7 +61,10 @@ export default async function EditPropertyPage({
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem", maxWidth: 760 }}>
       <div>
-        <h1>Edit {property.name}</h1>
+        <div className="page-title-row">
+          <BackLink {...editPageBackTarget(`/properties/${id}`)} />
+          <h1>Edit {property.name}</h1>
+        </div>
       </div>
       <PropertyForm
         mode="edit"

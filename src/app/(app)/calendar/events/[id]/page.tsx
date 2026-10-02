@@ -1,13 +1,14 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { ManualEventEditPanel } from "@/components/calendar/ManualEventEditPanel";
+import { BackLink } from "@/components/shared/BackLink";
 import { canAccessProperty, listAccessiblePropertyIds, resolveUserPropertyScope } from "@/lib/auth/property-access";
 import { requireCapability } from "@/lib/auth/require-capability";
 import { CALENDAR_CAPABILITIES } from "@/lib/calendar/constants";
 import { getOperationalEvent } from "@/lib/calendar/operational-events";
 import { getOrganizationTimezone } from "@/lib/organizations/organizations";
 import { listProperties } from "@/lib/properties/properties";
+import { GLOBAL_BACK_TARGETS } from "@/lib/navigation/back-links";
 
 export default async function ManualEventDetailPage({
   params,
@@ -43,10 +44,10 @@ export default async function ManualEventDetailPage({
     <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
       <div className="card" style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: "1rem" }}>
         <div>
-          <div className="muted" style={{ fontSize: "0.85rem" }}>
-            <Link href="/calendar" className="text-link">← Back to calendar</Link>
+          <div className="page-title-row">
+            <BackLink {...GLOBAL_BACK_TARGETS.calendar} />
+            <h1 style={{ marginBottom: "0.3rem" }}>{event.title}</h1>
           </div>
-          <h1 style={{ marginBottom: "0.3rem" }}>{event.title}</h1>
         </div>
       </div>
 

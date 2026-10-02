@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { PropertyProfileTabs } from "@/components/properties/PropertyProfileTabs";
+import { BackLink } from "@/components/shared/BackLink";
 import { ASSET_CAPABILITIES } from "@/lib/assets/constants";
 import { requireCapability } from "@/lib/auth/require-capability";
 import { canAccessProperty, resolveUserPropertyScope } from "@/lib/auth/property-access";
@@ -9,6 +10,8 @@ import { COMPLIANCE_CAPABILITIES } from "@/lib/compliance/constants";
 import { EQUIPMENT_CAPABILITIES } from "@/lib/equipment/constants";
 import { INSPECTION_CAPABILITIES } from "@/lib/inspections/constants";
 import { LEASE_CAPABILITIES } from "@/lib/leases/constants";
+import { GLOBAL_BACK_TARGETS } from "@/lib/navigation/back-links";
+import { resolveNavVariant } from "@/lib/navigation/nav-visibility";
 import { PREVENTIVE_MAINTENANCE_CAPABILITIES } from "@/lib/preventive-maintenance/constants";
 import { PROPERTY_CAPABILITIES } from "@/lib/properties/constants";
 import { parseTab } from "@/lib/properties/property-profile-tabs";
@@ -56,6 +59,8 @@ export default async function PropertyDetailPage({
     getCoverPhoto(context.user.organizationId, property.id),
   ]);
   const canEdit = context.capabilityKeys.includes(PROPERTY_CAPABILITIES.EDIT);
+  // NAV-1: a User's nav has no Properties list — this page is their "My Property".
+  const showBackLink = resolveNavVariant(context.capabilityKeys) !== "user";
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
@@ -72,7 +77,10 @@ export default async function PropertyDetailPage({
           />
         ) : null}
         <div style={{ flex: 1 }}>
-          <h1 style={{ marginBottom: "0.3rem" }}>{property.name}</h1>
+          <div className="page-title-row">
+            {showBackLink ? <BackLink {...GLOBAL_BACK_TARGETS.properties} /> : null}
+            <h1 style={{ marginBottom: "0.3rem" }}>{property.name}</h1>
+          </div>
           <div className="muted" style={{ fontSize: "0.9rem" }}>
             {propertyType?.name ?? "Unknown type"}
             {propertyCompany ? ` · ${propertyCompany.name}` : ""}

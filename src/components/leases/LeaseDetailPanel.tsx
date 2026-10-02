@@ -15,6 +15,7 @@ import {
   type RentFrequency,
 } from "@/lib/leases/constants";
 import { getEffectiveLeaseStatus } from "@/lib/leases/status";
+import { withFromProperty } from "@/lib/navigation/back-links";
 
 import { LeaseActivityPanel } from "./LeaseActivityPanel";
 import { LeaseDocumentsPanel } from "./LeaseDocumentsPanel";
@@ -197,7 +198,7 @@ export function LeaseDetailPanel({
           </div>
           <div>
             <div className="muted" style={{ fontSize: "0.8rem" }}>Tenant</div>
-            <div><Link href={`/tenants/${lease.tenantId}`} className="text-link">{tenantName}</Link></div>
+            <div><Link href={withFromProperty(`/tenants/${lease.tenantId}`, lease.propertyId)} className="text-link">{tenantName}</Link></div>
           </div>
           <div>
             <div className="muted" style={{ fontSize: "0.8rem" }}>Unit / suite</div>

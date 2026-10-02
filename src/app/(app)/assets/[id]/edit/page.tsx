@@ -1,11 +1,13 @@
 import { notFound } from "next/navigation";
 
 import { AssetForm } from "@/components/assets/AssetForm";
+import { BackLink } from "@/components/shared/BackLink";
 import { getAsset, isAssetVisibleForScope } from "@/lib/assets/assets";
 import { listAssetCategories } from "@/lib/assets/categories";
 import { ASSET_CAPABILITIES } from "@/lib/assets/constants";
 import { requireCapability } from "@/lib/auth/require-capability";
 import { resolveUserPropertyScope } from "@/lib/auth/property-access";
+import { editPageBackTarget } from "@/lib/navigation/back-links";
 
 export default async function EditAssetPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -30,7 +32,10 @@ export default async function EditAssetPage({ params }: { params: Promise<{ id: 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem", maxWidth: 800 }}>
       <div>
-        <h1>Edit Asset</h1>
+        <div className="page-title-row">
+          <BackLink {...editPageBackTarget(`/assets/${id}`)} />
+          <h1>Edit Asset</h1>
+        </div>
         <p className="muted">
           {asset.assetTag} · {asset.displayName}
         </p>

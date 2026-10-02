@@ -1,9 +1,11 @@
 import { notFound } from "next/navigation";
 
 import { VendorDetailPanel } from "@/components/vendors/VendorDetailPanel";
+import { BackLink } from "@/components/shared/BackLink";
 import { requireCapability } from "@/lib/auth/require-capability";
 import { VENDOR_CAPABILITIES } from "@/lib/vendors/constants";
 import { getVendorWithCategories } from "@/lib/vendors/vendors";
+import { GLOBAL_BACK_TARGETS } from "@/lib/navigation/back-links";
 
 export default async function VendorDetailPage({
   params,
@@ -24,10 +26,13 @@ export default async function VendorDetailPage({
     <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
       <div className="card" style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: "1rem" }}>
         <div>
-          <h1 style={{ marginBottom: "0.3rem" }}>
-            {vendor.name}
-            {vendor.isPreferred ? " ★" : ""}
-          </h1>
+          <div className="page-title-row">
+            <BackLink {...GLOBAL_BACK_TARGETS.vendors} />
+            <h1 style={{ marginBottom: "0.3rem" }}>
+              {vendor.name}
+              {vendor.isPreferred ? " ★" : ""}
+            </h1>
+          </div>
           <div className="muted" style={{ fontSize: "0.9rem" }}>
             {vendor.categories.map((category) => category.name).join(", ") || "No services assigned"}
             {" · "}
