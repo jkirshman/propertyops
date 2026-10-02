@@ -1,7 +1,7 @@
 import { ASSET_CATEGORY_CAPABILITIES } from "@/lib/assets/constants";
 import { EQUIPMENT_CATALOG_CAPABILITIES, EQUIPMENT_TEMPLATE_CAPABILITIES } from "@/lib/equipment/constants";
 import { INSPECTION_TEMPLATE_CAPABILITIES } from "@/lib/inspections/constants";
-import { PROPERTY_TYPE_CAPABILITIES } from "@/lib/properties/constants";
+import { PROPERTY_CAPABILITIES, PROPERTY_TYPE_CAPABILITIES } from "@/lib/properties/constants";
 import { PROPERTY_COMPANY_CAPABILITIES } from "@/lib/property-companies/constants";
 import { VENDOR_CATEGORY_CAPABILITIES } from "@/lib/vendors/constants";
 import { WORK_ORDER_CATEGORY_CAPABILITIES } from "@/lib/work-orders/constants";
@@ -22,6 +22,13 @@ export interface AdminTile {
   href: string;
   group: string;
   requiredCapability: string;
+  /**
+   * LIFECYCLE-1A: the required capability is an operational one (e.g.
+   * property.edit, held by every Manager) rather than an Admin Hub one, so
+   * the tile also needs Admin Hub access from some other tile — and it never
+   * grants Admin Hub access (or the admin nav) on its own.
+   */
+  requiresAdminHubAccess?: boolean;
 }
 
 export const ADMIN_TILE_GROUPS = [
@@ -36,6 +43,15 @@ export const ADMIN_TILE_GROUPS = [
 ];
 
 export const ADMIN_TILES: AdminTile[] = [
+  {
+    id: "properties",
+    title: "Properties",
+    description: "See every Property's lifecycle status; archive or restore Properties.",
+    href: "/admin/properties",
+    group: "properties",
+    requiredCapability: PROPERTY_CAPABILITIES.EDIT,
+    requiresAdminHubAccess: true,
+  },
   {
     id: "property-types",
     title: "Property Types",
@@ -158,10 +174,18 @@ export const ADMIN_TILES: AdminTile[] = [
   },
 ];
 
-export function visibleAdminTiles(capabilityKeys: string[]): AdminTile[] {
-  return ADMIN_TILES.filter((tile) => capabilityKeys.includes(tile.requiredCapability));
+export function visibleAdminTiles(capabilityKeys: readonly string[]): AdminTile[] {
+  const hubAccess = hasAnyAdminCapability(capabilityKeys);
+  return ADMIN_TILES.filter(
+    (tile) => capabilityKeys.includes(tile.requiredCapability) && (!tile.requiresAdminHubAccess || hubAccess),
+  );
 }
 
-export function hasAnyAdminCapability(capabilityKeys: string[]): boolean {
-  return ADMIN_TILES.some((tile) => capabilityKeys.includes(tile.requiredCapability));
+export function hasAnyAdminCapability(capabilityKeys: readonly string[]): boolean {
+  return ADMIN_TILES.some((tile) => !tile.requiresAdminHubAccess && capabilityKeys.includes(tile.requiredCapability));
+}
+
+/** LIFECYCLE-1A: Admin → Properties (and archive/restore) — Admin Hub access plus property.edit. */
+export function canManagePropertyLifecycle(capabilityKeys: readonly string[]): boolean {
+  return hasAnyAdminCapability(capabilityKeys) && capabilityKeys.includes(PROPERTY_CAPABILITIES.EDIT);
 }

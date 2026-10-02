@@ -1,8 +1,14 @@
 import { describe, expect, it } from "vitest";
 
-import { PROPERTY_TYPE_CAPABILITIES } from "@/lib/properties/constants";
+import { PROPERTY_CAPABILITIES, PROPERTY_TYPE_CAPABILITIES } from "@/lib/properties/constants";
 
-import { ADMIN_CAPABILITIES, ADMIN_TILES, hasAnyAdminCapability, visibleAdminTiles } from "./admin-hub-config";
+import {
+  ADMIN_CAPABILITIES,
+  ADMIN_TILES,
+  canManagePropertyLifecycle,
+  hasAnyAdminCapability,
+  visibleAdminTiles,
+} from "./admin-hub-config";
 
 describe("visibleAdminTiles", () => {
   it("returns no tiles for a capability list with no admin grants", () => {
@@ -43,5 +49,25 @@ describe("hasAnyAdminCapability", () => {
 
   it("is true when at least one admin capability is granted", () => {
     expect(hasAnyAdminCapability([ADMIN_CAPABILITIES.FILES])).toBe(true);
+  });
+});
+
+describe("LIFECYCLE-1A: Admin → Properties tile", () => {
+  const ids = (keys: string[]) => visibleAdminTiles(keys).map((tile) => tile.id);
+
+  it("is shown to an admin with Admin Hub access and property.edit", () => {
+    expect(ids([ADMIN_CAPABILITIES.USERS, PROPERTY_CAPABILITIES.EDIT])).toContain("properties");
+    expect(canManagePropertyLifecycle([ADMIN_CAPABILITIES.USERS, PROPERTY_CAPABILITIES.EDIT])).toBe(true);
+  });
+
+  it("is hidden from a Manager (property.edit alone) and grants no Admin Hub access", () => {
+    expect(ids([PROPERTY_CAPABILITIES.EDIT])).toEqual([]);
+    expect(hasAnyAdminCapability([PROPERTY_CAPABILITIES.EDIT])).toBe(false);
+    expect(canManagePropertyLifecycle([PROPERTY_CAPABILITIES.EDIT])).toBe(false);
+  });
+
+  it("is hidden from an admin without property.edit", () => {
+    expect(ids([ADMIN_CAPABILITIES.USERS])).not.toContain("properties");
+    expect(canManagePropertyLifecycle([ADMIN_CAPABILITIES.USERS])).toBe(false);
   });
 });

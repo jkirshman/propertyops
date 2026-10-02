@@ -10,8 +10,18 @@ const ARCHIVE_EXPLANATION =
  * LIFECYCLE-1: Archive (with a confirmation that lists still-active records)
  * or Restore. Archiving flips only the Property's own lifecycle flag — no
  * Work Order, PM plan, Inspection, Lease, Equipment or file is changed.
+ * LIFECYCLE-1A: rendered only from Admin → Properties, which passes
+ * `onChanged` to reload its list after a transition.
  */
-export function PropertyArchiveControl({ propertyId, isArchived }: { propertyId: string; isArchived: boolean }) {
+export function PropertyArchiveControl({
+  propertyId,
+  isArchived,
+  onChanged,
+}: {
+  propertyId: string;
+  isArchived: boolean;
+  onChanged?: () => void;
+}) {
   const router = useRouter();
   const [confirming, setConfirming] = useState(false);
   const [impactLines, setImpactLines] = useState<string[] | null>(null);
@@ -37,6 +47,7 @@ export function PropertyArchiveControl({ propertyId, isArchived }: { propertyId:
         return;
       }
       setConfirming(false);
+      onChanged?.();
       router.refresh();
     } catch {
       setError("Could not reach the server.");

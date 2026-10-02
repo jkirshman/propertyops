@@ -1,6 +1,6 @@
+import { canManagePropertyLifecycle } from "@/lib/admin/admin-hub-config";
 import { getEffectiveLeaseStatus } from "@/lib/leases/status";
 import type { LeaseStatus } from "@/lib/leases/constants";
-import { PROPERTY_CAPABILITIES } from "@/lib/properties/constants";
 
 // LIFECYCLE-1: Property archive rules, kept pure so they can be unit tested.
 //
@@ -18,9 +18,14 @@ export function isPropertyArchived(property: { isActive: boolean }): boolean {
   return !property.isActive;
 }
 
-/** Archive/restore reuse the existing Property-management permission. */
+/**
+ * Archive/restore reuse the existing Property-management permission
+ * (property.edit). LIFECYCLE-1A moved the controls into Admin Hub, so Admin
+ * Hub access is also required — a Manager with property.edit alone can no
+ * longer archive/restore, through the UI or the API.
+ */
 export function canArchiveProperty(capabilityKeys: readonly string[]): boolean {
-  return capabilityKeys.includes(PROPERTY_CAPABILITIES.EDIT);
+  return canManagePropertyLifecycle(capabilityKeys);
 }
 
 export type ArchiveTransition = "archive" | "restore";

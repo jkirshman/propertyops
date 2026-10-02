@@ -43,13 +43,18 @@ describe("planArchiveTransition", () => {
 });
 
 describe("canArchiveProperty", () => {
-  it("requires the existing property.edit permission", () => {
-    expect(canArchiveProperty(["property.view", "property.edit"])).toBe(true);
+  it("requires the existing property.edit permission plus Admin Hub access", () => {
+    expect(canArchiveProperty(["property.view", "property.edit", "users.manage"])).toBe(true);
   });
 
   it("denies a user without property.edit (e.g. a User role)", () => {
     expect(canArchiveProperty(["property.view", "work_order.create"])).toBe(false);
+    expect(canArchiveProperty(["users.manage"])).toBe(false);
     expect(canArchiveProperty([])).toBe(false);
+  });
+
+  it("LIFECYCLE-1A: denies a Manager (property.edit without any Admin Hub capability)", () => {
+    expect(canArchiveProperty(["property.view", "property.edit", "work_order.create"])).toBe(false);
   });
 });
 

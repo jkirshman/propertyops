@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
 import { OCCUPANCY_MODEL_LABELS, type OccupancyModel } from "@/lib/properties/constants";
+import { buildMainPropertiesListQuery } from "@/lib/properties/lifecycle-views";
 
 interface PropertyTypeOption {
   id: string;
@@ -22,7 +23,6 @@ interface PropertyRow {
   propertyTypeId: string;
   propertyCompanyId: string | null;
   occupancyModel: string;
-  isActive: boolean;
   addressLine1: string | null;
   city: string | null;
   state: string | null;
@@ -37,7 +37,6 @@ export function PropertiesListPanel({ canCreate }: { canCreate: boolean }) {
   const [search, setSearch] = useState("");
   const [propertyTypeId, setPropertyTypeId] = useState("");
   const [propertyCompanyId, setPropertyCompanyId] = useState("");
-  const [statusFilter, setStatusFilter] = useState<"active" | "archived" | "all">("active");
 
   useEffect(() => {
     fetch("/api/property-types")
@@ -66,19 +65,9 @@ export function PropertiesListPanel({ canCreate }: { canCreate: boolean }) {
   }, []);
 
   useEffect(() => {
-    const params = new URLSearchParams();
-    if (search.trim()) {
-      params.set("search", search.trim());
-    }
-    if (propertyTypeId) {
-      params.set("propertyTypeId", propertyTypeId);
-    }
-    if (propertyCompanyId) {
-      params.set("propertyCompanyId", propertyCompanyId);
-    }
-    if (statusFilter !== "all") {
-      params.set("active", statusFilter === "active" ? "true" : "false");
-    }
+    // LIFECYCLE-1A: Active Properties only — archive/restore and lifecycle
+    // filtering live in Admin → Properties.
+    const params = buildMainPropertiesListQuery({ search, propertyTypeId, propertyCompanyId });
 
     const handle = setTimeout(() => {
       setLoading(true);
@@ -93,7 +82,7 @@ export function PropertiesListPanel({ canCreate }: { canCreate: boolean }) {
     }, 200);
 
     return () => clearTimeout(handle);
-  }, [search, propertyTypeId, propertyCompanyId, statusFilter]);
+  }, [search, propertyTypeId, propertyCompanyId]);
 
   const typeNameById = useMemo(() => {
     const map = new Map<string, string>();
@@ -157,16 +146,6 @@ export function PropertiesListPanel({ canCreate }: { canCreate: boolean }) {
               </option>
             ))}
           </select>
-          <select
-            className="input"
-            style={{ maxWidth: 160 }}
-            value={statusFilter}
-            onChange={(event) => setStatusFilter(event.target.value as typeof statusFilter)}
-          >
-            <option value="active">Active</option>
-            <option value="archived">Archived</option>
-            <option value="all">All</option>
-          </select>
         </div>
         {canCreate ? (
           <Link href="/properties/new" className="button button-primary">
@@ -186,7 +165,7 @@ export function PropertiesListPanel({ canCreate }: { canCreate: boolean }) {
         ) : (
           <ul style={{ listStyle: "none", display: "flex", flexDirection: "column", gap: "0.2rem" }}>
             {properties.map((property) => (
-              <li key={property.id} style={{ opacity: property.isActive ? 1 : 0.6 }}>
+              <li key={property.id}>
                 <Link
                   href={`/properties/${property.id}`}
                   className="row-link"
@@ -204,12 +183,6 @@ export function PropertiesListPanel({ canCreate }: { canCreate: boolean }) {
                     <div>
                       <div className="clickable-title" style={{ fontWeight: 600 }}>
                         {property.name}
-                        {!property.isActive ? (
-                          <>
-                            {" "}
-                            <span className="lifecycle-tag">Archived</span>
-                          </>
-                        ) : null}
                       </div>
                       <div className="muted" style={{ fontSize: "0.85rem" }}>
                         {[property.addressLine1, property.city, property.state].filter(Boolean).join(", ") ||

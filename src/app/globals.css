@@ -251,6 +251,13 @@ a.card:hover {
   white-space: nowrap;
 }
 
+/* LIFECYCLE-1A: the [Active] counterpart, used where both states are listed
+   side by side (Admin → Properties). */
+.lifecycle-tag-active {
+  border-color: var(--success);
+  color: var(--success);
+}
+
 .button:disabled {
   opacity: 0.6;
   cursor: not-allowed;

@@ -2,7 +2,6 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { PropertyProfileTabs } from "@/components/properties/PropertyProfileTabs";
-import { PropertyArchiveControl } from "@/components/properties/PropertyArchiveControl";
 import { BackLink } from "@/components/shared/BackLink";
 import { ASSET_CAPABILITIES } from "@/lib/assets/constants";
 import { requireCapability } from "@/lib/auth/require-capability";
@@ -14,7 +13,7 @@ import { LEASE_CAPABILITIES } from "@/lib/leases/constants";
 import { GLOBAL_BACK_TARGETS } from "@/lib/navigation/back-links";
 import { resolveNavVariant } from "@/lib/navigation/nav-visibility";
 import { PREVENTIVE_MAINTENANCE_CAPABILITIES } from "@/lib/preventive-maintenance/constants";
-import { canArchiveProperty, isPropertyArchived } from "@/lib/properties/archive-rules";
+import { isPropertyArchived } from "@/lib/properties/archive-rules";
 import { PROPERTY_CAPABILITIES } from "@/lib/properties/constants";
 import { parseTab } from "@/lib/properties/property-profile-tabs";
 import { getPropertyCompany } from "@/lib/property-companies/property-companies";
@@ -70,7 +69,6 @@ export default async function PropertyDetailPage({
   const archived = isPropertyArchived(property);
   const operational = !archived;
   const canCreateOperational = (capability: string) => operational && context.capabilityKeys.includes(capability);
-  const canArchive = canArchiveProperty(context.capabilityKeys);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
@@ -113,12 +111,12 @@ export default async function PropertyDetailPage({
       </div>
 
       {archived ? (
-        <div className="card" style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: "0.75rem", alignItems: "center" }}>
-          <p style={{ fontSize: "0.9rem", flex: "1 1 280px" }}>
+        // LIFECYCLE-1A: view/history only — archive and restore live in Admin → Properties.
+        <div className="card">
+          <p style={{ fontSize: "0.9rem" }}>
             This property is archived. It is hidden from normal operational views and no new records can be added to
             it. Its records and history are kept.
           </p>
-          {canArchive ? <PropertyArchiveControl propertyId={property.id} isArchived /> : null}
         </div>
       ) : null}
 
@@ -152,11 +150,6 @@ export default async function PropertyDetailPage({
         currentUserId={context.user.id}
       />
 
-      {canArchive && operational ? (
-        <div className="card">
-          <PropertyArchiveControl propertyId={property.id} isArchived={false} />
-        </div>
-      ) : null}
     </div>
   );
 }
